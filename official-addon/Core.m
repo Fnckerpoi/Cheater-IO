@@ -1,4 +1,5 @@
 #import "Core.h"
+#import "EndpointPolicy.h"
 #import "Profile.h"
 #include <math.h>
 
@@ -41,10 +42,7 @@ BOOL TIOIsEligibleChat(NSString *domain, NSString *intent, NSString *sub, BOOL o
 }
 
 NSURL *TIOValidateEndpoint(NSString *input) {
-    NSURLComponents *c = [NSURLComponents componentsWithString:[input stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet]];
-    if (!c || ![c.scheme.lowercaseString isEqual:@"https"] || !c.host.length || c.user || c.password || c.fragment || c.query) return nil;
-    if (![c.path hasSuffix:@"/chat/completions"]) return nil;
-    return c.URL;
+    return TIOEndpointPolicyValidate(input);
 }
 
 NSString *TIOSystemPrompt(NSString *model) {

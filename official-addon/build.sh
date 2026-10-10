@@ -68,6 +68,22 @@ if [[ ${TIO_LOCAL_TRANSLATION:-0} == 1 ]]; then
   subtitle_runtime=local-translation/SubtitleHUD.m
   output=build/local-translation/TurboIOPrivateAddon.dylib; mkdir -p build/local-translation
 fi
+local_http_options=()
+case "${TIO_LOCAL_HTTP_ENABLED:-0}" in
+  0) ;;
+  1)
+    [[ "$mode" == embedded && "$bundle" == com.duriea.turboio.research ]] || { echo 'Local HTTP requires embedded com.duriea.turboio.research; never enable in a stock-bundle build' >&2; exit 2; }
+    [[ ${TIO_OTA_RESEARCH_ENABLED:-0} == 0 && ${TIO_NATIVE_NAV:-0} == 0 && ${TIO_MUSIC:-0} == 0 && ${TIO_LOCAL_TRANSLATION:-0} == 0 ]] || { echo 'Local HTTP is limited to the ordinary research edition, not firmware/translation experiments' >&2; exit 2; }
+    local_http_options=(-DTIO_LOCAL_HTTP_ENABLED=1)
+    if [[ ${TIO_AMAP_ENABLED:-0} == 1 ]]; then
+      output=build/local-http-navigation/TurboIOPrivateAddon.dylib; mkdir -p build/local-http-navigation
+    else
+      output=build/local-http/TurboIOPrivateAddon.dylib; mkdir -p build/local-http
+    fi
+    echo 'HTTP IP OPT-IN: user-configured IPv4/IPv6 (including public IPs), optional port 1-65535; credentials and conversation are plaintext. Packaging relaxes app-wide ATS.'
+    ;;
+  *) echo 'TIO_LOCAL_HTTP_ENABLED must be 0 or 1' >&2; exit 2 ;;
+esac
 link_options=()
 # Opt-in diagnostic for the iOS 16 jailbreak injector's chained-fixup stall.
 # Keep the normal embedded build unchanged until the device comparison passes.
@@ -77,7 +93,7 @@ fi
 xcrun --sdk iphoneos clang -arch arm64 -isysroot "$sdk_path" -miphoneos-version-min=16.0 \
   -fobjc-arc -fmodules -dynamiclib -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types \
   -framework Foundation -framework UIKit -framework Security -framework UniformTypeIdentifiers -framework CoreLocation -framework AVFAudio \
-  ${nav_options[@]+"${nav_options[@]}"} \
+  ${nav_options[@]+"${nav_options[@]}"} ${local_http_options[@]+"${local_http_options[@]}"} \
   ${ota_options[@]+"${ota_options[@]}"} ${ota_sources[@]+"${ota_sources[@]}"} \
   ${native_options[@]+"${native_options[@]}"} ${native_sources[@]+"${native_sources[@]}"} \
   ${music_options[@]+"${music_options[@]}"} ${music_sources[@]+"${music_sources[@]}"} \

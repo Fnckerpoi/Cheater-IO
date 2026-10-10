@@ -50,12 +50,25 @@ extern UITabBarController *TIOCreateResearchPreview(void);
     UIVisualEffectView *glass=nil;for(UIView *v in bar.subviews)if([v isKindOfClass:UIVisualEffectView.class])glass=(id)v;
     NSCAssert(glass&&!glass.userInteractionEnabled,@"Glass cannot intercept tab actions");
     NSCAssert(UIAccessibilityIsReduceTransparencyEnabled()||glass.effect,@"System blur enabled unless accessibility opts out");
+    UIUserInterfaceStyle original=self.overrideUserInterfaceStyle;
+    for(NSNumber *style in @[@(UIUserInterfaceStyleLight),@(UIUserInterfaceStyleDark)]){
+        self.overrideUserInterfaceStyle=style.integerValue;
+        [(UIButton *)buttons[0] sendActionsForControlEvents:UIControlEventTouchUpInside];
+        NSCAssert(self.traitCollection.userInterfaceStyle==style.integerValue,@"Fixture exercises both host appearances");
+        NSCAssert(bar.traitCollection.userInterfaceStyle==UIUserInterfaceStyleDark,@"Bottom bar stays dark under either host appearance");
+        NSCAssert([TIOHomeTabBridgeStatus()[@"appearance"] hasPrefix:@"fixed-dark-"],@"Diagnostics identify fixed dark styling");
+        CGFloat white=0,alpha=0;NSCAssert([glass.contentView.backgroundColor getWhite:&white alpha:&alpha]&&white<=0.13&&alpha>=0.9,@"Dark tint masks underlying official capsule");
+        UIColor *tint=((UIButton *)buttons[1]).tintColor;
+        NSCAssert([tint getWhite:&white alpha:&alpha]&&white>=0.8&&alpha==1,@"Unselected icons remain readable in both modes");
+        NSCAssert(glass.layer.borderWidth<=0.5||UIAccessibilityDarkerSystemColorsEnabled(),@"Bright outline remains subtle unless contrast is requested");
+    }
+    self.overrideUserInterfaceStyle=original;
     for(NSUInteger i=0;i<4;i++)NSCAssert([((UIButton *)buttons[i]).configuration.title isEqual:self.nodes[i].accessibilityLabel],@"Current official names preserved");
     for(NSUInteger i=0;i<4;i++){[(UIButton *)buttons[i] sendActionsForControlEvents:UIControlEventTouchUpInside];NSCAssert((self.nodes[i].accessibilityTraits&UIAccessibilityTraitSelected)!=0,@"Original action reached");}
     [(UIButton *)buttons[4] sendActionsForControlEvents:UIControlEventTouchUpInside];NSCAssert([self.presentedViewController isKindOfClass:UITabBarController.class],@"TurboIO opens real research UI");
     UITabBarController *tabs=(id)self.presentedViewController;TIOCloseResearch(tabs);
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{NSCAssert(!self.presentedViewController,@"Close returns to same official host");[self writePass];});
 }
-- (void)writePass{[@"PASS: four original handlers, fifth research tab, same-host return; mock semantics only" writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/home-tabs-ui-pass.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];}
+- (void)writePass{[@"PASS: fixed dark bar under light/dark hosts, dark background, readable icons, subtle outline, four original handlers, fifth research tab, same-host return; mock semantics only" writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/home-tabs-ui-pass.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];}
 @end
 UIViewController *TIOHomeTabFixture(void){return [FlutterViewController new];}

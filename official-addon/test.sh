@@ -23,6 +23,13 @@ xcrun clang -fobjc-arc -fmodules -Wall -Wextra -framework Foundation NewsPresent
 ./build/news-presentation-tests
 xcrun clang -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types -framework Foundation Core.m Profile.m Tests.m -o build/core-tests
 ./build/core-tests
+for opt in 0 1; do
+  xcrun clang -DTIO_LOCAL_HTTP_ENABLED="$opt" -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types -framework Foundation Core.m Profile.m LocalHTTPEndpointTests.m -o "build/local-http-endpoint-tests-$opt"
+  "./build/local-http-endpoint-tests-$opt"
+  xcrun clang -DTIO_LOCAL_HTTP_ENABLED="$opt" -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types -Wno-nonnull -framework Foundation Core.m Profile.m WebSearch.m LocalHTTPFlowTests.m -o "build/local-http-flow-tests-$opt"
+  "./build/local-http-flow-tests-$opt"
+done
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v local_http_package_test
 xcrun clang -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -framework Foundation Core.m Profile.m PrivateBootstrap.m PrivateBootstrapTests.m -o build/private-bootstrap-tests
 ./build/private-bootstrap-tests
 xcrun clang -fobjc-arc -fmodules -Wall -Wextra -Wno-incompatible-pointer-types -framework Foundation TodoProtocol.m TodoProtocolTests.m -o build/todo-protocol-tests

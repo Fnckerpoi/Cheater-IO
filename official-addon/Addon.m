@@ -5,6 +5,7 @@
 #import <mach-o/dyld.h>
 #import <mach-o/loader.h>
 #import "Core.h"
+#import "EndpointPolicy.h"
 #import "NavigationUI.h"
 #import "Profile.h"
 #import "ProfileUI.h"
@@ -101,7 +102,7 @@ static void Alert(NSString *title,NSString *message) {
     NSString *endpoint=[Prefs stringForKey:@"endpoint"]?:@"",*model=[Prefs stringForKey:@"model"]?:@"";
     NSURL *url=TIOValidateEndpoint(endpoint); NSString *key=ReadKey(endpoint);
     NSDictionary *payload=TIOChatRequestWithHistory(model,question,_history?:@[]);
-    if(!url||!payload||!key.length){if(self.update)self.update(@"",YES,@"请先配置有效的 HTTPS 接口、模型和 Key。");return;}
+    if(!url||!payload||!key.length){if(self.update)self.update(@"",YES,[TIOEndpointValidationError() stringByAppendingString:@" 请确认该地址已配置 Key。"]);return;}
     // Optional provider extension, sent only when explicitly selected by user.
     NSMutableDictionary *body=[payload mutableCopy];if([Prefs boolForKey:@"deepseekDisableThinking"])body[@"thinking"]=@{@"type":@"disabled"};
     NSString *searchKey=([Prefs boolForKey:@"tinyfishEnabled"]||self.newsMode)?ReadKey(@"https://api.search.tinyfish.ai"):@"";
@@ -405,12 +406,32 @@ static void AlwaysOnHook(id self,SEL cmd,id value) {
     [a addAction:[UIAlertAction actionWithTitle:@"启用本机保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){Controller.captureEpoch=NSUUID.UUID.UUIDString;[Prefs setBool:YES forKey:@"captureFinalText"];[self.tableView reloadData];}]];[self presentViewController:a animated:YES completion:nil];
 }
 - (void)configure {
-    UIAlertController *a=[UIAlertController alertControllerWithTitle:@"自有模型接口" message:@"填写完整 HTTPS /chat/completions 地址。Key 仅存手机钥匙串；留空保留同一地址的旧 Key，改地址不会带过去。" preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *a=[UIAlertController alertControllerWithTitle:@"自有模型接口" message:TIOEndpointConfigurationMessage() preferredStyle:UIAlertControllerStyleAlert];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f){f.placeholder=@"https://…/v1/chat/completions";f.text=[Prefs stringForKey:@"endpoint"];f.keyboardType=UIKeyboardTypeURL;f.autocapitalizationType=UITextAutocapitalizationTypeNone;f.autocorrectionType=UITextAutocorrectionTypeNo;}];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f){f.placeholder=@"模型名称";f.text=[Prefs stringForKey:@"model"];f.autocapitalizationType=UITextAutocapitalizationTypeNone;f.autocorrectionType=UITextAutocorrectionTypeNo;}];
     [a addTextFieldWithConfigurationHandler:^(UITextField *f){f.placeholder=@"新 API Key（不回显）";f.secureTextEntry=YES;f.autocapitalizationType=UITextAutocapitalizationTypeNone;f.autocorrectionType=UITextAutocorrectionTypeNo;}];
     [a addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
-    [a addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){NSString *url=a.textFields[0].text?:@"",*model=a.textFields[1].text?:@"",*key=a.textFields[2].text?:@"";NSURL *valid=TIOValidateEndpoint(url);if(!valid||!TIOChatRequest(model,@"测试")){Alert(@"未保存",@"需要有效的 HTTPS chat/completions 地址和模型名称。");return;}url=valid.absoluteString;if(key.length&&!StoreKey(url,key)){Alert(@"未保存",@"钥匙串写入失败。");return;}[Controller cancel];if(![[Prefs stringForKey:@"endpoint"] isEqual:url]||![[Prefs stringForKey:@"model"] isEqual:model])[Controller.history clear];[Prefs setInteger:0 forKey:@"mode"];[Prefs setObject:url forKey:@"endpoint"];[Prefs setObject:model forKey:@"model"];[self.tableView reloadData];}]];[self presentViewController:a animated:YES completion:nil];
+    [a addAction:[UIAlertAction actionWithTitle:@"保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *x){
+        NSString *model=[a.textFields[1].text copy]?:@"",*key=[a.textFields[2].text copy]?:@"";
+        a.textFields[2].text=@"";
+        NSURL *valid=TIOValidateEndpoint(a.textFields[0].text?:@"");
+        if(!valid||!TIOChatRequest(model,@"测试")){Alert(@"未保存",TIOEndpointValidationError());return;}
+        NSString *url=valid.absoluteString;
+        if(!key.length&&(![[Prefs stringForKey:@"endpoint"] isEqual:url]||!ReadKey(url).length)){Alert(@"未保存",@"该地址需要 API Key；更换地址必须重新输入 Key，只有当前同一地址可保留旧 Key。");return;}
+        void (^save)(void)=^{
+            if(key.length&&!StoreKey(url,key)){Alert(@"未保存",@"钥匙串写入失败。");return;}
+            [Controller cancel];
+            if(![[Prefs stringForKey:@"endpoint"] isEqual:url]||![[Prefs stringForKey:@"model"] isEqual:model])[Controller.history clear];
+            [Prefs setInteger:0 forKey:@"mode"];[Prefs setObject:url forKey:@"endpoint"];[Prefs setObject:model forKey:@"model"];[self.tableView reloadData];
+        };
+        if(TIOEndpointPolicyIsHTTP(valid)){
+            NSString *risk=[NSString stringWithFormat:@"目标：%@\nAPI Key、问题、个人资料提示词和对话上下文会明文传输，可被监听或篡改；公网风险尤其高，优先使用 HTTPS。请确认这是你授权的服务，并使用独立可撤销的 Key。拒绝重定向；更换地址需重新输入 Key。取消不会保存或启用。",url];
+            UIAlertController *confirm=[UIAlertController alertControllerWithTitle:@"允许明文 HTTP（含公网 IP）？" message:risk preferredStyle:UIAlertControllerStyleAlert];
+            [confirm addAction:[UIAlertAction actionWithTitle:@"取消" style:UIAlertActionStyleCancel handler:nil]];
+            [confirm addAction:[UIAlertAction actionWithTitle:@"允许并保存" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action){save();}]];
+            dispatch_async(dispatch_get_main_queue(),^{[self presentViewController:confirm animated:YES completion:nil];});
+        }else save();
+    }]];[self presentViewController:a animated:YES completion:nil];
 }
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)ip {
     NSDictionary *r=self.sections[ip.section][@"rows"][ip.row];[tableView deselectRowAtIndexPath:ip animated:YES];
@@ -547,6 +568,7 @@ __attribute__((constructor)) static void Load(void) {
             [loadInfo appendFormat:@"bundle=%@; version=%@; build=%@\n",NSBundle.mainBundle.bundleIdentifier,[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"],[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleVersion"]];
             for(uint32_t i=0;i<_dyld_image_count();i++){const char *name=_dyld_get_image_name(i);if(name&&[[NSString stringWithUTF8String:name].lastPathComponent isEqual:@"Runner"]){const struct mach_header *h=_dyld_get_image_header(i);[loadInfo appendFormat:@"Runner image index=%u magic=%x\n",i,h->magic];}}
             for(NSString *sel in @[@"onAsrResult:isFinish:sessionId:",@"onNlpResult:",@"onResponseComplete",@"onAlwaysOnResponse:"]){Method m=class_getInstanceMethod([sel isEqual:@"onAlwaysOnResponse:"]?ao:voice,NSSelectorFromString(sel));[loadInfo appendFormat:@"%@ %s\n",sel,m?method_getTypeEncoding(m):"missing"];}
+            loadInfo=[loadInfo stringByAppendingFormat:@"\nmodelEndpointPolicy=%@",TIOHTTPPolicyBuildMarker()];
             [loadInfo writeToFile:[NSTemporaryDirectory() stringByAppendingPathComponent:@"TurboIOPrivateAddon-load.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
             [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidBecomeActiveNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n){AddEntry();}];
             [NSNotificationCenter.defaultCenter addObserverForName:@"TIOResearchClosed" object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n){AddEntry();}];

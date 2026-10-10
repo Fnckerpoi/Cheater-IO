@@ -8,7 +8,7 @@ NSString *TIONavClip(NSString *text,NSUInteger limit){
     [text enumerateSubstringsInRange:NSMakeRange(0,text.length) options:NSStringEnumerationByComposedCharacterSequences usingBlock:^(NSString *s,NSRange r,NSRange all,BOOL *stop){NSUInteger n=[s lengthOfBytesUsingEncoding:NSUTF8StringEncoding];if(used+n>limit){*stop=YES;return;}[out appendString:s];used+=n;}];return out;
 }
 NSString *TIONavTurn(NSInteger icon){
-    // AMapNaviIconType, pinned 11.2.100. Unknown values never imply straight ahead.
+    // AMapNaviIconType, checked against pinned 11.3.100 headers. Unknown values never imply straight ahead.
     switch(icon){case 2:return @"前方左转";case 3:return @"前方右转";case 4:return @"向左前方";case 5:return @"向右前方";case 6:return @"向左后方";case 7:return @"向右后方";case 8:case 19:return @"前方掉头";case 9:case 20:return @"继续直行";case 10:return @"到达途经点";case 11:case 17:return @"进入环岛";case 12:case 18:return @"离开环岛";case 15:return @"到达目的地";case 29:return @"通过人行横道";case 30:return @"通过过街天桥";case 31:return @"通过地下通道";default:return @"请查看手机指引";}
 }
 static NSString *Distance(NSInteger meters){if(meters<0)return @"距离待更新";if(meters>=1000)return [NSString stringWithFormat:@"%.1f 公里",meters/1000.0];NSInteger rounded=meters<50?meters:(meters/10)*10;return [NSString stringWithFormat:@"%ld 米",(long)rounded];}

@@ -31,7 +31,7 @@
 
 - **当前官方 App：iOS 雷鸟 AI 眼镜 1.0.5 / Build 201**。普通扩展保留1.0.4（195）、1.0.2（67）的历史适配；**TNV1实验OTA仅适配1.0.5（201）**。精确二进制约束见[V2构建说明](../README.md#1-兼容性门槛)。未知版本不要跳过检查。
 - **当前固件：Strix OS 1.0.4.12**。原厂升级后用户反馈正常，TNV1的固定AP修改版另有导航及后台实测反馈。见[1.0.5适配说明](COMPATIBILITY_105.md)和[TNV1验收边界](../../../firmware-research/strix-1.0.4.12/native-navigation/README.md)。早期协议研究基于1.0.3.15，1.0.4.8为历史升级验证。每次重新生成SID并等待眼镜ACK，不能外推全部模式/固件。
-- Navi **11.2.100**（含地图），Foundation **1.9.1**（非IDFA包），Search **9.8.1**。使用静态库构建进扩展；不能再把相同SDK作为第二套动态库重复注入宿主。
+- 当前固定依赖：Navi **11.3.100**（含地图），Foundation **1.9.4**，Search **9.8.1**。2026-10-10 核对官方全量包更新后调整固定 SHA-256；旧 11.2.100 / 1.9.1 属于历史构建，不混用旧资源。使用静态库构建进扩展；不能再把相同SDK作为第二套动态库重复注入宿主。
 - 官方来源：[导航SDK下载](https://developer.amap.com/api/ios-navi-sdk/download)、[地图/搜索SDK下载](https://lbs.amap.com/api/ios-sdk/download)。使用前阅读并遵循其许可、隐私及服务要求。本仓库不再分发这些SDK二进制。
 
 在仓库根目录：
@@ -49,6 +49,10 @@ TIO_AMAP_ENABLED=1 bash official-addon/build.sh embedded
 获取脚本校验两份官方压缩包SHA256并展开指定子包，遇到下载链接更新导致哈希不一致就停止，不静默换SDK。已下载的同一批压缩包可放入绝对目录并追加 `--archives-dir /absolute/downloads`，文件名需为 `AMap_iOS_Navi_ALL.zip` 与 `search-9.8.1.zip`。离线导入同样校验哈希；已存在的SDK目录不覆盖。
 
 默认 `bash official-addon/build.sh embedded` 不链接高德；适合基础扩展或零密钥预览，页面会明确提示缺SDK，不会伪造地图和搜索结果。
+
+### 已在使用任意 IP HTTP 模型研究版？
+
+请改用 [HTTP 模型 + 高德导航集成与验收](HTTP_NAVIGATION.md)，同时开启 `TIO_LOCAL_HTTP_ENABLED=1 TIO_AMAP_ENABLED=1`，目标保持 `com.duriea.turboio.research`，使用支持 `--amap-sdk-root` 的未签名研究版预合并器。下面的普通官方目标命令不是该研究副本的更新命令。只填 Key 不能给未链接 SDK 的旧包增加地图。
 
 ## 3. 在自己电脑合并、签名
 
@@ -74,7 +78,7 @@ xcrun devicectl device install app --device YOUR_DEVICE_ID \
 
 ## 4. 填自己的高德Key
 
-1. 在高德控制台创建 **iOS平台Key**，绑定实际应用 Bundle ID；本适配目标为 `com.rayneo.venus.pub`。Web服务Key/TinyFish Key不能替代iOS Key。
+1. 在高德控制台创建 **iOS平台Key**，绑定实际应用 Bundle ID；普通官方目标为 `com.rayneo.venus.pub`；HTTP 研究副本为 `com.duriea.turboio.research`。以安装后导航“高德 Key 设置”或“详细诊断”显示的实际 Bundle ID 为准；签名工具不得另改标识。Web服务Key/TinyFish Key不能替代iOS Key。
 2. 根据自己账号开通所需地图、搜索及导航服务；服务权限/额度由高德管理。
 3. App内进入 **TurboIO → 资料 → 步行 / 骑行 / 驾车导航 → 右上角更多 → 高德 Key 设置**，粘贴自己的Key。
 4. Key只存本机钥匙串，不回显旧值。公开版没有维护者Key或从私用包自动导入Key的逻辑。要换Key时先重启App，在初始化地图前修改。

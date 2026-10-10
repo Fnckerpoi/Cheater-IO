@@ -4,8 +4,16 @@ cd "$(dirname "$0")/.."
 output=build/research-preview/ResearchPreview.app
 mkdir -p "$output"
 cp preview/Info.plist "$output/Info.plist"
-sdk_path=$(xcrun --sdk iphonesimulator --show-sdk-path)
-xcrun --sdk iphonesimulator clang -target arm64-apple-ios16.0-simulator -isysroot "$sdk_path" \
+if ! sdk_path=$(xcrun --sdk iphonesimulator --show-sdk-path 2>/dev/null); then
+  if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
+    export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+    sdk_path=$(xcrun --sdk iphonesimulator --show-sdk-path)
+  else
+    echo "iOS Simulator SDK not found; select Xcode or set DEVELOPER_DIR." >&2
+    exit 1
+  fi
+fi
+xcrun --sdk iphonesimulator clang -target x86_64-apple-ios16.0-simulator -isysroot "$sdk_path" \
   -DTIO_UI_PREVIEW=1 -fobjc-arc -fmodules -Wno-deprecated-declarations -Wno-incompatible-pointer-types \
   -framework Foundation -framework UIKit -framework Security -framework UniformTypeIdentifiers -framework CoreLocation -framework AVFAudio \
   NavigationModes.m ProtocolContext.m NavigationSubtitleHUD.m NavigationPlaces.m NavigationPlacePicker.m A2UIProtocol.m NavigationCore.m NavigationTeleHUD.m NavigationTransport.m NavigationUI.m ManualHUD.m SubtitleHUDCore.m SubtitleHUD.m \

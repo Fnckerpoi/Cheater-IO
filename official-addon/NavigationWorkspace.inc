@@ -37,7 +37,7 @@
     UILabel *preview=[self navLabel:@"文字内容预览，非镜片截图；实际排版由眼镜决定。" size:11 weight:UIFontWeightRegular];preview.textColor=UIColor.secondaryLabelColor;[self.lensCard addArrangedSubview:preview];
     self.lensButton=[self navAction:@"开启眼镜字幕显示" icon:@"eyeglasses" selector:@selector(toggleLens) primary:NO];self.lensButton.accessibilityIdentifier=@"navigation-subtitle-enable";[self.lensCard addArrangedSubview:self.lensButton];
     self.stopButton=[self navAction:@"结束导航" icon:@"stop.fill" selector:@selector(stopUser) primary:YES];UIButtonConfiguration *stopConfig=self.stopButton.configuration;stopConfig.baseBackgroundColor=UIColor.systemRedColor;self.stopButton.configuration=stopConfig;self.stopButton.accessibilityIdentifier=@"navigation-stop";self.stopButton.translatesAutoresizingMaskIntoConstraints=NO;[self.view addSubview:self.stopButton];[NSLayoutConstraint activateConstraints:@[[self.stopButton.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:16],[self.stopButton.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-16],[self.stopButton.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-8]]];
-    UILabel *foot=[self navLabel:@"支持步行、骑行、驾车，分别使用对应高德路线。手机实时导航需保持前台；眼镜字幕仅开放模拟验收，4分钟保护。后台与实际道路可靠性仍待测试，请勿边驾驶边操作。诊断和备用通道在右上角“更多”。" size:12 weight:UIFontWeightRegular];foot.textColor=UIColor.secondaryLabelColor;[self.stack addArrangedSubview:foot];
+    UILabel *foot=[self navLabel:@"支持步行、骑行、驾车，分别使用对应高德路线。手机实时导航在定位授权及location后台模式就绪后可退后台；眼镜字幕仅开放前台模拟验收，4分钟保护。后台与实际道路可靠性仍待测试，请勿边驾驶边操作。诊断和备用通道在右上角“更多”。" size:12 weight:UIFontWeightRegular];foot.textColor=UIColor.secondaryLabelColor;[self.stack addArrangedSubview:foot];
 }
 - (void)refreshWorkspace{
     if(!self.planButton)return;BOOL running=self.active&&!self.planning&&!self.routeReady;
@@ -163,7 +163,7 @@
     [self startFixture];
 #endif
 }
-- (void)showDiagnostic{[self refresh];[self alert:@"导航状态 · v3" message:self.statusLabel.text];}
+- (void)showDiagnostic{[self refresh];NSMutableArray *resources=[NSMutableArray new];for(NSString *name in @[@"AMap",@"AMapNavi",@"AMapSearch"])[resources addObject:[NSString stringWithFormat:@"%@：%@",name,[NSBundle.mainBundle pathForResource:name ofType:@"bundle"]?@"已打包":@"未打包"]];[self alert:@"导航状态 · v4" message:[NSString stringWithFormat:@"Bundle ID（Key须绑定此值）：%@\n资源：%@\nlocation后台模式：%@\n%@",NSBundle.mainBundle.bundleIdentifier?:@"未知",[resources componentsJoinedByString:@" / "],[self navigationLocationModeAvailable]?@"已声明":@"未声明（仅前台）",self.statusLabel.text]];}
 - (void)navigationMore{
     UIAlertController *a=[UIAlertController alertControllerWithTitle:@"导航设置与诊断" message:@"主要流程留在地图页；实验入口不会自动执行。" preferredStyle:UIAlertControllerStyleActionSheet];
     NSArray *items=@[@[@"字幕格式与退出检查",@"subtitleCheck"],@[@"北京演示路线",@"demoRoute"],@[@"路线详情",@"routeDetails"],@[@"读取连接状态",@"refreshConnection"],@[@"详细诊断",@"showDiagnostic"],@[@"高德 Key 设置",@"configureKey"],@[@"备用显示通道",@"fallbackMenu"]];

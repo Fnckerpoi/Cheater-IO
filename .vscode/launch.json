@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Turbo-IO}/rayneo-display",
+            "name": "Debug rayneo-display-demo (rayneo-display)",
+            "target": "rayneo-display-demo",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug rayneo-display-demo (rayneo-display)"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:Turbo-IO}/rayneo-display",
+            "name": "Release rayneo-display-demo (rayneo-display)",
+            "target": "rayneo-display-demo",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release rayneo-display-demo (rayneo-display)"
+        }
+    ]
+}

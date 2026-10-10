@@ -1,0 +1,230 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Turbo IO V2 代码实现链路",
+    "quality_profile": "showcase",
+    "repository": { "url": "https://github.com/Fnckerpoi/Turbo-IO", "revision": "cb3bcf59abaa903e89b3db120e8a8d8317e72a06" },
+    "viewBox": [
+      1480,
+      700
+    ]
+  },
+  "components": [
+    {
+      "id": "host",
+      "type": "external",
+      "label": "官方 App 与眼镜",
+      "sublabel": "连接 · ASR",
+      "pos": [
+        55,
+        290
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 142
+        }
+      ]
+    },
+    {
+      "id": "entry",
+      "type": "frontend",
+      "label": "第五项入口",
+      "sublabel": "HomeTabBridge",
+      "pos": [
+        330,
+        290
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 156
+        }
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "回调与兼容门禁",
+      "sublabel": "Addon · 版本 / 模板",
+      "pos": [
+        605,
+        290
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 156
+        }
+      ]
+    },
+    {
+      "id": "conversation",
+      "type": "backend",
+      "label": "会话核心",
+      "sublabel": "Core · 流 / 历史 / 退出",
+      "pos": [
+        880,
+        290
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 156
+        }
+      ]
+    },
+    {
+      "id": "return",
+      "type": "frontend",
+      "label": "官方回包模板",
+      "sublabel": "眼镜内置 UI",
+      "pos": [
+        1155,
+        290
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 152
+        }
+      ]
+    },
+    {
+      "id": "model",
+      "type": "cloud",
+      "label": "自有文字模型",
+      "sublabel": "HTTPS · 流式回答",
+      "pos": [
+        880,
+        85
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 42
+        }
+      ]
+    },
+    {
+      "id": "tools",
+      "type": "backend",
+      "label": "可选 Tools",
+      "sublabel": "搜索 · 待办 · 知识库",
+      "pos": [
+        1155,
+        85
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 147,
+          "end_line": 150
+        }
+      ]
+    },
+    {
+      "id": "tts",
+      "type": "backend",
+      "label": "可选同步朗读",
+      "sublabel": "本机 / 云端 TTS",
+      "pos": [
+        1155,
+        495
+      ],
+      "size": [
+        190,
+        82
+      ],
+      "sources": [
+        {
+          "path": "official-addon/README.md",
+          "line": 43
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "host",
+      "to": "entry"
+    },
+    {
+      "from": "entry",
+      "to": "gate"
+    },
+    {
+      "from": "gate",
+      "to": "conversation"
+    },
+    {
+      "from": "conversation",
+      "to": "return"
+    },
+    {
+      "from": "conversation",
+      "to": "model",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "label": "HTTPS 请求"
+    },
+    {
+      "from": "model",
+      "to": "tools",
+      "label": "工具调用"
+    },
+    {
+      "from": "return",
+      "to": "tts",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "label": "回答朗读", "labelDy": 24
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "主链路",
+      "items": [
+        "复用官方连接与 ASR；回调经过兼容校验，再进入自有会话处理。"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "边界与验收",
+      "items": [
+        "V2 是 iOS 官方 App 扩展，不是 V1 独立客户端。",
+        "源码、模拟器、签名安装与镜片实测是不同证据层。"
+      ]
+    }
+  ]
+}

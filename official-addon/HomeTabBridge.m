@@ -81,19 +81,21 @@ static void Walk(id obj,UIWindow *window,NSMutableArray *hits,NSHashTable *seen,
         UILongPressGestureRecognizer *restore=[[UILongPressGestureRecognizer alloc]initWithTarget:self action:@selector(restore:)];restore.minimumPressDuration=1.5;[self.buttons.lastObject addGestureRecognizer:restore];
     }if(self.bar.superview!=w)[w addSubview:self.bar];[w bringSubviewToFront:self.bar];
 }
-- (void)styleGlass:(BOOL)dark{
+- (void)styleGlass{
     BOOL reduced=UIAccessibilityIsReduceTransparencyEnabled(),contrast=UIAccessibilityDarkerSystemColorsEnabled();
-    NSString *key=[NSString stringWithFormat:@"%d-%d-%d",dark,reduced,contrast];
+    NSString *key=[NSString stringWithFormat:@"fixed-dark-%d-%d",reduced,contrast];
     if(![self.appearanceKey isEqual:key]){
         self.appearanceKey=key;
-        self.glass.effect=reduced?nil:[UIBlurEffect effectWithStyle:dark?UIBlurEffectStyleSystemMaterialDark:UIBlurEffectStyleSystemMaterialLight];
-        self.glass.contentView.backgroundColor=reduced?(dark?[UIColor colorWithWhite:0.12 alpha:1]:[UIColor colorWithWhite:0.94 alpha:1]):UIColor.clearColor;
+        // The official Flutter UI stays dark even when UIKit reports light mode.
+        self.bar.overrideUserInterfaceStyle=UIUserInterfaceStyleDark;
+        self.glass.effect=reduced?nil:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemMaterialDark];
+        self.glass.contentView.backgroundColor=[UIColor colorWithWhite:0.12 alpha:reduced?1:0.94];
         self.glassSheen.hidden=reduced;
-        self.glassSheen.colors=dark?@[(id)[UIColor colorWithWhite:1 alpha:0.13].CGColor,(id)[UIColor colorWithWhite:1 alpha:0.02].CGColor,(id)[UIColor colorWithRed:0 green:0.3 blue:0.23 alpha:0.12].CGColor]:@[(id)[UIColor colorWithWhite:1 alpha:0.48].CGColor,(id)[UIColor colorWithWhite:1 alpha:0.08].CGColor,(id)[UIColor colorWithRed:0.7 green:0.91 blue:0.83 alpha:0.16].CGColor];
-        self.glass.layer.borderWidth=contrast?1.2:0.75;self.glass.layer.borderColor=(dark?[UIColor colorWithWhite:1 alpha:0.24]:[UIColor colorWithWhite:1 alpha:0.9]).CGColor;
-        self.bar.layer.shadowColor=UIColor.blackColor.CGColor;self.bar.layer.shadowOpacity=dark?0.26:0.10;self.bar.layer.shadowRadius=14;self.bar.layer.shadowOffset=CGSizeMake(0,5);
-        self.selection.backgroundColor=dark?[UIColor colorWithRed:0.2 green:0.9 blue:0.68 alpha:0.18]:[UIColor colorWithRed:0.12 green:0.68 blue:0.5 alpha:0.12];
-        self.selection.layer.borderWidth=0.6;self.selection.layer.borderColor=(dark?[UIColor colorWithRed:0.5 green:1 blue:0.8 alpha:0.25]:[UIColor colorWithRed:0.12 green:0.6 blue:0.44 alpha:0.15]).CGColor;
+        self.glassSheen.colors=@[(id)[UIColor colorWithWhite:1 alpha:0.025].CGColor,(id)UIColor.clearColor.CGColor];
+        self.glass.layer.borderWidth=contrast?1.2:0.5;self.glass.layer.borderColor=[UIColor colorWithWhite:1 alpha:contrast?0.3:0.08].CGColor;
+        self.bar.layer.shadowColor=UIColor.blackColor.CGColor;self.bar.layer.shadowOpacity=0.18;self.bar.layer.shadowRadius=10;self.bar.layer.shadowOffset=CGSizeMake(0,4);
+        self.selection.backgroundColor=[UIColor colorWithRed:0.2 green:0.9 blue:0.68 alpha:contrast?0.26:0.16];
+        self.selection.layer.borderWidth=contrast?1:0;self.selection.layer.borderColor=[UIColor colorWithRed:0.5 green:1 blue:0.8 alpha:0.3].CGColor;
     }
     self.glass.frame=self.bar.bounds;
     [CATransaction begin];[CATransaction setDisableActions:YES];self.glassSheen.frame=self.bar.bounds;self.bar.layer.shadowPath=[UIBezierPath bezierPathWithRoundedRect:self.bar.bounds cornerRadius:29].CGPath;[CATransaction commit];
@@ -138,9 +140,10 @@ static void Walk(id obj,UIWindow *window,NSMutableArray *hits,NSHashTable *seen,
         if(![button.configuration.title isEqual:name]){UIButtonConfiguration *config=[button.configuration copy];config.title=name;button.configuration=config;}
         button.accessibilityLabel=name;button.accessibilityIdentifier=[@"home-tab-" stringByAppendingString:name];
     }
-    BOOL dark=flutter.traitCollection.userInterfaceStyle==UIUserInterfaceStyleDark;[self styleGlass:dark];
+    [self styleGlass];
+    BOOL contrast=UIAccessibilityDarkerSystemColorsEnabled();
     CGFloat width=self.bar.bounds.size.width/5;self.selection.hidden=YES;
-    for(NSUInteger i=0;i<5;i++){UIButton *button=self.buttons[i];button.frame=CGRectMake(i*width,0,width,58);BOOL selected=i<4&&[layout[@"items"][i][@"selected"] boolValue];button.accessibilityTraits=UIAccessibilityTraitButton|(selected?UIAccessibilityTraitSelected:0);button.tintColor=selected?(dark?[UIColor colorWithRed:0.48 green:1 blue:0.78 alpha:1]:[UIColor colorWithRed:0 green:0.39 blue:0.29 alpha:1]):(dark?[UIColor colorWithWhite:0.88 alpha:1]:[UIColor colorWithWhite:0.25 alpha:1]);if(selected){self.selection.hidden=NO;self.selection.frame=CGRectMake(i*width+3,5,width-6,48);}}
+    for(NSUInteger i=0;i<5;i++){UIButton *button=self.buttons[i];button.frame=CGRectMake(i*width,0,width,58);BOOL selected=i<4&&[layout[@"items"][i][@"selected"] boolValue];button.accessibilityTraits=UIAccessibilityTraitButton|(selected?UIAccessibilityTraitSelected:0);button.tintColor=selected?[UIColor colorWithRed:0.48 green:1 blue:0.78 alpha:1]:[UIColor colorWithWhite:contrast?1:0.82 alpha:1];if(selected){self.selection.hidden=NO;self.selection.frame=CGRectMake(i*width+3,5,width-6,48);}}
     [self writeStatus];
 }
 - (void)tap:(UIButton *)button{
@@ -150,7 +153,7 @@ static void Walk(id obj,UIWindow *window,NSMutableArray *hits,NSHashTable *seen,
     if(!result){self.enabled=NO;[self hide:@"官方点击未确认，已恢复官方底栏" fallback:YES];return;}self.activations++;[self schedule];
 }
 - (void)restore:(UILongPressGestureRecognizer *)g{if(g.state==UIGestureRecognizerStateBegan){self.enabled=NO;[self hide:@"已临时恢复官方底栏（重启恢复扩展）" fallback:YES];}}
-- (NSDictionary *)status{return @{@"revision":@"home-tabs-v6-frosted-glass",@"appearance":self.appearanceKey?:@"",@"ensureAttempts":@(self.ensureAttempts),@"state":self.state?:@"",@"visible":@(self.bar&&!self.bar.hidden),@"treeNodes":@(self.treeCount),@"tabs":self.items?:@[],@"activations":@(self.activations),@"implementation":@"native accessibility navigation adapter"};}
+- (NSDictionary *)status{return @{@"revision":@"home-tabs-v7-fixed-dark",@"appearance":self.appearanceKey?:@"",@"ensureAttempts":@(self.ensureAttempts),@"state":self.state?:@"",@"visible":@(self.bar&&!self.bar.hidden),@"treeNodes":@(self.treeCount),@"tabs":self.items?:@[],@"activations":@(self.activations),@"implementation":@"native accessibility navigation adapter"};}
 - (void)writeStatus{NSData *data=[NSJSONSerialization dataWithJSONObject:[self status] options:NSJSONWritingSortedKeys error:nil];NSString *signature=[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];if(!signature||[signature isEqual:self.lastWritten])return;self.lastWritten=signature;NSString *path=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/TurboIOPrivateAddon/HomeTabs-status.json"];[NSFileManager.defaultManager createDirectoryAtPath:path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];[data writeToFile:path options:NSDataWritingAtomic error:nil];[NSFileManager.defaultManager setAttributes:@{NSFilePosixPermissions:@0600} ofItemAtPath:path error:nil];}
 @end
 void TIOStartHomeTabBridge(UIButton *fallback,void (^openResearch)(void)){
