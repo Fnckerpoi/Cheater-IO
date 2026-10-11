@@ -13,7 +13,8 @@ static TIOSubtitleTrial *Trial;
 static NSMutableArray *Events;
 static NSTimer *Guard;
 static BOOL TextPending;
-static BOOL Capturing;
+static BOOL Capturing,ForegroundSuppressed;
+static NSUInteger SubtitleRefreshEpoch;
 static NSTimeInterval TextDeadline;
 static NSTimeInterval Now(void){return NSProcessInfo.processInfo.systemUptime;}
 static id Get(id o,NSString *k){@try{return [o valueForKey:k];}@catch(NSException *e){return nil;}}
@@ -56,19 +57,20 @@ static BOOL Send(NSUInteger type,NSDictionary *j){
         if(failure)dispatch_async(dispatch_get_main_queue(),^{if(![Trial.sid isEqual:sid])return;if(type==3){Trial.phase=@"uncertain";Trial.note=@"SDK拒绝退出提交，请用实体按钮退出";Save();}else[Trial stop:@"SDK拒绝提交" now:Now()];});
     } copy]);}@catch(NSException *e){if(type==5)TextPending=NO;ok=NO;}Sending=NO;return ok;
 }
+#include "SubtitleHUDLifecycle.inc"
 static void Ensure(void){
     if(Trial)return;Trial=[TIOSubtitleTrial new];Trial.send=^BOOL(NSUInteger t,NSDictionary *j){return Send(t,j);};Trial.changed=^{Save();};
     Guard=[NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *t){if(TextPending&&Now()>=TextDeadline){TextPending=NO;[Trial stop:@"SDK文字提交8秒无完成回调" now:Now()];}[Trial tick:Now()];}];
-    for(NSString *name in @[UIApplicationWillResignActiveNotification,@"TIOResearchClosed"])[NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n){ConfirmedIdle=NO;[Trial stop:@"手机离开前台或研究页面关闭" now:Now()];}];
+    for(NSString *name in @[UIApplicationWillResignActiveNotification,UIApplicationDidBecomeActiveNotification,UIApplicationDidEnterBackgroundNotification,@"TIOResearchClosed"])[NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n){HandleSubtitleLifecycle(n.name);}];
 }
-NSDictionary *TIOSubtitleNavigationStatus(void){Ensure();return @{@"sid":Trial.sid?:@"",@"navigation":@(Trial.navigation),@"phase":Trial.phase,@"pending":@(TextPending),@"available":@(Available()),@"note":Trial.note?:@""};}
+NSDictionary *TIOSubtitleNavigationStatus(void){Ensure();return @{@"sid":Trial.sid?:@"",@"navigation":@(Trial.navigation),@"phase":Trial.phase,@"pending":@(TextPending),@"available":@(Available()),@"foreground":@(!ForegroundSuppressed&&UIApplication.sharedApplication.applicationState==UIApplicationStateActive),@"refreshEpoch":@(SubtitleRefreshEpoch),@"note":Trial.note?:@""};}
 BOOL TIOSubtitleConfirmIdle(void){
     Ensure();if(Trial.active&&![@[@"stopping",@"uncertain"] containsObject:Trial.phase])return NO;
     Trial.phase=@"idle";Trial.sid=nil;TextPending=NO;Capturing=NO;RestoreContext();ConfirmedIdle=YES;ConfirmedAt=Now();Trial.note=@"用户确认镜片已退出；非协议回执";Save();return YES;
 }
 NSString *TIOSubtitleNavigationStart(void){
     Ensure();if(!NSThread.isMainThread||UIApplication.sharedApplication.applicationState!=UIApplicationStateActive||!Available()||!ConfirmedIdle||Now()-ConfirmedAt>=120||Trial.active)return nil;
-    ConfirmedIdle=NO;TextPending=NO;
+    ConfirmedIdle=NO;TextPending=NO;ForegroundSuppressed=NO;
     if(![Trial startNavigationWithPreview:Preview stop:Stop now:Now()])return nil;
     return Trial.sid;
 }
@@ -76,6 +78,7 @@ BOOL TIOSubtitleNavigationText(NSString *sid,NSString *text){return NSThread.isM
 void TIOSubtitleNavigationStop(NSString *sid,NSString *reason){if(NSThread.isMainThread&&Trial.navigation&&[Trial.sid isEqual:sid])[Trial stop:reason now:Now()];}
 void TIOSubtitleObserveCall(id plugin,NSString *method,NSDictionary *args){
     if(!Sending)TIOProtocolObserveCall(plugin,method,args);
+    if(!Sending&&[method isEqual:@"rayneonet_sendMessage"]&&[args[@"businessId"] isEqual:@21]&&[args[@"deviceId"] isEqual:Device]&&Trial.navigation&&[Trial.phase isEqual:@"ready"]){SubtitleRefreshEpoch++;} // Notification hint only; no preview, no forced takeover.
     if(Sending||![method isEqual:@"rayneonet_sendMessage"]||![args[@"businessId"] isEqual:@19]||![args[@"deviceId"] isKindOfClass:NSString.class])return;
     NSDictionary *e=TIOSubtitleEnvelope(Bytes(args[@"payload"])),*j=e[@"json"];if(!e)return;NSString *sid=j[@"sid"];
     if(![sid isKindOfClass:NSString.class]||!sid.length)return;

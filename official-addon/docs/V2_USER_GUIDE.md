@@ -573,6 +573,8 @@ https://your-host.example/api/turbo-knowledge
 <a id="s11"></a>
 ## 11. 地图与普通眼镜字幕导航
 
+> 新增独立 **MapKit 导航 · 实验**（`TIO_MAPKIT_ENABLED=1`）。原高德入口保留为 **高德导航 · 实验**，Key、SDK 和资源要求不变。MapKit 地图与 OSM 线框手机预览不需要高德 Key；TDP1 眼镜 HUD 需另行显式编译与兼容协议回执，本阶段仅前台、不刷固件。大陆坐标未对齐时保守禁用混合实时定位／OSM 叠加，可模拟并使用高德回退。详细步骤与验收限制见 [MapKit 导航说明](MAPKIT_NAVIGATION.md)。以下 11.1–11.3 仍说明高德路径。
+
 <img src="navigation-search.png" width="300" alt="导航搜索的模拟器预览，展示显式搜索与取消反馈" />
 
 *图 5：无 Key 的搜索交互预览，不是真实在线地点结果。*

@@ -1,4 +1,8 @@
 #import "TodoRuntime.h"
+#if TIO_MAPKIT_HUD_ENABLED
+#import "mapkit-navigation/MapKitHUD.h"
+#import "mapkit-navigation/MapKitHUDHost.h"
+#endif
 #if TIO_NATIVE_NAV
 #import "DisplayPhoneUI.h"
 #import "ImageUploadTransport.h"
@@ -61,10 +65,17 @@ static void ObserveSnapshot(NSDictionary *args){
     if(!Busy&&!TestWire.length)State=Template?@"已取得官方列表与新增模板；可测试创建入口":@"已取得官方全量列表基线；等待官方语音新增模板";SaveEvidence();
 }
 static void MethodHook(id self,SEL cmd,id call,id result){
+#if TIO_MAPKIT_HUD_ENABLED
+    if(![Get(call,@"arguments") isKindOfClass:NSDictionary.class])TIOMapKitHUDObserveCall(Get(call,@"method"),nil);
+#endif
 #if TIO_OTA_RESEARCH_ENABLED
     if(TIOOTAFlashBlockCall(call)){if(result)((void(^)(id))result)(@{@"success":@NO,@"message":@"Turbo IO experimental transfer gate: not authorized or packet mismatch"});return;}
 #endif
-    {NSString *method=Get(call,@"method");id args=Get(call,@"arguments");if([args isKindOfClass:NSDictionary.class]){void(^work)(void)=^{TIOProtocolObserveCall(self,method,args);TIONewsTeleObserveCall(self,method,args);TIONavObserveCall(self,method,args);TIOSubtitleObserveCall(self,method,args);};if(NSThread.isMainThread)work();else dispatch_async(dispatch_get_main_queue(),work);}}
+    {NSString *method=Get(call,@"method");id args=Get(call,@"arguments");if([args isKindOfClass:NSDictionary.class]){void(^work)(void)=^{
+#if TIO_MAPKIT_HUD_ENABLED
+TIOMapKitHUDObserveCall(method,args);
+#endif
+TIOProtocolObserveCall(self,method,args);TIONewsTeleObserveCall(self,method,args);TIONavObserveCall(self,method,args);TIOSubtitleObserveCall(self,method,args);};if(NSThread.isMainThread)work();else dispatch_async(dispatch_get_main_queue(),work);}}
     if([Get(call,@"method") isEqual:@"rayneonet_sendMessage"]){id args=Get(call,@"arguments");if([args isKindOfClass:NSDictionary.class]&&[args[@"businessId"] isEqual:@22]){void (^work)(void)=^{ObserveSnapshot(args);};if(NSThread.isMainThread)work();else dispatch_async(dispatch_get_main_queue(),work);}}
     id args=Get(call,@"arguments");
     if([Get(call,@"method") isEqual:@"rayneonet_sendFile"]&&[args isKindOfClass:NSDictionary.class]&&result){
@@ -72,25 +83,35 @@ static void MethodHook(id self,SEL cmd,id call,id result){
         PriorMethod(self,cmd,call,[^(id response){dispatch_async(dispatch_get_main_queue(),^{TIONewsTeleObserveFileResult(args,response);});original(response);} copy]);
     }else PriorMethod(self,cmd,call,result);
 }
+static void ObserveIncomingMessage(NSDictionary *e){
+    NSDictionary *physical=TIOTodoPhysicalStatus(e);
+    dispatch_async(dispatch_get_main_queue(),^{TIOProtocolObserveEvent(e);TIONewsTeleObserveEvent(e);TIONavObserveEvent(e);TIOSubtitleObserveEvent(e);});
+    if(physical)dispatch_async(dispatch_get_main_queue(),^{PhysicalEvents++;if(TestWire.length&&[physical[@"wireId"] isEqual:TestWire]&&[physical[@"deviceId"] isEqual:TestDevice]){PhysicalComplete=[physical[@"status"] isEqual:@1];State=PhysicalComplete?@"收到此测试项的眼镜完成回传，真实ID匹配":@"收到此测试项的眼镜未完成回传";SaveEvidence();}});
+}
 static void Send(id self,SEL cmd,NSString *channel,NSData *message,id reply){
     if([channel isKindOfClass:NSString.class]&&[channel.lowercaseString containsString:@"rayneonet"]&&message.length<262144){
         Class cls=NSClassFromString(@"FlutterStandardMethodCodec");
         @try{if([cls respondsToSelector:@selector(sharedInstance)]){id codec=((id(*)(id,SEL))objc_msgSend)(cls,@selector(sharedInstance));id event=((id(*)(id,SEL,id))objc_msgSend)(codec,NSSelectorFromString(@"decodeEnvelope:"),message);
+#if TIO_MAPKIT_HUD_ENABLED
+            if([event isKindOfClass:NSDictionary.class] && ![event[@"eventType"] isEqual:@"messageReceived"] && TIOMapKitHUDRouteEvent(event,^(BOOL owned){if(owned){if(reply)((void(^)(NSData *))reply)(nil);}else PriorSend(self,cmd,channel,message,reply);}))return;
+#endif
 #if TIO_NATIVE_NAV
             if(TIOImageUploadRouteFileEvent(event, ^BOOL(NSDictionary *e){return TDPPhoneConsumeEvent(e);}, ^(BOOL owned){
                 if(owned){if(reply)((void(^)(NSData *))reply)(nil);}else PriorSend(self,cmd,channel,message,reply);
             }))return;
 #endif
             if([event isKindOfClass:NSDictionary.class]&&[event[@"eventType"] isEqual:@"messageReceived"]&&[event[@"message"] isKindOfClass:NSDictionary.class]){
-                NSMutableDictionary *e=[event mutableCopy],*m=[event[@"message"] mutableCopy];NSData *data=Data(m[@"payload"]);if(data)m[@"payload"]=data;e[@"message"]=m;NSDictionary *physical=TIOTodoPhysicalStatus(e);
+                NSMutableDictionary *e=[event mutableCopy],*m=[event[@"message"] mutableCopy];NSData *data=Data(m[@"payload"]);if(data)m[@"payload"]=data;e[@"message"]=m;
+#if TIO_MAPKIT_HUD_ENABLED
+                if(TIOMapKitHUDRouteEvent(e,^(BOOL owned){if(owned){if(reply)((void(^)(NSData *))reply)(nil);}else{ObserveIncomingMessage(e);PriorSend(self,cmd,channel,message,reply);}}))return;
+#endif
 #if TIO_OTA_RESEARCH_ENABLED
                 TIOOTAFlashObserveEvent(e);
 #if TIO_NATIVE_NAV
                 if(TDPPhoneRouteReply(e,^(BOOL owned){if(owned){if(reply)((void(^)(NSData *))reply)(nil);}else PriorSend(self,cmd,channel,message,reply);}))return;
 #endif
 #endif
-                dispatch_async(dispatch_get_main_queue(),^{TIOProtocolObserveEvent(e);TIONewsTeleObserveEvent(e);TIONavObserveEvent(e);TIOSubtitleObserveEvent(e);});
-                if(physical)dispatch_async(dispatch_get_main_queue(),^{PhysicalEvents++;if(TestWire.length&&[physical[@"wireId"] isEqual:TestWire]&&[physical[@"deviceId"] isEqual:TestDevice]){PhysicalComplete=[physical[@"status"] isEqual:@1];State=PhysicalComplete?@"收到此测试项的眼镜完成回传，真实ID匹配":@"收到此测试项的眼镜未完成回传";SaveEvidence();}});
+                ObserveIncomingMessage(e);
             }
         }}@catch(NSException *e){}
     }PriorSend(self,cmd,channel,message,reply);

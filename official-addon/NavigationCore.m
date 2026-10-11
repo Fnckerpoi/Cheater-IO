@@ -13,7 +13,7 @@ NSString *TIONavTurn(NSInteger icon){
 }
 static NSString *Distance(NSInteger meters){if(meters<0)return @"距离待更新";if(meters>=1000)return [NSString stringWithFormat:@"%.1f 公里",meters/1000.0];NSInteger rounded=meters<50?meters:(meters/10)*10;return [NSString stringWithFormat:@"%ld 米",(long)rounded];}
 NSDictionary *TIONavDisplay(NSString *phase,NSInteger icon,NSString *road,NSInteger distance,NSInteger remaining,NSInteger seconds,BOOL sim){
-    NSDictionary *titles=@{@"planning":@"正在规划路线",@"rerouting":@"正在重新规划",@"weak":@"定位信号弱",@"stale":@"指引暂未更新",@"arrived":@"已到达目的地",@"stopped":@"导航已停止",@"error":@"导航暂不可用"};
+    NSDictionary *titles=@{@"ready":@"路线已准备，请点击开始",@"waiting":@"等待定位与首条导航指引",@"invalid":@"导航数据暂不可用",@"planning":@"正在规划路线",@"rerouting":@"正在重新规划",@"weak":@"定位信号弱",@"stale":@"指引暂未更新",@"arrived":@"已到达目的地",@"stopped":@"导航已停止",@"error":@"导航暂不可用"};
     BOOL running=[phase isEqual:@"navigating"];NSString *title=running?TIONavTurn(icon):(titles[phase]?:@"请查看手机");
     NSString *detail=running?(road.length?[@"进入 " stringByAppendingString:road]:@"按照道路实际指示通行"):@"请查看手机，勿依赖旧指引";
     NSString *summary=running?[NSString stringWithFormat:@"剩余 %@ · %@",Distance(remaining),seconds>=0?[NSString stringWithFormat:@"约 %ld 分钟",(long)MAX(1,(NSInteger)ceil(seconds/60.0))]:@"时间待更新"]:@"";

@@ -15,6 +15,7 @@ import zipfile
 BUNDLE = "com.duriea.turboio.research"
 HTTP_POLICY = "turboio-http-any-ip-v1"
 AMAP_POLICY = "turboio-amap-navi-11.3.100-search-9.8.1-v1"
+MAPKIT_POLICY = "turboio-mapkit-foreground-v1"
 AMAP_RESOURCES = ("AMap.bundle", "AMapNavi.bundle", "AMapSearch.bundle")
 FINE_GRAINED_ATS_KEYS = (
     "NSAllowsArbitraryLoadsForMedia",
@@ -105,6 +106,7 @@ def prepare(app, addon, out, node, amap_sdk_root=None, navigation_background=Fal
     addon_bytes = addon.read_bytes()
     validate_http_addon(addon_bytes)
     amap_enabled = validate_amap_addon(addon_bytes, amap_sdk_root, navigation_background)
+    mapkit_enabled = MAPKIT_POLICY.encode() + b"\0" in addon_bytes
     experimental_symbols = [b"_TIOOTAFlashBuild", b"_TNVStart", b"_TMMusicConsume", b"_TFFocusConsume", b"_TIOOpenLocalTranslation"]
     if any(symbol in addon_bytes for symbol in experimental_symbols):
         raise ValueError("Only ordinary addon supported; no firmware/translation experimental modules")
@@ -137,8 +139,8 @@ def prepare(app, addon, out, node, amap_sdk_root=None, navigation_background=Fal
     if amap_enabled:
         subprocess.run([node, str(resource_tool), "--sdk-root", str(sdk_root), "--app", str(prepared)], check=True)
     updated = local_http_info(plistlib.loads(plist.read_bytes()))
-    if amap_enabled:
-        updated = navigation_info(updated, navigation_background)
+    if amap_enabled or mapkit_enabled:
+        updated = navigation_info(updated, navigation_background if amap_enabled else False)
     with open(plist, "wb") as stream:
         plistlib.dump(updated, stream)
     subprocess.run(["/usr/bin/plutil", "-lint", str(plist)], check=True)
@@ -176,6 +178,8 @@ def prepare(app, addon, out, node, amap_sdk_root=None, navigation_background=Fal
         "macos_metadata_entries": 0,
         "no_keys_or_models_bundled": True,
         "no_device_install_or_firmware_write": True,
+        "mapkit_enabled": mapkit_enabled,
+        "mapkit_foreground_only": mapkit_enabled,
         "amap_enabled": amap_enabled,
         "amap_build_policy": AMAP_POLICY if amap_enabled else None,
         "amap_resource_bundles": resources,

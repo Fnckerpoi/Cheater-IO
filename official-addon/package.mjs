@@ -31,6 +31,11 @@ export function validateResearchPair(symbols, kind, firmware) {
   if(kind==='TMU1' && (!Buffer.isBuffer(firmware)||firmware.length!==9468398||
     createHash('sha256').update(firmware).digest('hex')!=='307a0d41aa76b3ed91a8fcc07b09329d76d78a51584c9954c7896d64b1ad9a81'))throw Error('tmu1_firmware_identity_mismatch');
 }
+export function mapkitLocationInfo(info,symbols) {
+  const result=structuredClone(info);
+  if(symbols.includes("_TIOMapKitBuildPolicy")&&!result.NSLocationWhenInUseUsageDescription)result.NSLocationWhenInUseUsageDescription="仅在你主动开启地图定位及 MapKit 前台导航时使用位置；停止或退后台即结束。";
+  return result;
+}
 export function entitlementsFor(p,o) {
   if(!Array.isArray(p.certs)||!p.certs.includes(o.identity.toUpperCase())||!Array.isArray(p.devices)||!p.devices.includes(o.device)||!(Date.parse(p.expires)>Date.now()))throw Error('profile_identity_device_or_expiry_mismatch');
   const e=structuredClone(p.entitlements), appID=e?.['application-identifier'];
@@ -77,6 +82,12 @@ print(json.dumps({'entitlements':p['Entitlements'],'expires':p['ExpirationDate']
   run(process.execPath,[path.join(here,'macho-embed.mjs'),source,app,o.addon,o.bundle]);
   if(focusEdition){
     fs.cpSync(path.join(here,'focus-edition/TurboIOArt'),path.join(app,'TurboIOArt'),{recursive:true,errorOnExist:true,force:false});
+  }
+  if(symbols.includes("_TIOMapKitBuildPolicy")){
+    const plist=path.join(app,"Info.plist");
+    const info=JSON.parse(run("plutil",["-convert","json","-o","-",plist],{encoding:"utf8"}));
+    const configured=mapkitLocationInfo(info,symbols);
+    if(!info.NSLocationWhenInUseUsageDescription)run("plutil",["-insert","NSLocationWhenInUseUsageDescription","-string",configured.NSLocationWhenInUseUsageDescription,plist]);
   }
   copyTranslationResources(translationResources,app);
   if(translationResources){

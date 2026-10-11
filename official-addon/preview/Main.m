@@ -7,6 +7,9 @@
 @end
 #import "HomeTabFixture.h"
 #import "../NavigationUI.h"
+#if TIO_MAPKIT_ENABLED
+#import "../mapkit-navigation/MapKitNavigation.h"
+#endif
 #import "../ManualHUD.h"
 #import "../SubtitleHUD.h"
 extern UITabBarController *TIOCreateResearchPreview(void);
@@ -36,6 +39,9 @@ extern void TIOProtocolRuntimeFixture(void);
         NSArray *args=NSProcessInfo.processInfo.arguments;NSUInteger tabArg=[args indexOfObject:@"--tab"];
         if(tabArg!=NSNotFound&&tabArg+1<args.count)tabs.selectedIndex=MIN(3,MAX(0,[args[tabArg+1] integerValue]));
         UINavigationController *nav=(id)tabs.selectedViewController;
+        #if TIO_MAPKIT_ENABLED
+        if([args containsObject:@"--mapkit-navigation"]){UIViewController *page=TIOMapKitNavigationController();[nav pushViewController:page animated:NO];[page loadViewIfNeeded];}
+        #endif
         if([args containsObject:@"--manual-hud"])[nav pushViewController:TIOManualHUDController() animated:NO];
         if([args containsObject:@"--subtitle-hud"])[nav pushViewController:TIOSubtitleHUDController() animated:NO];
         if([args containsObject:@"--navigation-transport-test"])dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{TIONavRunTransportFixture();});
