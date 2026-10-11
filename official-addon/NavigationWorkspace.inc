@@ -37,7 +37,7 @@
     UILabel *preview=[self navLabel:@"文字内容预览，非镜片截图；实际排版由眼镜决定。" size:11 weight:UIFontWeightRegular];preview.textColor=UIColor.secondaryLabelColor;[self.lensCard addArrangedSubview:preview];
     self.lensButton=[self navAction:@"开启眼镜字幕显示" icon:@"eyeglasses" selector:@selector(toggleLens) primary:NO];self.lensButton.accessibilityIdentifier=@"navigation-subtitle-enable";[self.lensCard addArrangedSubview:self.lensButton];
     self.stopButton=[self navAction:@"结束导航" icon:@"stop.fill" selector:@selector(stopUser) primary:YES];UIButtonConfiguration *stopConfig=self.stopButton.configuration;stopConfig.baseBackgroundColor=UIColor.systemRedColor;self.stopButton.configuration=stopConfig;self.stopButton.accessibilityIdentifier=@"navigation-stop";self.stopButton.translatesAutoresizingMaskIntoConstraints=NO;[self.view addSubview:self.stopButton];[NSLayoutConstraint activateConstraints:@[[self.stopButton.leadingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.leadingAnchor constant:16],[self.stopButton.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-16],[self.stopButton.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-8]]];
-    UILabel *foot=[self navLabel:@"支持步行、骑行、驾车，分别使用对应高德路线。手机实时导航在定位授权及location后台模式就绪后可退后台；眼镜字幕仅开放前台模拟验收，4分钟保护。后台与实际道路可靠性仍待测试，请勿边驾驶边操作。诊断和备用通道在右上角“更多”。" size:12 weight:UIFontWeightRegular];foot.textColor=UIColor.secondaryLabelColor;[self.stack addArrangedSubview:foot];
+    UILabel *foot=[self navLabel:@"支持步行、骑行、驾车，分别使用对应高德路线。手机实时导航在定位授权及location后台模式就绪后可退后台；眼镜字幕支持前台模拟和实时指引，4分钟/80帧研究保护。后台与实际道路可靠性仍待测试，请勿边驾驶边操作。诊断和备用通道在右上角“更多”。" size:12 weight:UIFontWeightRegular];foot.textColor=UIColor.secondaryLabelColor;[self.stack addArrangedSubview:foot];
 }
 - (void)refreshWorkspace{
     if(!self.planButton)return;BOOL running=self.active&&!self.planning&&!self.routeReady;
@@ -58,10 +58,11 @@
     NSDictionary *s=self.subtitleHUD.status,*runtime=TIOSubtitleNavigationStatus();BOOL on=[s[@"enabled"] boolValue];
     UIButtonConfiguration *lens=self.lensButton.configuration;lens.title=on?@"停止眼镜显示（保留手机导航）":@"开启眼镜字幕显示";self.lensButton.configuration=lens;
     self.lensButton.enabled=on||[self canStartSubtitle];
-    self.lensStatus.text=on?[NSString stringWithFormat:@"%@ · 已提交 %@ 帧（非镜片回执）",s[@"note"],s[@"frames"]]:[NSString stringWithFormat:@"%@\n%@",s[@"note"]?:@"尚未开启",[runtime[@"available"] boolValue]?@"字幕格式已就绪 · 需确认眼镜空闲":@"等待当前眼镜连接或兼容配置；无需每次预览"];
+    NSString *blocked=[self subtitleBlockReason];
+    self.lensStatus.text=on?[NSString stringWithFormat:@"%@ · 已提交 %@ 帧（非镜片回执）",s[@"note"],s[@"frames"]]:[NSString stringWithFormat:@"nav-subtitle-v3\n%@\n%@\n%@",s[@"note"]?:@"尚未开启",blocked?:@"可开启；等待状态不提供转向/距离",[runtime[@"available"] boolValue]?@"字幕格式已就绪 · 需确认眼镜空闲":@"等待当前眼镜连接或兼容配置；无需每次预览"];
     if(!running)self.hudLabel.text=self.planning?@"正在规划路线…":self.routeReady?@"路线已就绪\n点击开始后产生指引":@"等待导航指引\n\n转向 · 距离 · 道路";
 }
-- (void)modeChanged{if(![self prepareForSelection])return;self.mapPickRole.selectedSegmentIndex=0;self.routeSummary.text=@"尚未规划路线";self.note=self.travelMode.selectedSegmentIndex==0?@"模拟起点单独保存：切换“选模拟起点”后点地图。":@"实时导航使用手机位置；眼镜字幕暂仅开放模拟。请勿边驾驶边操作。";[self refresh];}
+- (void)modeChanged{if(![self prepareForSelection])return;self.mapPickRole.selectedSegmentIndex=0;self.routeSummary.text=@"尚未规划路线";self.note=self.travelMode.selectedSegmentIndex==0?@"模拟起点单独保存：切换“选模拟起点”后点地图。":@"实时导航使用手机位置；开始后可手动开启眼镜字幕，需保持手机前台，仅作研究辅助，不替代实际路况。请勿边驾驶边操作。";[self refresh];}
 - (void)transportModeChanged{
     NSInteger mode=self.transportMode.selectedSegmentIndex;if(!TIONavigationModeTitle(mode)||!TIONavigationMayChangeMode(self.active,self.routeReady)){self.transportMode.selectedSegmentIndex=self.selectedTransport;[self alert:@"请先结束当前导航" message:@"结束后再切换出行方式，不会使用旧模式路线。"] ;return;}
     if(![self prepareForSelection])return;self.selectedTransport=mode;self.routeReady=NO;self.routeSummary.text=@"出行方式已更改，请重新规划";
@@ -79,7 +80,7 @@
     self.backgroundLocationEnabled=!self.simulated&&[self navigationLocationModeAvailable]&&[self navigationLocationAuthorized];
     self.manager.allowsBackgroundLocationUpdates=self.backgroundLocationEnabled;
     self.manager.pausesLocationUpdatesAutomatically=!self.backgroundLocationEnabled;
-    BOOL ok=self.simulated?[self.manager startEmulatorNavi]:[self.manager startGPSNavi];if(!ok){[self fail:@"导航启动失败，可停止后重新规划"];return;}self.routeReady=NO;self.navigationStarted=YES;self.lastInfo=NSProcessInfo.processInfo.systemUptime;self.note=self.simulated?@"模拟已开始；可单独开启眼镜显示，不会自动抢占眼镜。":(self.backgroundLocationEnabled?@"实时导航已开始，可退后台或锁屏；不要强退App。请以手机地图及实际路况为准。":@"实时导航已开始，但宿主缺少location后台模式，只能前台运行。");[self refresh];
+    BOOL ok=self.simulated?[self.manager startEmulatorNavi]:[self.manager startGPSNavi];if(!ok){[self fail:@"导航启动失败，可停止后重新规划"];return;}self.routeReady=NO;self.navigationStarted=YES;self.lastInfo=0;self.staleShown=NO;if(!self.simulated)[self setFrame:TIONavSubtitleHoldingFrame(@"waiting")];self.note=self.simulated?@"模拟已开始；可单独开启眼镜显示，不会自动抢占眼镜。":(self.backgroundLocationEnabled?@"实时导航已开始，可退后台或锁屏；不要强退App。请以手机地图及实际路况为准。":@"实时导航已开始，但宿主缺少location后台模式，只能前台运行。");[self refresh];
 #endif
 }
 - (void)toggleLens{if([self.subtitleHUD.status[@"enabled"] boolValue]){[self.subtitleHUD stop:@"用户停止眼镜显示，手机导航继续"];[self refresh];}else [self enableSubtitleHUD];}
@@ -163,7 +164,7 @@
     [self startFixture];
 #endif
 }
-- (void)showDiagnostic{[self refresh];NSMutableArray *resources=[NSMutableArray new];for(NSString *name in @[@"AMap",@"AMapNavi",@"AMapSearch"])[resources addObject:[NSString stringWithFormat:@"%@：%@",name,[NSBundle.mainBundle pathForResource:name ofType:@"bundle"]?@"已打包":@"未打包"]];[self alert:@"导航状态 · v4" message:[NSString stringWithFormat:@"Bundle ID（Key须绑定此值）：%@\n资源：%@\nlocation后台模式：%@\n%@",NSBundle.mainBundle.bundleIdentifier?:@"未知",[resources componentsJoinedByString:@" / "],[self navigationLocationModeAvailable]?@"已声明":@"未声明（仅前台）",self.statusLabel.text]];}
+- (void)showDiagnostic{[self refresh];NSMutableArray *resources=[NSMutableArray new];for(NSString *name in @[@"AMap",@"AMapNavi",@"AMapSearch"])[resources addObject:[NSString stringWithFormat:@"%@：%@",name,[NSBundle.mainBundle pathForResource:name ofType:@"bundle"]?@"已打包":@"未打包"]];self.statusLabel.text=[self.statusLabel.text stringByAppendingFormat:@"\n门禁：%@",[self subtitleGateDiagnostic]];[self alert:@"导航状态 · v5 中性续显" message:[NSString stringWithFormat:@"Bundle ID（Key须绑定此值）：%@\n资源：%@\nlocation后台模式：%@\n%@",NSBundle.mainBundle.bundleIdentifier?:@"未知",[resources componentsJoinedByString:@" / "],[self navigationLocationModeAvailable]?@"已声明":@"未声明（仅前台）",self.statusLabel.text]];}
 - (void)navigationMore{
     UIAlertController *a=[UIAlertController alertControllerWithTitle:@"导航设置与诊断" message:@"主要流程留在地图页；实验入口不会自动执行。" preferredStyle:UIAlertControllerStyleActionSheet];
     NSArray *items=@[@[@"字幕格式与退出检查",@"subtitleCheck"],@[@"北京演示路线",@"demoRoute"],@[@"路线详情",@"routeDetails"],@[@"读取连接状态",@"refreshConnection"],@[@"详细诊断",@"showDiagnostic"],@[@"高德 Key 设置",@"configureKey"],@[@"备用显示通道",@"fallbackMenu"]];

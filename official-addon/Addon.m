@@ -7,6 +7,9 @@
 #import "Core.h"
 #import "EndpointPolicy.h"
 #import "NavigationUI.h"
+#if TIO_MAPKIT_ENABLED
+#import "mapkit-navigation/MapKitNavigation.h"
+#endif
 #import "Profile.h"
 #import "ProfileUI.h"
 #import "RecordingExports.h"
@@ -320,6 +323,9 @@ static void AlwaysOnHook(id self,SEL cmd,id value) {
     if([r[@"key"] isEqual:@"history"])c.detailTextLabel.text=[c.detailTextLabel.text stringByAppendingString:@" · 点此管理清空"];
     if(section==-1)c.detailTextLabel.text=@[@"本机音频 / TXT / Markdown · AirDrop与文件",@"导入或粘贴转写，确认后交给自有模型",@"导出 Markdown 或整理已保存文字",@"明确开启保存后，查看与分享音频副本"][row];
     if([r[@"key"] isEqual:@"navigation"])c.detailTextLabel.text=@"高德搜索 / 地图选点 / 步行模拟 → 眼镜常亮文字；需自备iOS Key";
+#if TIO_MAPKIT_ENABLED
+    if([r[@"key"] isEqual:@"mapkitNavigation"])c.detailTextLabel.text=@"Apple 路线 / OSM 线框预览；眼镜 HUD 需兼容 TDP1，第一阶段仅前台";
+#endif
     if([r[@"key"] isEqual:@"archive"])c.detailTextLabel.text=@"一次导出 Markdown 与 JSON";
     if([r[@"key"] isEqual:@"capture"])c.detailTextLabel.text=@"只保存之后的智记文字，不启动麦克风";
     if([r[@"key"] isEqual:@"status"])c.accessoryType=UITableViewCellAccessoryNone;
@@ -447,6 +453,9 @@ static void AlwaysOnHook(id self,SEL cmd,id value) {
     if([r[@"key"] isEqual:@"ttsKey"]){[self configureTTS];return;}
     if([r[@"key"] isEqual:@"ttsTest"]){[self testTTS];return;}
     if([r[@"key"] isEqual:@"navigation"]){[self.navigationController pushViewController:TIONavigationController() animated:YES];return;}
+#if TIO_MAPKIT_ENABLED
+    if([r[@"key"] isEqual:@"mapkitNavigation"]){[self.navigationController pushViewController:TIOMapKitNavigationController() animated:YES];return;}
+#endif
 #if TIO_OTA_RESEARCH_ENABLED
     #if TIO_NATIVE_NAV
     if([r[@"key"] isEqual:@"displayPhone"]){[self.navigationController pushViewController:TDPPhoneController() animated:YES];return;}

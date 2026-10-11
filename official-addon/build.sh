@@ -84,6 +84,15 @@ case "${TIO_LOCAL_HTTP_ENABLED:-0}" in
     ;;
   *) echo 'TIO_LOCAL_HTTP_ENABLED must be 0 or 1' >&2; exit 2 ;;
 esac
+source ./mapkit-build-config.sh
+if [[ ${TIO_MAPKIT_ENABLED:-0} == 1 ]]; then
+  variant=mapkit
+  [[ ${TIO_AMAP_ENABLED:-0} == 1 ]] && variant+=-amap
+  [[ ${TIO_LOCAL_HTTP_ENABLED:-0} == 1 ]] && variant+=-http
+  [[ ${TIO_MAPKIT_HUD_ENABLED:-0} == 1 ]] && variant+=-hud
+  output="build/$variant/TurboIOPrivateAddon.dylib"
+  mkdir -p "$(dirname "$output")"
+fi
 link_options=()
 # Opt-in diagnostic for the iOS 16 jailbreak injector's chained-fixup stall.
 # Keep the normal embedded build unchanged until the device comparison passes.
@@ -93,12 +102,13 @@ fi
 xcrun --sdk iphoneos clang -arch arm64 -isysroot "$sdk_path" -miphoneos-version-min=16.0 \
   -fobjc-arc -fmodules -dynamiclib -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types \
   -framework Foundation -framework UIKit -framework Security -framework UniformTypeIdentifiers -framework CoreLocation -framework AVFAudio \
+  ${mapkit_options[@]+"${mapkit_options[@]}"} ${mapkit_sources[@]+"${mapkit_sources[@]}"} \
   ${nav_options[@]+"${nav_options[@]}"} ${local_http_options[@]+"${local_http_options[@]}"} \
   ${ota_options[@]+"${ota_options[@]}"} ${ota_sources[@]+"${ota_sources[@]}"} \
   ${native_options[@]+"${native_options[@]}"} ${native_sources[@]+"${native_sources[@]}"} \
   ${music_options[@]+"${music_options[@]}"} ${music_sources[@]+"${music_sources[@]}"} \
   ${caption_options[@]+"${caption_options[@]}"} ${caption_sources[@]+"${caption_sources[@]}"} \
-  NavigationModes.m ProtocolContext.m NavigationSubtitleHUD.m NavigationPlaces.m NavigationPlacePicker.m A2UIProtocol.m NavigationCore.m NavigationTeleHUD.m NavigationTransport.m "$navigation_ui" ManualHUD.m "$subtitle_core" "$subtitle_runtime" \
+  NavigationSession.m NavigationModes.m ProtocolContext.m NavigationSubtitleHUD.m NavigationPlaces.m NavigationPlacePicker.m A2UIProtocol.m NavigationCore.m NavigationTeleHUD.m NavigationTransport.m "$navigation_ui" ManualHUD.m "$subtitle_core" "$subtitle_runtime" \
   "-DTIO_TARGET_BUNDLE_ID=\"$bundle\"" -install_name "$install_name" "${link_options[@]}" \
   Core.m Profile.m KnowledgeClient.m KnowledgeUI.m ProfileUI.m HomeTabLayout.m HomeTabBridge.m ResearchCatalog.m ResearchUI.m NewsPresentation.m PrivateBootstrap.m VoiceTTSCore.m VoiceTTS.m WebSearch.m TodoProtocol.m TodoRuntime.m NewsCore.m NewsReader.m NewsTeleprompter.m RecordingExports.m RecordingExportsUI.m RecordingExportsMenu.m RecordingText.m RecordingTextUI.m RecordingTextMenu.m AlwaysOnAudioFiles.m AlwaysOnOgg.m AlwaysOnAudioNative.m AlwaysOnAudioUI.m Addon.m -o "$output"
 codesign --force --sign - "$output"

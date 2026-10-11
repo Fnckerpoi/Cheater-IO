@@ -6,8 +6,11 @@ NSString *TIOSubtitleNavigationStart(void);
 BOOL TIOSubtitleNavigationText(NSString *sid,NSString *text);
 void TIOSubtitleNavigationStop(NSString *sid,NSString *reason);
 NSString *TIONavSubtitleText(NSDictionary *frame);
+NSDictionary *TIONavSubtitleHoldingFrame(NSString *phase); // Real AMap: no turn, road or distance.
+BOOL TIONavSubtitleIsHolding(NSDictionary *frame);
 @interface TIONavSubtitleHUD:NSObject
 @property(readonly) NSDictionary *status;
+- (instancetype)initWithFrameFormatter:(NSString *(^)(NSDictionary *))formatter;
 - (BOOL)startWithFrame:(NSDictionary *)frame at:(NSTimeInterval)now;
 - (void)offer:(NSDictionary *)frame at:(NSTimeInterval)now;
 - (void)pumpAt:(NSTimeInterval)now;

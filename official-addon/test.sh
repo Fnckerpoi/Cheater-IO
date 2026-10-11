@@ -65,6 +65,7 @@ xcrun clang -fobjc-arc -fmodules -Wall -Wextra -framework Foundation SubtitleHUD
 ./build/subtitle-hud-tests
 xcrun clang -fobjc-arc -fmodules -Wall -Wextra -Wno-incompatible-pointer-types -framework Foundation A2UIProtocol.m NavigationCore.m SubtitleHUDCore.m NavigationSubtitleHUD.m NavigationSubtitleHUDTests.m -o build/navigation-subtitle-tests
 ./build/navigation-subtitle-tests
+bash ./navigation-subtitle-test.sh
 xcrun clang -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -Wno-incompatible-pointer-types -framework Foundation A2UIProtocol.m NavigationCore.m NavigationCoreTests.m -o build/navigation-core-tests
 ./build/navigation-core-tests
 xcrun clang -fobjc-arc -fmodules -Wall -Wextra -Wno-incompatible-pointer-types -framework Foundation A2UIProtocol.m NavigationCore.m NavigationPlaces.m NavigationPlacesTests.m -o build/navigation-places-tests
@@ -73,3 +74,4 @@ xcrun clang -fobjc-arc -fmodules -Wall -Wextra -Wno-unused-parameter -Wno-incomp
 ./build/navigation-tele-tests
 xcrun clang -fobjc-arc -fmodules -Wno-incompatible-pointer-types -framework Foundation A2UIProtocol.m A2UIProtocolTests.m -o build/a2ui-protocol-tests
 ./build/a2ui-protocol-tests
+bash ./mapkit-test.sh

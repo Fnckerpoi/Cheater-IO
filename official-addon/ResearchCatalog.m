@@ -15,7 +15,11 @@ NSArray<NSDictionary *> *TIOResearchSections(NSString *page){
 #if TIO_MUSIC
         @{@"title":@"音乐随行",@"rows":@[Row(@"music",@"网易云音乐 · 第十项菜单",@"music.note",-2,20)]},
 #endif
-        @{@"title":@"地图与眼镜导航",@"rows":@[Row(@"navigation",@"步行 / 骑行 / 驾车导航",@"map",-3,0)]},
+        @{@"title":@"地图与眼镜导航",@"rows":@[Row(@"navigation",@"高德导航 · 实验",@"map",-3,0)
+#if TIO_MAPKIT_ENABLED
+        ,Row(@"mapkitNavigation",@"MapKit 导航 · 实验",@"map.fill",-3,1)
+#endif
+]},
         @{@"title":@"录音与整理",@"rows":@[Row(@"recordings",@"录音与文件分享",@"waveform",-1,0),Row(@"summary",@"转写文字整理",@"text.badge.star",-1,1)]},
         @{@"title":@"全天智记",@"rows":@[Row(@"lifelogText",@"已保存文字",@"doc.text",-1,2),Row(@"lifelogAudio",@"音频保存与分享",@"waveform.circle",-1,3),Row(@"capture",@"保存之后的最终文字",@"square.and.arrow.down",1,0),Row(@"archive",@"导出文字归档",@"square.and.arrow.up",1,1)]}];
     if([page isEqual:@"diagnostics"])return @[
