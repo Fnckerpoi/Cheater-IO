@@ -45,7 +45,7 @@ extern UITabBarController *TIOCreateResearchPreview(void);
 }
 - (UIView *)bar{for(UIView *v in self.view.window.subviews)if([v.accessibilityIdentifier isEqual:@"turboio-official-home-tabs"])return v;return nil;}
 - (void)runTests{
-    UIView *bar=[self bar];NSCAssert(bar&&!bar.hidden,@"Valid four-item semantics creates native bridge");NSMutableArray *buttons=[NSMutableArray new];for(UIView *v in bar.subviews)if([v isKindOfClass:UIButton.class])[buttons addObject:v];NSCAssert(buttons.count==5,@"Four original tabs plus TurboIO");
+    UIView *bar=[self bar];NSCAssert(bar&&!bar.hidden,@"Valid four-item semantics creates native bridge");NSMutableArray *buttons=[NSMutableArray new];for(UIView *v in bar.subviews)if([v isKindOfClass:UIButton.class])[buttons addObject:v];NSCAssert(buttons.count==6,@"Four original tabs plus TurboIO and independent navigation");
     NSCAssert(CGColorGetAlpha(bar.backgroundColor.CGColor)==0,@"Bar must not paint an opaque white rectangle");
     UIVisualEffectView *glass=nil;for(UIView *v in bar.subviews)if([v isKindOfClass:UIVisualEffectView.class])glass=(id)v;
     NSCAssert(glass&&!glass.userInteractionEnabled,@"Glass cannot intercept tab actions");
@@ -65,10 +65,22 @@ extern UITabBarController *TIOCreateResearchPreview(void);
     self.overrideUserInterfaceStyle=original;
     for(NSUInteger i=0;i<4;i++)NSCAssert([((UIButton *)buttons[i]).configuration.title isEqual:self.nodes[i].accessibilityLabel],@"Current official names preserved");
     for(NSUInteger i=0;i<4;i++){[(UIButton *)buttons[i] sendActionsForControlEvents:UIControlEventTouchUpInside];NSCAssert((self.nodes[i].accessibilityTraits&UIAccessibilityTraitSelected)!=0,@"Original action reached");}
-    [(UIButton *)buttons[4] sendActionsForControlEvents:UIControlEventTouchUpInside];NSCAssert([self.presentedViewController isKindOfClass:UITabBarController.class],@"TurboIO opens real research UI");
-    UITabBarController *tabs=(id)self.presentedViewController;TIOCloseResearch(tabs);
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{NSCAssert(!self.presentedViewController,@"Close returns to same official host");[self writePass];});
+    [(UIButton *)buttons[5] sendActionsForControlEvents:UIControlEventTouchUpInside];NSCAssert([self.presentedViewController isKindOfClass:UINavigationController.class],@"Navigation shortcut opens standalone native page");
+    UINavigationController *navigation=(id)self.presentedViewController;NSCAssert(navigation.topViewController.navigationItem.leftBarButtonItem!=nil,@"Standalone page can return home without ending live route");
+    NSCAssert([[navigation.topViewController valueForKey:@"travelMode"] isHidden],@"Normal entry hides simulation picker");
+    UIViewController *page=navigation.topViewController;UIScrollView *scroll=[page valueForKey:@"scroll"];NSMutableArray *views=[NSMutableArray arrayWithObject:scroll];BOOL openMapButton=NO,planRouteButton=NO;NSUInteger positionButtons=0;while(views.count){UIView *v=views.lastObject;[views removeLastObject];[views addObjectsFromArray:v.subviews];if([v isKindOfClass:UIButton.class]){NSString *title=((UIButton *)v).configuration.title?:[(UIButton *)v titleForState:UIControlStateNormal];if([title isEqual:@"开启地图"])openMapButton=YES;if([title isEqual:@"规划路线"])planRouteButton=YES;if([title isEqual:@"我的位置"])positionButtons++;}}NSCAssert(!openMapButton&&!planRouteButton&&positionButtons==1,@"Map-open and plan controls removed, one my-position retry retained");
+    // Wait for the production animated shortcut presentation to complete.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{
+        [navigation dismissViewControllerAnimated:NO completion:^{
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC/3),dispatch_get_main_queue(),^{
+                [(UIButton *)buttons[0] sendActionsForControlEvents:UIControlEventTouchUpInside];
+                [(UIButton *)buttons[4] sendActionsForControlEvents:UIControlEventTouchUpInside];NSCAssert([self.presentedViewController isKindOfClass:UITabBarController.class],@"TurboIO opens real research UI");
+                UITabBarController *tabs=(id)self.presentedViewController;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{TIOCloseResearch(tabs);dispatch_after(dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC),dispatch_get_main_queue(),^{NSCAssert(!self.presentedViewController,@"Close returns to same official host");[self writePass];});});
+            });
+        }];
+    });
 }
-- (void)writePass{[@"PASS: fixed dark bar under light/dark hosts, dark background, readable icons, subtle outline, four original handlers, fifth research tab, same-host return; mock semantics only" writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/home-tabs-ui-pass.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];}
+- (void)writePass{[@"PASS: fixed dark bar under light/dark hosts, dark background, readable icons, subtle outline, four original handlers, fifth research tab + sixth standalone navigation, realtime-only page, same-host return; mock semantics only" writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/home-tabs-ui-pass.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];}
 @end
 UIViewController *TIOHomeTabFixture(void){return [FlutterViewController new];}

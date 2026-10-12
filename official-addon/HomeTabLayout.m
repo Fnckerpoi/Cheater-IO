@@ -1,5 +1,7 @@
 #import "HomeTabLayout.h"
 #include <math.h>
+NSArray<NSString *> *TIOHomeOverlayNames(void){return @[@"RayNeo",@"眼镜",@"记忆",@"发现",@"TurboIO",@"导航"];}
+NSUInteger TIOHomeOverlaySlotCount(void){return TIOHomeOverlayNames().count;}
 static NSArray<NSArray<NSString *> *> *TabNamesBySlot(void){
     return @[@[@"RayNeo"],@[@"眼镜"],@[@"记忆",@"回忆"],@[@"发现",@"探索"]];
 }
@@ -50,5 +52,5 @@ NSDictionary *TIOHomeTabLayout(NSArray<NSDictionary *> *nodes,double w,double h,
     if(maxY-minY>24)return nil;
     // Matches the observed official capsule, leaving its page/assistant above
     // untouched. Never resize Flutter's rendering surface or intercept it.
-    return @{@"x":@24,@"y":@(h-inset-64),@"width":@(w-48),@"height":@58,@"items":sorted};
+    return @{@"x":@8,@"y":@(h-inset-64),@"width":@(w-16),@"height":@58,@"items":sorted};
 }

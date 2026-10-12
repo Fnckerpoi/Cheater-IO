@@ -12,8 +12,10 @@ NSDictionary *TIOSubtitleStopContract(NSDictionary *observed,NSString *previewSI
 @property NSUInteger frame, audioPackets;
 @property NSTimeInterval began, deadline, lastText;
 @property(readonly) BOOL navigation;
+@property(readonly) BOOL routeScoped;
 - (BOOL)startWithPreview:(NSDictionary *)preview stop:(NSDictionary *)stop now:(NSTimeInterval)now;
 - (BOOL)startNavigationWithPreview:(NSDictionary *)preview stop:(NSDictionary *)stop now:(NSTimeInterval)now;
+- (BOOL)startRouteWithPreview:(NSDictionary *)preview stop:(NSDictionary *)stop now:(NSTimeInterval)now;
 - (BOOL)sendNavigationText:(NSString *)text now:(NSTimeInterval)now;
 - (BOOL)nextAt:(NSTimeInterval)now;
 - (void)receive:(NSDictionary *)envelope now:(NSTimeInterval)now;

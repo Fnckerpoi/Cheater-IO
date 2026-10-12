@@ -1,0 +1,51 @@
+{
+  "summary": "R5修复同进程二次导航自动显示：本次前台开始的新显式镜片空闲确认可恢复本扩展上一条已停止routeScoped会话，运行中/未知/其它会话不清空。导航页在已有Key与隐私同意下自动加载地图，拒绝不循环弹、不自动GPS。覆盖底栏保留原四官方semantics点击及固定深色，TurboIO旁新增第六导航快捷入口到独立原生页；普通页仅实时步行/骑行/驾车，移除模拟验收/演示/模拟起点及备用实验菜单。保留R4用户已通过的持续/后台/结束链。研究已核对高德官方App URI与iOS Link合作授权/导航数据回传，当前仍传统AMapNaviKit，未实现合作SDK或跨App采集。",
+  "changedFiles": [
+    "official-addon/NavigationAutoDisplay.inc",
+    "official-addon/NavigationAutoDisplayTests.m",
+    "official-addon/SubtitleHUD.m",
+    "official-addon/SubtitleHUDConfirmIdle.inc",
+    "official-addon/SubtitleRestartTests.m",
+    "official-addon/NavigationMapEntry.inc",
+    "official-addon/NavigationMapEntryTests.m",
+    "official-addon/NavigationUI.m",
+    "official-addon/NavigationUI.h",
+    "official-addon/NavigationWorkspace.inc",
+    "official-addon/HomeTabLayout.h",
+    "official-addon/HomeTabLayout.m",
+    "official-addon/HomeTabLayoutTests.m",
+    "official-addon/HomeTabBridge.m",
+    "official-addon/preview/HomeTabFixture.m",
+    "official-addon/preview/Main.m",
+    "official-addon/navigation-subtitle-test.sh",
+    "official-addon/docs/NAVIGATION_R5.md",
+    "official-addon/docs/ROUTE_R4.md",
+    "official-addon/docs/AMAP_APP_NAVIGATION_OPTIONS.md"
+  ],
+  "checks": [
+    "二次导航restart红测试exit134复现，修复后actual auto include与actual confirm/Core三轮fresh SID通过；starting/ready/非routeScoped未知不能清空",
+    "production map entry tests：key+隐私授权前台可见加载一次、未同意不自动agree、missing key/offscreen/background不加载、不GPS",
+    "HomeTabLayout六项300/320/390/420pt触摸区>=44pt，原官方四标签/布局fail-closed测试通过",
+    "真实UIKit production HomeTabBridge + synthetic semantics：固定深色两主题、原四click、TurboIO、独立第六navigation隐藏模拟、动画关闭后回同宿主，最终report PASS",
+    "R4持续/后台/owner/原生Send/SDK顺序/停止等targeted全部通过",
+    "真实SDK arm64 final build + adhoc验签与UIKit preview final compile成功，有既有警告",
+    "15项资源/合并/签名Node测试通过；全量高德/HTTP/字幕/home通过，整体exit1为既有独立MapKit缺MapKitSubtitleHUD.m，不在此包",
+    "最终IPA ZIP/精确addon快照/单注入/三资源/版本+六入口+HTTP+RouteStart标记/location蓝牙/无private bootstrap或AppleDouble成功；git diff --check",
+    "独立研究子代理完成且主会话复核高德官方URI/AIoT/link-client/navi-data-listener一手文档"
+  ],
+  "artifacts": [
+    "/Users/duriea/Downloads/TurboIO-http-navigation-r5-20261011/TurboIO-HTTP-Navigation-unsigned.ipa",
+    "/Users/duriea/Downloads/TurboIO-http-navigation-r5-20261011/local-http-preparation.json",
+    "official-addon/build/navigation-r5-final/TurboIOPrivateAddon.dylib",
+    "official-addon/docs/NAVIGATION_R5.md",
+    "official-addon/docs/AMAP_APP_NAVIGATION_OPTIONS.md",
+    "official-addon/build/navigation-r5-targeted.log",
+    "official-addon/build/navigation-r5-regressions.log",
+    "official-addon/build/navigation-r5-final-build.log",
+    "official-addon/build/navigation-r5-preview-final.log",
+    "official-addon/build/navigation-r5-package-tests.log",
+    "official-addon/build/navigation-r5-final-six-tabs.png"
+  ],
+  "risk": "R4五项由用户真机确认，本轮R5重复启动/自动地图/六底栏需用户复测，未真机安装不刷固件。开始空闲确认仍需要本人真实观察，不能用软件发送成功当镜片退出ACK。正常页实时落地不等于安全导航认证，SDK/低电量/断连/OS杀进程长期可靠性未全验。高德App Link合作包/资格/授权/实际IPC尚未取得或验证，普通URI未发现连续回调，当前不宣称App同步实现。全量MapKit独立失败如实披露且不在包内。",
+  "reportReceipt": "taskboard_execution_report rejected; local structured fallback and task comment"
+}

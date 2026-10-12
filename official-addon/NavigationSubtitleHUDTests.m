@@ -8,11 +8,15 @@ static double Clock;
 static BOOL Pending;
 static NSUInteger Stops,RefreshEpoch;
 static BOOL Foreground=YES;
-NSDictionary *TIOSubtitleNavigationStatus(void){return @{@"sid":Trial.sid?:@"",@"navigation":@(Trial.navigation),@"phase":Trial.phase,@"pending":@(Pending),@"foreground":@(Foreground),@"refreshEpoch":@(RefreshEpoch)};}
+NSDictionary *TIOSubtitleNavigationStatus(void){return @{@"sid":Trial.sid?:@"",@"navigation":@(Trial.navigation),@"phase":Trial.phase,@"pending":@(Pending),@"foreground":@(Foreground),@"refreshEpoch":@(RefreshEpoch),@"routeScoped":@(Trial.routeScoped),@"backgroundAllowed":@(Trial.routeScoped)};}
 BOOL TIOSubtitleConfirmIdle(void){return YES;}
 NSString *TIOSubtitleNavigationStart(void){
     NSDictionary *p=@{@"sid":@"official",@"scope":@"temporary",@"force":@NO,@"config":@{@"is_display":@YES}};
     return [Trial startNavigationWithPreview:p stop:@{@"sid":@"official",@"reason_code":@10,@"text":@""} now:Clock]?Trial.sid:nil;
+}
+NSString *TIOSubtitleRouteStart(NSString *token){
+    if(![token isEqual:@"test-route"])return nil;NSDictionary *p=@{@"sid":@"official",@"scope":@"temporary",@"force":@NO,@"config":@{@"is_display":@YES}};
+    return [Trial startRouteWithPreview:p stop:@{@"sid":@"official",@"reason_code":@10,@"text":@""} now:Clock]?Trial.sid:nil;
 }
 BOOL TIOSubtitleNavigationText(NSString *sid,NSString *text){return [sid isEqual:Trial.sid]&&[Trial sendNavigationText:text now:Clock];}
 void TIOSubtitleNavigationStop(NSString *sid,NSString *reason){if([sid isEqual:Trial.sid]){Stops++;[Trial stop:reason now:Clock];}}
@@ -83,5 +87,14 @@ int main(void){@autoreleasepool{
     Reset();h=RunningFrame(Live(80));RefreshEpoch++;Trial.sid=@"foreign-overlay";Clock=104;[h pumpAt:Clock];assert(Stops==0&&! [h.status[@"enabled"] boolValue]); // notification hint cannot override SID ownership
     // Preserve the provider formatter seam introduced by the independent MapKit HUD work.
     Reset();h=[[TIONavSubtitleHUD alloc]initWithFrameFormatter:^NSString *(NSDictionary *f){return [f[@"provider"] isEqual:@"test"]?@"独立来源测试文字":nil;}];assert([h startWithFrame:@{@"provider":@"test"} at:Clock]);[Trial receive:@{@"type":@8,@"json":@{@"sid":Trial.sid,@"code":@1}} now:Clock];[h pumpAt:Clock];assert(Sent.count==2);[h offer:@{@"provider":@"test"} at:101];assert([h.status[@"enabled"] boolValue]);[h offer:@{@"provider":@"unknown"} at:102];assert(Stops==1);
-    NSLog(@"PASS: real neutral wait/weak/reroute/stale -> same-SID guidance recovery, bounded repaint and transient notification pause; simulation, ACK/rate/pending/foreign/audio/terminal/240s protections preserved. Mock transport, no SDK/device.");
+    Reset();h=[TIONavSubtitleHUD new];assert([h startRouteWithFrame:Live(80) token:@"test-route" at:Clock]);[Trial receive:@{@"type":@8,@"json":@{@"sid":Trial.sid,@"code":@1}} now:Clock];[h pumpAt:Clock];NSString *routeSID=Trial.sid;Foreground=NO;for(NSUInteger i=1;i<=100;i++){Clock=100+i*10;[h offer:Live(80) at:Clock];[Trial tick:Clock];[h pumpAt:Clock];}
+    NSCAssert([Trial.sid isEqual:routeSID]&&[h.status[@"enabled"] boolValue]&&Trial.frame>80,@"Real route must survive 240 seconds and 80 submitted frames without a new SID");
+    assert([Sent filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"type == 7"]].count==1);[h stop:@"路线结束"];assert(Stops==1);
+    Reset();h=[TIONavSubtitleHUD new];assert([h startRouteWithFrame:Live(80) token:@"test-route" at:Clock]);[Trial receive:@{@"type":@8,@"json":@{@"sid":Trial.sid,@"code":@1}} now:Clock];[h pumpAt:Clock];[Trial receive:@{@"type":@4,@"json":@{},@"binaryBytes":@200} now:101];[h pumpAt:101];assert(![h.status[@"enabled"] boolValue]);
+    Reset();h=[TIONavSubtitleHUD new];assert([h startRouteWithFrame:Live(80) token:@"test-route" at:Clock]);[Trial receive:@{@"type":@8,@"json":@{@"sid":Trial.sid,@"code":@1}} now:Clock];[h pumpAt:Clock];Clock=100.5;[h offer:Live(60) at:Clock];[h pumpAt:Clock];NSCAssert(Sent.count==3,@"Changed real route guidance must pass both HUD and Core throttle at 500ms");
+    Clock=100.6;[h offer:Live(50) at:Clock];[h pumpAt:Clock];assert(Sent.count==3);Clock=100.8;[h offer:Live(40) at:Clock];[h pumpAt:Clock];assert(Sent.count==3);Clock=101;[h pumpAt:Clock];assert(Sent.count==4&&[Sent.lastObject[@"json"][@"content"][@"source_transcript"] containsString:@"40"]);
+    Pending=YES;Clock=101.5;[h offer:Live(30) at:Clock];[h pumpAt:Clock];Clock=102;[h offer:Live(20) at:Clock];[h pumpAt:Clock];assert(Sent.count==4);Pending=NO;Clock=102.1;[h pumpAt:Clock];assert(Sent.count==5&&[Sent.lastObject[@"json"][@"content"][@"source_transcript"] containsString:@"20"]);
+    Clock=102.6;[h offer:Live(20) at:Clock];[h pumpAt:Clock];assert(Sent.count==5);Clock=102.7;RefreshEpoch++;[h pumpAt:Clock];assert(Sent.count==6);
+    Clock=103;[h pumpAt:Clock];assert(Sent.count==6);Clock=120;[h pumpAt:Clock];assert([h.status[@"holding"] boolValue]&&![Sent.lastObject[@"json"][@"content"][@"source_transcript"] containsString:@"20"]);
+    NSLog(@"PASS: 500ms real-route dual throttle / latest-only / single pending / dedup / stale neutrality; real route >240s and >80 frames in background, same SID; neutral recovery, bounded repaint and ACK/rate/ownership/audio/stop; legacy simulation/custom formatters retain 240s limit. Mock transport, no SDK/device.");
 }return 0;}

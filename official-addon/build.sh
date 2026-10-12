@@ -108,7 +108,7 @@ xcrun --sdk iphoneos clang -arch arm64 -isysroot "$sdk_path" -miphoneos-version-
   ${native_options[@]+"${native_options[@]}"} ${native_sources[@]+"${native_sources[@]}"} \
   ${music_options[@]+"${music_options[@]}"} ${music_sources[@]+"${music_sources[@]}"} \
   ${caption_options[@]+"${caption_options[@]}"} ${caption_sources[@]+"${caption_sources[@]}"} \
-  NavigationSession.m NavigationModes.m ProtocolContext.m NavigationSubtitleHUD.m NavigationPlaces.m NavigationPlacePicker.m A2UIProtocol.m NavigationCore.m NavigationTeleHUD.m NavigationTransport.m "$navigation_ui" ManualHUD.m "$subtitle_core" "$subtitle_runtime" \
+  NavigationRouteSession.m NavigationSession.m NavigationModes.m ProtocolContext.m NavigationSubtitleHUD.m NavigationPlaces.m NavigationPlacePicker.m A2UIProtocol.m NavigationCore.m NavigationTeleHUD.m NavigationTransport.m "$navigation_ui" ManualHUD.m "$subtitle_core" "$subtitle_runtime" \
   "-DTIO_TARGET_BUNDLE_ID=\"$bundle\"" -install_name "$install_name" "${link_options[@]}" \
   Core.m Profile.m KnowledgeClient.m KnowledgeUI.m ProfileUI.m HomeTabLayout.m HomeTabBridge.m ResearchCatalog.m ResearchUI.m NewsPresentation.m PrivateBootstrap.m VoiceTTSCore.m VoiceTTS.m WebSearch.m TodoProtocol.m TodoRuntime.m NewsCore.m NewsReader.m NewsTeleprompter.m RecordingExports.m RecordingExportsUI.m RecordingExportsMenu.m RecordingText.m RecordingTextUI.m RecordingTextMenu.m AlwaysOnAudioFiles.m AlwaysOnOgg.m AlwaysOnAudioNative.m AlwaysOnAudioUI.m Addon.m -o "$output"
 codesign --force --sign - "$output"

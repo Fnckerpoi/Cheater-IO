@@ -1,5 +1,8 @@
 #import <UIKit/UIKit.h>
 #import <CoreLocation/CoreLocation.h>
+#import <objc/runtime.h>
+static NSUInteger AutoPlanWiringCalls;
+static void PreviewAutoPlanCalled(id owner,SEL command){AutoPlanWiringCalls++;}
 #import "../ResearchUI.h"
 #import "../Profile.h"
 @protocol TIOPreviewProfileSaving
@@ -60,26 +63,39 @@ extern void TIOProtocolRuntimeFixture(void);
             }
             [p setValue:@YES forKey:@"active"];[p setValue:@YES forKey:@"routeReady"];m.selectedSegmentIndex=1;[m sendActionsForControlEvents:UIControlEventValueChanged];
             NSCAssert(![[p valueForKey:@"active"] boolValue]&&![[p valueForKey:@"routeReady"] boolValue],@"Ready route invalidated on mode change");
-            [p setValue:@YES forKey:@"active"];[p setValue:@YES forKey:@"planning"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(!m.enabled,@"Cannot switch during planning");
-            [p setValue:@NO forKey:@"planning"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(!m.enabled,@"Cannot switch while navigating");
+            [p setValue:@YES forKey:@"active"];[p setValue:@YES forKey:@"planning"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(m.enabled,@"Unstarted calculation may be superseded by a new mode intent");
+            [p setValue:@NO forKey:@"planning"];[p setValue:@YES forKey:@"navigationStarted"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(!m.enabled,@"Cannot switch while navigating");
             [p performSelector:NSSelectorFromString(@"stopUser")];NSCAssert(m.enabled,@"Stop re-enables selection");
             travel.selectedSegmentIndex=0;[travel sendActionsForControlEvents:UIControlEventValueChanged];
-            [@"PASS: three transport segments, selected-mode GPS labels, preserved endpoint, ready-route invalidation, planning/running switch lock and stop recovery. Offline UIKit; no online SDK or lens acceptance." writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/navigation-modes-check.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+            [@"PASS: three transport segments, selected-mode GPS labels, preserved endpoint, ready-route invalidation, latest-mode replacement during unstarted planning, running switch lock and stop recovery. Offline UIKit; no online SDK or lens acceptance." writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/navigation-modes-check.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        }
+        if([args containsObject:@"--navigation-auto-plan-wiring-check"]){
+            UIViewController *p=nav.topViewController;[p setValue:@YES forKey:@"initialized"];
+            Method m=class_getInstanceMethod(p.class,NSSelectorFromString(@"scheduleAutoPlan"));IMP original=method_setImplementation(m,(IMP)PreviewAutoPlanCalled);AutoPlanWiringCalls=0;
+            [p performSelector:NSSelectorFromString(@"selectPlace:") withObject:@{@"name":@"公开测试终点",@"lat":@39.91,@"lon":@116.41}];NSCAssert(AutoPlanWiringCalls==1,@"Actual selected destination schedules route");
+            UISegmentedControl *mode=[p valueForKey:@"transportMode"];for(NSInteger i=0;i<3;i++){mode.selectedSegmentIndex=i;[mode sendActionsForControlEvents:UIControlEventValueChanged];NSCAssert(AutoPlanWiringCalls==(NSUInteger)i+2,@"Actual mode change schedules selected engine");}
+            [p setValue:@YES forKey:@"active"];[p setValue:@YES forKey:@"routeReady"];mode.selectedSegmentIndex=0;[mode sendActionsForControlEvents:UIControlEventValueChanged];NSCAssert(AutoPlanWiringCalls==5&&![[p valueForKey:@"routeReady"] boolValue],@"Old ready route invalidated before automatic replacement");
+            [p setValue:@YES forKey:@"active"];[p setValue:@YES forKey:@"planning"];mode.selectedSegmentIndex=1;[mode sendActionsForControlEvents:UIControlEventValueChanged];NSCAssert(AutoPlanWiringCalls==6&&![[p valueForKey:@"planning"] boolValue],@"In-flight unstarted plan retired before newer mode intent");
+            UIButton *plan=[p valueForKey:@"planButton"];NSCAssert(plan.hidden&&plan.superview==nil,@"No manual planning control rendered");
+            [p setValue:@YES forKey:@"navigationStarted"];[p setValue:@YES forKey:@"active"];mode.selectedSegmentIndex=2;[mode sendActionsForControlEvents:UIControlEventValueChanged];NSCAssert(AutoPlanWiringCalls==6,@"Running route never replans from mode tap");
+            [p.presentedViewController dismissViewControllerAnimated:NO completion:nil];[p performSelector:NSSelectorFromString(@"stopUser")];[p setValue:@NO forKey:@"initialized"];method_setImplementation(m,original);
+            [@"PASS: actual UIKit endpoint/mode handlers invoke auto planner, three engines preserved, ready route invalidated, running route protected, no plan control; scheduler replaced only in explicit offline fixture." writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/navigation-auto-plan-wiring-check.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
         }
         if([args containsObject:@"--navigation-workspace-check"]){
             UIViewController *p=nav.topViewController;UIButton *plan=[p valueForKey:@"planButton"],*begin=[p valueForKey:@"beginButton"],*stop=[p valueForKey:@"stopButton"];
             NSCAssert(!plan.enabled&&!begin.enabled&&stop.hidden,@"Idle has no runnable route");
             [p performSelector:NSSelectorFromString(@"selectPlace:") withObject:@{@"name":@"预览测试地点",@"address":@"离线夹具，不是真实算路",@"lat":@39.9143,@"lon":@116.4112}];
             NSCAssert(!plan.enabled,@"Selecting a place cannot bypass SDK consent");
-            [p setValue:@YES forKey:@"initialized"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(plan.enabled&&!begin.enabled,@"Selection can plan, cannot begin");
-            [p setValue:@YES forKey:@"active"];[p setValue:@YES forKey:@"planning"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(!plan.enabled&&!begin.enabled&&!stop.hidden,@"Planning has stop but no begin");
-            [p setValue:@NO forKey:@"planning"];[p setValue:@YES forKey:@"routeReady"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(begin.enabled,@"Route success requires explicit begin");
+            [p setValue:@YES forKey:@"initialized"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(plan.hidden&&plan.superview==nil&&!begin.enabled,@"No manual plan control; route success still required for begin");
+            [p setValue:@YES forKey:@"active"];[p setValue:@YES forKey:@"planning"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(!plan.enabled&&!begin.enabled&&stop.hidden,@"Automatic calculation has no end-navigation action before begin");
+            [p setValue:@NO forKey:@"planning"];[p setValue:@YES forKey:@"routeReady"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(begin.enabled&&stop.hidden,@"Ready route still requires explicit begin, no end-navigation action");
+            [p setValue:@NO forKey:@"routeReady"];[p setValue:@YES forKey:@"navigationStarted"];[p performSelector:NSSelectorFromString(@"refresh")];NSCAssert(!stop.hidden,@"Started navigation shows end-navigation action");
             [p performSelector:NSSelectorFromString(@"stopUser")];NSCAssert(!begin.enabled&&stop.hidden,@"Stop invalidates route");
             [p setValue:@NO forKey:@"initialized"];
             [@"PASS: idle, consent, place selection, planning, ready and stop UI gates. Synthetic state only; no AMap or lens verification." writeToFile:[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/navigation-workspace-check.txt"] atomically:YES encoding:NSUTF8StringEncoding error:nil];
         }
         if([args containsObject:@"--navigation-interaction-check"]){
-            UIViewController *p=nav.topViewController;[p setValue:@YES forKey:@"initialized"];
+            UIViewController *p=nav.topViewController;[p setValue:@YES forKey:@"initialized"];[(UISegmentedControl *)[p valueForKey:@"travelMode"] setSelectedSegmentIndex:0]; // Explicit offline-only simulation fixture.
             UISegmentedControl *role=[p valueForKey:@"mapPickRole"];role.selectedSegmentIndex=1;
             // Call the same coordinate handler used by both SDK tap/long-press delegates.
             SEL choose=NSSelectorFromString(@"selectMapCoordinate:");void(*pick)(id,SEL,CLLocationCoordinate2D)=(void *)[p methodForSelector:choose];

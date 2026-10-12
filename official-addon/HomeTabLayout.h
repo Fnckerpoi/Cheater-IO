@@ -1,4 +1,6 @@
 #import <Foundation/Foundation.h>
+FOUNDATION_EXPORT NSArray<NSString *> *TIOHomeOverlayNames(void);
+FOUNDATION_EXPORT NSUInteger TIOHomeOverlaySlotCount(void);
 FOUNDATION_EXPORT NSString *TIOHomeTabName(NSString *label);
 // Full touch-sized targets only. Collapse verified same-name descendants;
 // never collapse unrelated full-button duplicates.

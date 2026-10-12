@@ -18,7 +18,7 @@ xcrun --sdk iphonesimulator clang -target x86_64-apple-ios16.0-simulator -isysro
   -DTIO_UI_PREVIEW=1 -fobjc-arc -fmodules -Wno-deprecated-declarations -Wno-incompatible-pointer-types \
   -framework Foundation -framework UIKit -framework Security -framework UniformTypeIdentifiers -framework CoreLocation -framework AVFAudio \
   ${mapkit_options[@]+"${mapkit_options[@]}"} ${mapkit_sources[@]+"${mapkit_sources[@]}"} \
-  NavigationSession.m NavigationModes.m ProtocolContext.m NavigationSubtitleHUD.m NavigationPlaces.m NavigationPlacePicker.m A2UIProtocol.m NavigationCore.m NavigationTeleHUD.m NavigationTransport.m NavigationUI.m ManualHUD.m SubtitleHUDCore.m SubtitleHUD.m \
+  NavigationRouteSession.m NavigationSession.m NavigationModes.m ProtocolContext.m NavigationSubtitleHUD.m NavigationPlaces.m NavigationPlacePicker.m A2UIProtocol.m NavigationCore.m NavigationTeleHUD.m NavigationTransport.m NavigationUI.m ManualHUD.m SubtitleHUDCore.m SubtitleHUD.m \
   Core.m Profile.m KnowledgeClient.m KnowledgeUI.m ProfileUI.m HomeTabLayout.m HomeTabBridge.m ResearchCatalog.m ResearchUI.m NewsPresentation.m PrivateBootstrap.m VoiceTTSCore.m VoiceTTS.m WebSearch.m TodoProtocol.m TodoRuntime.m NewsCore.m NewsReader.m NewsTeleprompter.m RecordingExports.m RecordingExportsUI.m RecordingExportsMenu.m RecordingText.m RecordingTextUI.m RecordingTextMenu.m AlwaysOnAudioFiles.m AlwaysOnOgg.m AlwaysOnAudioNative.m AlwaysOnAudioUI.m Addon.m preview/Main.m preview/HomeTabFixture.m \
   preview/NavTransportFixture.m preview/ProtocolRuntimeFixture.m -o "$output/ResearchPreview"
 codesign --force --sign - "$output"

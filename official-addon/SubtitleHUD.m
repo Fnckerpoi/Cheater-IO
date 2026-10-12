@@ -3,6 +3,7 @@
 #import "NavigationSubtitleHUD.h"
 #import "ResearchUI.h"
 #import "ProtocolContext.h"
+#import "NavigationRouteSession.h"
 #import <objc/message.h>
 static __weak id Plugin;
 static NSDictionary *Route,*Preview,*Stop;
@@ -15,6 +16,8 @@ static NSTimer *Guard;
 static BOOL TextPending;
 static BOOL Capturing,ForegroundSuppressed;
 static NSUInteger SubtitleRefreshEpoch;
+static NSString *SubtitleRouteToken;
+static BOOL RouteCanContinue(void){return Trial.routeScoped&&[TIONavigationRouteSession.shared backgroundAllowedForToken:SubtitleRouteToken];}
 static NSTimeInterval TextDeadline;
 static NSTimeInterval Now(void){return NSProcessInfo.processInfo.systemUptime;}
 static id Get(id o,NSString *k){@try{return [o valueForKey:k];}@catch(NSException *e){return nil;}}
@@ -27,11 +30,14 @@ static void RestoreContext(void){
     if(!Preview||!Stop){NSDictionary *saved=TIOProtocolTemplate(@"subtitle",d)?:TIOProtocolDefaultSubtitle();if(saved){ObservedSID=@"template";Preview=@{@"sid":ObservedSID,@"force":@NO,@"scope":@"temporary",@"config":saved[@"config"]};Stop=@{@"sid":ObservedSID,@"reason_code":@10,@"text":@""};}}
 }
 static BOOL Available(void){RestoreContext();return Plugin&&Preview&&Stop&&[Stop[@"sid"] isEqual:ObservedSID]&&[TIOProtocolDevice() isEqual:Device];}
+static NSTimeInterval LastRouteDiagnosticWrite;
 static void Save(void){
+    if(Trial.routeScoped&&[Trial.phase isEqual:@"ready"]&&LastRouteDiagnosticWrite>0&&Now()-LastRouteDiagnosticWrite<5){[NSNotificationCenter.defaultCenter postNotificationName:@"TIOSubtitleChanged" object:nil];return;}
+    LastRouteDiagnosticWrite=Now();
     // Private metadata only; no audio, official text, device ID, route or credentials.
     NSString *dir=[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/TurboIOResearch/subtitle-hud"];
     [NSFileManager.defaultManager createDirectoryAtPath:dir withIntermediateDirectories:YES attributes:@{NSFileProtectionKey:NSFileProtectionCompleteUntilFirstUserAuthentication} error:nil];
-    NSDictionary *d=@{@"version":@"subtitle-hud-v1.1",@"time":@(NSDate.date.timeIntervalSince1970),@"phase":Trial.phase?:@"idle",@"note":Trial.note?:@"等待官方字幕预览→退出样本",@"frame":@(Trial.frame),@"audioPackets":@(Trial.audioPackets),@"previewSample":@(Preview!=nil),@"stopSample":@(Stop!=nil),@"previewAck":@(PreviewAck),@"stopDifferentSID":@(StopDifferentSID),@"available":@(Available()),@"confirmedIdle":@(ConfirmedIdle),@"elapsed":@(Trial.began?Now()-Trial.began:0),@"events":Events?:@[]} ;
+    NSDictionary *d=@{@"version":@"subtitle-hud-v2-route",@"routeScoped":@(Trial.routeScoped),@"backgroundAllowed":@(RouteCanContinue()),@"time":@(NSDate.date.timeIntervalSince1970),@"phase":Trial.phase?:@"idle",@"note":Trial.note?:@"等待官方字幕预览→退出样本",@"frame":@(Trial.frame),@"audioPackets":@(Trial.audioPackets),@"previewSample":@(Preview!=nil),@"stopSample":@(Stop!=nil),@"previewAck":@(PreviewAck),@"stopDifferentSID":@(StopDifferentSID),@"available":@(Available()),@"confirmedIdle":@(ConfirmedIdle),@"elapsed":@(Trial.began?Now()-Trial.began:0),@"events":Events?:@[]} ;
     [[NSJSONSerialization dataWithJSONObject:d options:NSJSONWritingPrettyPrinted error:nil] writeToFile:[dir stringByAppendingPathComponent:@"diagnostic.json"] options:NSDataWritingAtomic error:nil];
     [NSNotificationCenter.defaultCenter postNotificationName:@"TIOSubtitleChanged" object:nil];
 }
@@ -41,38 +47,27 @@ static void Evidence(NSString *direction,NSDictionary *e){
     for(NSString *k in @[@"code",@"mode",@"status",@"reason_code"])if([j[k] isKindOfClass:NSNumber.class])r[k]=j[k];
     [Events addObject:r];if(Events.count>80)[Events removeObjectAtIndex:0];Save();
 }
-static BOOL Send(NSUInteger type,NSDictionary *j){
-    if(!NSThread.isMainThread||!Plugin||!Route||!Device||Sending||![TIOProtocolDevice() isEqual:Device])return NO;
-    if(type==5&&TextPending)return NO;
-    if(type!=3&&UIApplication.sharedApplication.applicationState!=UIApplicationStateActive)return NO;
-    Class td=NSClassFromString(@"FlutterStandardTypedData"),call=NSClassFromString(@"FlutterMethodCall");SEL typed=NSSelectorFromString(@"typedDataWithBytes:"),make=NSSelectorFromString(@"methodCallWithMethodName:arguments:"),handle=NSSelectorFromString(@"handleMethodCall:result:");
-    NSData *data=TIOSubtitlePacket(type,j);if(!data||![td respondsToSelector:typed]||![call respondsToSelector:make]||![Plugin respondsToSelector:handle])return NO;
-    NSMutableDictionary *args=[Route mutableCopy];args[@"businessId"]=@19;args[@"payload"]=((id(*)(id,SEL,id))objc_msgSend)(td,typed,data);
-    id c=((id(*)(id,SEL,id,id))objc_msgSend)(call,make,@"rayneonet_sendMessage",args);NSString *sid=Trial.sid;Sending=YES;BOOL ok=YES;
-    if(type==5){TextPending=YES;TextDeadline=Now()+8;}else if(type==3)TextPending=NO;
-    Evidence(@"submit",TIOSubtitleEnvelope(data));
-    @try{((void(*)(id,SEL,id,id))objc_msgSend)(Plugin,handle,c,[^(id result){
-        BOOL failure=([result isKindOfClass:NSDictionary.class]&&[result[@"success"] isEqual:@NO])||[NSStringFromClass([result class]) containsString:@"FlutterError"]||[result isEqual:@NO];
-        if(type==5)dispatch_async(dispatch_get_main_queue(),^{if([Trial.sid isEqual:sid])TextPending=NO;});
-        if(failure)dispatch_async(dispatch_get_main_queue(),^{if(![Trial.sid isEqual:sid])return;if(type==3){Trial.phase=@"uncertain";Trial.note=@"SDK拒绝退出提交，请用实体按钮退出";Save();}else[Trial stop:@"SDK拒绝提交" now:Now()];});
-    } copy]);}@catch(NSException *e){if(type==5)TextPending=NO;ok=NO;}Sending=NO;return ok;
-}
+#include "SubtitleHUDSendPolicy.inc"
+#include "SubtitleHUDSend.inc"
 #include "SubtitleHUDLifecycle.inc"
 static void Ensure(void){
     if(Trial)return;Trial=[TIOSubtitleTrial new];Trial.send=^BOOL(NSUInteger t,NSDictionary *j){return Send(t,j);};Trial.changed=^{Save();};
-    Guard=[NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer *t){if(TextPending&&Now()>=TextDeadline){TextPending=NO;[Trial stop:@"SDK文字提交8秒无完成回调" now:Now()];}[Trial tick:Now()];}];
+    Guard=[NSTimer scheduledTimerWithTimeInterval:0.1 repeats:YES block:^(NSTimer *t){[TIONavigationRouteSession.shared pulse];if(TextPending&&Now()>=TextDeadline){TextPending=NO;[Trial stop:@"SDK文字提交8秒无完成回调" now:Now()];}[Trial tick:Now()];}];
+    [NSRunLoop.mainRunLoop addTimer:Guard forMode:NSRunLoopCommonModes];
     for(NSString *name in @[UIApplicationWillResignActiveNotification,UIApplicationDidBecomeActiveNotification,UIApplicationDidEnterBackgroundNotification,@"TIOResearchClosed"])[NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *n){HandleSubtitleLifecycle(n.name);}];
 }
-NSDictionary *TIOSubtitleNavigationStatus(void){Ensure();return @{@"sid":Trial.sid?:@"",@"navigation":@(Trial.navigation),@"phase":Trial.phase,@"pending":@(TextPending),@"available":@(Available()),@"foreground":@(!ForegroundSuppressed&&UIApplication.sharedApplication.applicationState==UIApplicationStateActive),@"refreshEpoch":@(SubtitleRefreshEpoch),@"note":Trial.note?:@""};}
-BOOL TIOSubtitleConfirmIdle(void){
-    Ensure();if(Trial.active&&![@[@"stopping",@"uncertain"] containsObject:Trial.phase])return NO;
-    Trial.phase=@"idle";Trial.sid=nil;TextPending=NO;Capturing=NO;RestoreContext();ConfirmedIdle=YES;ConfirmedAt=Now();Trial.note=@"用户确认镜片已退出；非协议回执";Save();return YES;
-}
+NSDictionary *TIOSubtitleNavigationStatus(void){Ensure();if(TextPending&&Now()>=TextDeadline){TextPending=NO;[Trial stop:@"SDK文字提交8秒无完成回调" now:Now()];}[Trial tick:Now()];return @{@"sid":Trial.sid?:@"",@"navigation":@(Trial.navigation),@"routeScoped":@(Trial.routeScoped),@"backgroundAllowed":@(RouteCanContinue()),@"phase":Trial.phase,@"pending":@(TextPending),@"available":@(Available()),@"foreground":@(!ForegroundSuppressed&&UIApplication.sharedApplication.applicationState==UIApplicationStateActive),@"refreshEpoch":@(SubtitleRefreshEpoch),@"note":Trial.note?:@""};}
+#include "SubtitleHUDConfirmIdle.inc"
 NSString *TIOSubtitleNavigationStart(void){
     Ensure();if(!NSThread.isMainThread||UIApplication.sharedApplication.applicationState!=UIApplicationStateActive||!Available()||!ConfirmedIdle||Now()-ConfirmedAt>=120||Trial.active)return nil;
-    ConfirmedIdle=NO;TextPending=NO;ForegroundSuppressed=NO;
+    ConfirmedIdle=NO;TextPending=NO;ForegroundSuppressed=NO;SubtitleRouteToken=nil;
     if(![Trial startNavigationWithPreview:Preview stop:Stop now:Now()])return nil;
     return Trial.sid;
+}
+NSString *TIOSubtitleRouteStart(NSString *token){
+    Ensure();if(!NSThread.isMainThread||UIApplication.sharedApplication.applicationState!=UIApplicationStateActive||![TIONavigationRouteSession.shared isActiveToken:token]||!Available()||!ConfirmedIdle||Now()-ConfirmedAt>=120||Trial.active)return nil;
+    ConfirmedIdle=NO;TextPending=NO;ForegroundSuppressed=NO;SubtitleRouteToken=[token copy];
+    if(![Trial startRouteWithPreview:Preview stop:Stop now:Now()]){SubtitleRouteToken=nil;return nil;}return Trial.sid;
 }
 BOOL TIOSubtitleNavigationText(NSString *sid,NSString *text){return NSThread.isMainThread&&Trial.navigation&&[Trial.sid isEqual:sid]&&!TextPending&&[Trial sendNavigationText:text now:Now()];}
 void TIOSubtitleNavigationStop(NSString *sid,NSString *reason){if(NSThread.isMainThread&&Trial.navigation&&[Trial.sid isEqual:sid])[Trial stop:reason now:Now()];}
@@ -107,7 +102,7 @@ void TIOSubtitleObserveEvent(NSDictionary *event){
     NSDictionary *j=e[@"json"];
     if(!Trial.active&&[e[@"type"] isEqual:@8]&&[j[@"sid"] isEqual:ObservedSID]&&([j[@"code"] isEqual:@1]||[j[@"code"] isEqual:@2])&&CFGetTypeID((__bridge CFTypeRef)j[@"code"])!=CFBooleanGetTypeID())PreviewAck=YES;
     if([e[@"type"] isEqual:@4]){ConfirmedIdle=NO;if(!Trial.active){PreviewAck=NO;Stop=nil;}}
-    [Trial receive:e now:Now()];Evidence(@"receive",e);
+    [Trial receive:e now:Now()];Evidence(@"receive",e);[TIONavigationRouteSession.shared pulse];
 }
 @interface TIOSubtitlePanel:UITableViewController
 @property NSTimer *timer;

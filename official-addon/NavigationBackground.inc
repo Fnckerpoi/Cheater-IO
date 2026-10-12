@@ -20,6 +20,9 @@
     [self refresh];
 }
 - (void)background {
+#if TIO_AMAP_ENABLED
+    if(!self.navigationStarted){[self cancelMapLocation];[self cancelAutoPlan];}
+#endif
     TIONavBackgroundAction action=TIONavBackgroundPolicy(self.navigationStarted,self.fixture,self.simulated,self.backgroundLocationEnabled,[self navigationLocationAuthorized]);
     if(action==TIONavBackgroundIdle)return;
     if(action==TIONavBackgroundStop){[self stopUser];self.note=@"后台导航条件不满足，已停止。请检查定位授权及宿主 location 后台模式。";[self refresh];return;}
@@ -35,10 +38,19 @@
     [self endNavigationBackgroundTask];
     if(self.navigationStarted&&!self.simulated&&![self navigationLocationAuthorized]){[self stopUser];self.note=@"定位权限已撤销，导航已停止。";}
     else if(self.navigationStarted)self.note=self.simulated?@"模拟导航继续（前台）":@"实时导航继续；可退后台或锁屏，不要强退App。";
+#if TIO_AMAP_ENABLED
+    [self resumeMapLocationAuthorization];
+    [self resumeAutoPlan];
+#endif
     [self refresh];
 }
 - (void)locationManagerDidChangeAuthorization:(CLLocationManager *)manager {
     if(manager!=self.permission)return;
+#if TIO_AMAP_ENABLED
+    [self resumeMapLocationAuthorization];
+    [self resumeAutoPlan];
+    if(!self.navigationStarted&&![self navigationLocationAuthorized]&&self.locating)[self cancelMapLocation];
+#endif
     if(self.navigationStarted&&!self.simulated&&![self navigationLocationAuthorized]){
         [self stopUser];self.note=@"定位权限已撤销，导航及本会话后台定位已停止。";[self refresh];
     }

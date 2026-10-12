@@ -1,0 +1,37 @@
+{
+  "summary": "R6删除导航详情开启地图按钮，保留我的位置/全览。已有Key/隐私同意自动地图加载后，在空闲前台页面一次性自动定位居中；仅请求使用期间权限，授权回调+回前台自动续行，不需要再次点击。拒绝/超时提示，精度/时效/坐标/许可重查过滤，定位成功或15秒超时停止非导航地图更新。离页/后台/路线开始取消一次性定位与迟到回调；活动/已规划路线不被自动居中重置，手动我的位置不清路线。保留用户已通过R5重复导航/六入口/后台/结束链，不改固件。",
+  "changedFiles": [
+    "official-addon/NavigationUI.m",
+    "official-addon/NavigationWorkspace.inc",
+    "official-addon/NavigationBackground.inc",
+    "official-addon/NavigationBackgroundTests.m",
+    "official-addon/NavigationMapLocation.inc",
+    "official-addon/NavigationMapLocationTests.m",
+    "official-addon/navigation-subtitle-test.sh",
+    "official-addon/preview/HomeTabFixture.m",
+    "official-addon/docs/NAVIGATION_R6.md",
+    "official-addon/docs/NAVIGATION_R5.md"
+  ],
+  "checks": [
+    "生产map-location include回归：自动一次/授权续行/拒绝/后台离页不定位/15秒超时generation/精度时效非法坐标/回调许可撤销/ready和running路线保持全部通过",
+    "实际NavigationBackground.inc加map取消/授权续行接线和原32组策略测试通过",
+    "R4/R5已验收路线持续/后台/同进程重启/自动显示/原生Send/地图隐私所有targeted回归通过",
+    "SDK arm64 final编译与隔离扩展adhoc验签成功，UIKit preview编译成功；实际六入口fixture新增无开启地图+一个我的位置断言，PASS报告读取",
+    "15项SDK资源/合并/签名Node测试通过；全量相关高德/HTTP/字幕/定位通过，整体exit1独立MapKit缺MapKitSubtitleHUD.m，不在包内",
+    "最终预合并exit0；ZIP/扩展快照一致/版本+六入口+RouteStart+HTTP/单注入/三资源/location蓝牙/无private配置或AppleDouble二次验证成功",
+    "git diff --check通过"
+  ],
+  "artifacts": [
+    "/Users/duriea/Downloads/TurboIO-http-navigation-r6-20261012/TurboIO-HTTP-Navigation-unsigned.ipa",
+    "/Users/duriea/Downloads/TurboIO-http-navigation-r6-20261012/local-http-preparation.json",
+    "official-addon/build/navigation-r6-final/TurboIOPrivateAddon.dylib",
+    "official-addon/docs/NAVIGATION_R6.md",
+    "official-addon/build/navigation-r6-targeted.log",
+    "official-addon/build/navigation-r6-regressions.log",
+    "official-addon/build/navigation-r6-final-build.log",
+    "official-addon/build/navigation-r6-preview.log",
+    "official-addon/build/navigation-r6-package-tests.log"
+  ],
+  "risk": "用户R5已确认，R6新增真实GPS自动定位和权限弹窗需真机验收，替身不保证GPS速度/精度。未签名安装不刷固件。只一次性自动地图定位，不自动路线/眼镜推送/始终权限，运行路线重入不重置。独立MapKit全量失败披露，不包含于此包。",
+  "reportReceipt": "taskboard_execution_report unavailable for current host execution binding; local structured fallback and task comment"
+}

@@ -1,5 +1,7 @@
 #import <Foundation/Foundation.h>
+#include <assert.h>
 #import "SubtitleHUDCore.h"
+#import "NavigationRouteSession.h"
 static NSString *const UIApplicationWillResignActiveNotification=@"will-resign";
 static NSString *const UIApplicationDidBecomeActiveNotification=@"did-become";
 static NSString *const UIApplicationDidEnterBackgroundNotification=@"did-enter-background";
@@ -10,7 +12,10 @@ static NSTimeInterval Clock;
 static NSMutableArray *Sent;
 static NSTimeInterval Now(void){return Clock;}
 static void Save(void){}
+static BOOL RouteAllowed;
+static BOOL RouteCanContinue(void){return Trial.routeScoped&&RouteAllowed;}
 #include "SubtitleHUDLifecycle.inc"
+#include "SubtitleHUDSendPolicy.inc"
 static void Start(BOOL navigation){
     Clock=100;ConfirmedIdle=NO;ForegroundSuppressed=NO;SubtitleRefreshEpoch=0;Trial=[TIOSubtitleTrial new];Sent=[NSMutableArray new];
     Trial.send=^BOOL(NSUInteger t,NSDictionary *j){[Sent addObject:@{@"type":@(t),@"json":j}];return YES;};
@@ -27,5 +32,11 @@ int main(void){@autoreleasepool{
     Start(NO);HandleSubtitleLifecycle(UIApplicationWillResignActiveNotification);NSCAssert([Trial.phase isEqual:@"stopping"],@"manual experiment retains old stricter protection");
     Start(YES);HandleSubtitleLifecycle(UIApplicationWillResignActiveNotification);Clock=102;HandleSubtitleLifecycle(UIApplicationDidBecomeActiveNotification);[Trial tick:340];NSCAssert([Trial.phase isEqual:@"stopping"]&&Trial.began==100,@"transient pause cannot extend deadline");
     Start(YES);[Trial receive:@{@"type":@4,@"json":@{},@"binaryBytes":@10} now:101];HandleSubtitleLifecycle(UIApplicationDidBecomeActiveNotification);NSCAssert([Trial.phase isEqual:@"stopping"]&&SubtitleRefreshEpoch==0,@"audio stop cannot auto recover");
-    puts("PASS: actual lifecycle inactive pause / same SID resume, background/user close/audio/manual/240s protections.");
+    Start(YES);Trial.phase=@"idle";NSDictionary *p=@{@"sid":@"official",@"scope":@"temporary",@"force":@NO,@"config":@{@"is_display":@YES}},*s=@{@"sid":@"official",@"reason_code":@10,@"text":@""};
+    assert([Trial startRouteWithPreview:p stop:s now:Clock]);[Trial receive:@{@"type":@8,@"json":@{@"sid":Trial.sid,@"code":@1}} now:Clock];RouteAllowed=YES;
+    HandleSubtitleLifecycle(UIApplicationDidEnterBackgroundNotification);
+    NSCAssert([Trial.phase isEqual:@"ready"],@"Authorized real route must keep its owned subtitle session in background");
+    assert(SubtitleCanSend(5,NO)&&!SubtitleCanSend(7,NO)&&SubtitleCanSend(3,NO));
+    [Trial tick:Clock+1000];assert([Trial.phase isEqual:@"ready"]);RouteAllowed=NO;assert(!SubtitleCanSend(5,NO));HandleSubtitleLifecycle(UIApplicationDidEnterBackgroundNotification);assert([Trial.phase isEqual:@"stopping"]);
+    puts("PASS: actual lifecycle: scoped authorized route continues in background beyond 240s; revoked route stops; legacy navigation/manual close/background/audio protections.");
 }}
