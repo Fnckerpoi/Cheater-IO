@@ -25,8 +25,8 @@ typedef NS_ENUM(int, CLAuthorizationStatus){kCLAuthorizationStatusDenied=2,kCLAu
 - (void)endBackgroundTask:(UIBackgroundTaskIdentifier)t{assert(t!=UIBackgroundTaskInvalid);self.ends++;}
 @end
 @interface TIONavigationPanel:NSObject
-@property BOOL navigationStarted,fixture,simulated,backgroundLocationEnabled;
-@property NSUInteger backgroundEpoch,stops;
+@property BOOL navigationStarted,fixture,simulated,backgroundLocationEnabled,locating;
+@property NSUInteger backgroundEpoch,stops,mapCancels,mapResumes;
 @property UIBackgroundTaskIdentifier navigationBackgroundTask;
 @property CLLocationManager *permission;
 @property NSString *note;
@@ -37,6 +37,11 @@ typedef NS_ENUM(int, CLAuthorizationStatus){kCLAuthorizationStatusDenied=2,kCLAu
 - (instancetype)init{if((self=[super init])){_navigationBackgroundTask=UIBackgroundTaskInvalid;_permission=[CLLocationManager new];}return self;}
 - (void)refresh{}
 - (void)stopUser{self.stops++;self.navigationStarted=NO;self.backgroundLocationEnabled=NO;[self endNavigationBackgroundTask];}
+- (void)cancelMapLocation{self.mapCancels++;}
+- (void)resumeMapLocationAuthorization{self.mapResumes++;}
+- (void)resumeAutoPlan{}
+- (void)cancelAutoPlan{}
+#define TIO_AMAP_ENABLED 1
 #include "NavigationBackground.inc"
 @end
 int main(void){@autoreleasepool{
@@ -61,5 +66,6 @@ int main(void){@autoreleasepool{
     p.navigationStarted=YES;p.simulated=NO;p.backgroundLocationEnabled=YES;[p navigationForeground];assert(p.stops==6); // Permission revoked in Settings.
     p.navigationStarted=YES;[p locationManagerDidChangeAuthorization:[CLLocationManager new]];assert(p.stops==6);
     [p locationManagerDidChangeAuthorization:p.permission];assert(p.stops==7&&!p.navigationStarted);
-    printf("PASS %u policy combinations and lifecycle: real background, denial, simulation, foreground, stale expiry, repeated transitions, STOP cleanup\n",cases);
+    p.navigationStarted=NO;NSUInteger cancels=p.mapCancels,resumes=p.mapResumes;[p background];assert(p.mapCancels==cancels+1);[p navigationForeground];assert(p.mapResumes==resumes+1);[p locationManagerDidChangeAuthorization:p.permission];assert(p.mapResumes==resumes+2);
+    printf("PASS auto-map cancel/resume wiring + %u policy combinations and lifecycle: real background, denial, simulation, foreground, stale expiry, repeated transitions, STOP cleanup\n",cases);
 }}

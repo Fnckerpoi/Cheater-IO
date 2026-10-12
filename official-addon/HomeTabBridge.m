@@ -1,5 +1,6 @@
 #import "HomeTabBridge.h"
 #import "HomeTabLayout.h"
+#import "NavigationUI.h"
 #import <QuartzCore/QuartzCore.h>
 #import <objc/message.h>
 #import <objc/runtime.h>
@@ -76,9 +77,9 @@ static void Walk(id obj,UIWindow *window,NSMutableArray *hits,NSHashTable *seen,
         self.glass=[[UIVisualEffectView alloc]initWithEffect:nil];self.glass.userInteractionEnabled=NO;self.glass.accessibilityIdentifier=@"turboio-home-glass";self.glass.layer.cornerRadius=29;self.glass.layer.cornerCurve=kCACornerCurveContinuous;self.glass.clipsToBounds=YES;[self.bar addSubview:self.glass];
         self.glassSheen=[CAGradientLayer layer];self.glassSheen.startPoint=CGPointMake(0.2,0);self.glassSheen.endPoint=CGPointMake(0.8,1);[self.glass.contentView.layer addSublayer:self.glassSheen];
         self.selection=[UIView new];self.selection.layer.cornerRadius=24;self.selection.layer.cornerCurve=kCACornerCurveContinuous;self.selection.userInteractionEnabled=NO;[self.bar addSubview:self.selection];
-        NSArray *names=@[@"RayNeo",@"眼镜",@"记忆",@"发现",@"TurboIO"],*icons=@[@"sparkles",@"eyeglasses",@"atom",@"safari",@"bolt.horizontal.circle"];
-        NSMutableArray *buttons=[NSMutableArray new];for(NSUInteger i=0;i<5;i++){UIButton *b=[UIButton buttonWithType:UIButtonTypeSystem];UIButtonConfiguration *c=UIButtonConfiguration.plainButtonConfiguration;c.title=names[i];c.image=[UIImage systemImageNamed:icons[i] withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:21 weight:UIImageSymbolWeightRegular]];c.imagePlacement=NSDirectionalRectEdgeTop;c.imagePadding=3;c.contentInsets=NSDirectionalEdgeInsetsMake(5,0,4,0);c.titleTextAttributesTransformer=^NSDictionary *(NSDictionary *input){NSMutableDictionary *a=[input mutableCopy];a[NSFontAttributeName]=[UIFont systemFontOfSize:10.5 weight:UIFontWeightMedium];return a;};b.configuration=c;b.tag=i;b.accessibilityLabel=names[i];b.accessibilityIdentifier=[@"home-tab-" stringByAppendingString:names[i]];[b addTarget:self action:@selector(tap:) forControlEvents:UIControlEventTouchUpInside];[self.bar addSubview:b];[buttons addObject:b];}self.buttons=buttons;
-        UILongPressGestureRecognizer *restore=[[UILongPressGestureRecognizer alloc]initWithTarget:self action:@selector(restore:)];restore.minimumPressDuration=1.5;[self.buttons.lastObject addGestureRecognizer:restore];
+        NSArray *names=TIOHomeOverlayNames(),*icons=@[@"sparkles",@"eyeglasses",@"atom",@"safari",@"bolt.horizontal.circle",@"location.fill"];
+        NSMutableArray *buttons=[NSMutableArray new];for(NSUInteger i=0;i<TIOHomeOverlaySlotCount();i++){UIButton *b=[UIButton buttonWithType:UIButtonTypeSystem];UIButtonConfiguration *c=UIButtonConfiguration.plainButtonConfiguration;c.title=names[i];c.image=[UIImage systemImageNamed:icons[i] withConfiguration:[UIImageSymbolConfiguration configurationWithPointSize:21 weight:UIImageSymbolWeightRegular]];c.imagePlacement=NSDirectionalRectEdgeTop;c.imagePadding=3;c.contentInsets=NSDirectionalEdgeInsetsMake(5,0,4,0);c.titleTextAttributesTransformer=^NSDictionary *(NSDictionary *input){NSMutableDictionary *a=[input mutableCopy];a[NSFontAttributeName]=[UIFont systemFontOfSize:10.5 weight:UIFontWeightMedium];return a;};b.configuration=c;b.tag=i;b.accessibilityLabel=names[i];b.accessibilityIdentifier=[@"home-tab-" stringByAppendingString:names[i]];[b addTarget:self action:@selector(tap:) forControlEvents:UIControlEventTouchUpInside];[self.bar addSubview:b];[buttons addObject:b];}self.buttons=buttons;
+        UILongPressGestureRecognizer *restore=[[UILongPressGestureRecognizer alloc]initWithTarget:self action:@selector(restore:)];restore.minimumPressDuration=1.5;[self.buttons[4] addGestureRecognizer:restore];
     }if(self.bar.superview!=w)[w addSubview:self.bar];[w bringSubviewToFront:self.bar];
 }
 - (void)styleGlass{
@@ -134,7 +135,7 @@ static void Walk(id obj,UIWindow *window,NSMutableArray *hits,NSHashTable *seen,
     NSDictionary *layout=TIOHomeTabLayout(candidates,w.bounds.size.width,w.bounds.size.height,w.safeAreaInsets.bottom);
     if(!layout){[self hide:@"等待完整的官方四项导航；未覆盖底栏" fallback:YES];return;}
     [self makeBar:w];self.bar.frame=CGRectMake([layout[@"x"] doubleValue],[layout[@"y"] doubleValue],[layout[@"width"] doubleValue],[layout[@"height"] doubleValue]);
-    self.targets=[layout[@"items"] valueForKey:@"object"];self.bar.hidden=NO;self.fallback.hidden=YES;self.state=@"官方四项 + TurboIO";
+    self.targets=[layout[@"items"] valueForKey:@"object"];self.bar.hidden=NO;self.fallback.hidden=YES;self.state=@"官方四项 + TurboIO + 导航";
     for(NSUInteger i=0;i<4;i++){
         UIButton *button=self.buttons[i];NSString *name=layout[@"items"][i][@"name"];
         if(![button.configuration.title isEqual:name]){UIButtonConfiguration *config=[button.configuration copy];config.title=name;button.configuration=config;}
@@ -142,18 +143,19 @@ static void Walk(id obj,UIWindow *window,NSMutableArray *hits,NSHashTable *seen,
     }
     [self styleGlass];
     BOOL contrast=UIAccessibilityDarkerSystemColorsEnabled();
-    CGFloat width=self.bar.bounds.size.width/5;self.selection.hidden=YES;
-    for(NSUInteger i=0;i<5;i++){UIButton *button=self.buttons[i];button.frame=CGRectMake(i*width,0,width,58);BOOL selected=i<4&&[layout[@"items"][i][@"selected"] boolValue];button.accessibilityTraits=UIAccessibilityTraitButton|(selected?UIAccessibilityTraitSelected:0);button.tintColor=selected?[UIColor colorWithRed:0.48 green:1 blue:0.78 alpha:1]:[UIColor colorWithWhite:contrast?1:0.82 alpha:1];if(selected){self.selection.hidden=NO;self.selection.frame=CGRectMake(i*width+3,5,width-6,48);}}
+    CGFloat width=self.bar.bounds.size.width/TIOHomeOverlaySlotCount();self.selection.hidden=YES;
+    for(NSUInteger i=0;i<TIOHomeOverlaySlotCount();i++){UIButton *button=self.buttons[i];button.frame=CGRectMake(i*width,0,width,58);BOOL selected=i<4&&[layout[@"items"][i][@"selected"] boolValue];button.accessibilityTraits=UIAccessibilityTraitButton|(selected?UIAccessibilityTraitSelected:0);button.tintColor=selected?[UIColor colorWithRed:0.48 green:1 blue:0.78 alpha:1]:[UIColor colorWithWhite:contrast?1:0.82 alpha:1];if(selected){self.selection.hidden=NO;self.selection.frame=CGRectMake(i*width+3,5,width-6,48);}}
     [self writeStatus];
 }
 - (void)tap:(UIButton *)button{
     NSUInteger index=button.tag;[self refresh];if(self.bar.hidden||self.targets.count!=4)return;
     if(index==4){self.bar.hidden=YES;if(self.openResearch)self.openResearch();return;}
+    if(index==5){self.bar.hidden=YES;TIOPresentStandaloneNavigation(HomeWindow().rootViewController);return;}
     if(index>=4)return;id target=self.targets[index];BOOL result=NO;@try{result=[target accessibilityActivate];}@catch(NSException *e){}
     if(!result){self.enabled=NO;[self hide:@"官方点击未确认，已恢复官方底栏" fallback:YES];return;}self.activations++;[self schedule];
 }
 - (void)restore:(UILongPressGestureRecognizer *)g{if(g.state==UIGestureRecognizerStateBegan){self.enabled=NO;[self hide:@"已临时恢复官方底栏（重启恢复扩展）" fallback:YES];}}
-- (NSDictionary *)status{return @{@"revision":@"home-tabs-v7-fixed-dark",@"appearance":self.appearanceKey?:@"",@"ensureAttempts":@(self.ensureAttempts),@"state":self.state?:@"",@"visible":@(self.bar&&!self.bar.hidden),@"treeNodes":@(self.treeCount),@"tabs":self.items?:@[],@"activations":@(self.activations),@"implementation":@"native accessibility navigation adapter"};}
+- (NSDictionary *)status{return @{@"revision":@"home-tabs-v8-navigation-fixed-dark",@"appearance":self.appearanceKey?:@"",@"ensureAttempts":@(self.ensureAttempts),@"state":self.state?:@"",@"visible":@(self.bar&&!self.bar.hidden),@"treeNodes":@(self.treeCount),@"tabs":self.items?:@[],@"activations":@(self.activations),@"implementation":@"native accessibility navigation adapter"};}
 - (void)writeStatus{NSData *data=[NSJSONSerialization dataWithJSONObject:[self status] options:NSJSONWritingSortedKeys error:nil];NSString *signature=[[NSString alloc]initWithData:data encoding:NSUTF8StringEncoding];if(!signature||[signature isEqual:self.lastWritten])return;self.lastWritten=signature;NSString *path=[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/TurboIOPrivateAddon/HomeTabs-status.json"];[NSFileManager.defaultManager createDirectoryAtPath:path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:nil];[data writeToFile:path options:NSDataWritingAtomic error:nil];[NSFileManager.defaultManager setAttributes:@{NSFilePosixPermissions:@0600} ofItemAtPath:path error:nil];}
 @end
 void TIOStartHomeTabBridge(UIButton *fallback,void (^openResearch)(void)){

@@ -46,7 +46,7 @@ int main(void){@autoreleasepool{
     for(NSString *key in @[@"enabled",@"pending",@"noticePending",@"notices"]){Transport=@{key:@YES};NSCAssert(![p canStartSubtitle],@"Other transport blocks lens");}Transport=@{};Tele=@{@"active":@YES};NSCAssert(![p canStartSubtitle],@"Teleprompter blocks lens");Tele=@{};
     for(NSString *phase in @[@"arrived",@"stopped",@"error"]){NSMutableDictionary *bad=[f mutableCopy];bad[@"phase"]=phase;p.display=bad;NSCAssert(![p canStartSubtitle],@"Unsafe frame blocks lens");}p.display=f;
     for(NSString *key in @[@"gpsWeak",@"rerouting"]){[p setValue:@YES forKey:key];NSCAssert([p canStartSubtitle]&&TIONavSubtitleIsHolding([p subtitleFrame]),@"Real weak/reroute can only show neutral status");[p setValue:@NO forKey:key];}
-    NSCAssert([[p subtitleGateDiagnostic][@"version"] containsString:@"v3"],@"Version and gate diagnostics available without coordinates");
+    NSCAssert([[p subtitleGateDiagnostic][@"version"] containsString:@"v4"],@"Version and gate diagnostics available without coordinates");
     p.simulated=YES;NSCAssert(![p canStartSubtitle],@"Frame mode must match session");NSMutableDictionary *sim=[f mutableCopy];sim[@"mode"]=@"模拟导航 · 非实际定位";p.display=sim;NSCAssert([p canStartSubtitle],@"Simulation still supported");
     puts("PASS: actual page gate: started real route permits neutral wait/weak/reroute/stale; terminal/planning/mode/foreground/competing-display guards and reason diagnostics; transport mocked, not lens acceptance.");
 }}

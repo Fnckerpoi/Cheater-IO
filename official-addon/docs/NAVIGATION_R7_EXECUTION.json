@@ -1,0 +1,42 @@
+{
+  "summary": "R7确认V6节奏为HUD3.2秒/Core3秒、同文字约10秒重绘。真实routeScoped两层最短门槛改500ms，0.1秒前台检查、原生回调驱动后台，保留单笔在途/最新帧合并/去重/过期中性和原模拟诊断限额；合并诊断落盘5秒避免每帧写盘。移除规划按钮视图，终点（搜索/地图/中心）与未运行三种模式切换自动250ms防抖算路；新意图取消旧planning/ready、等待旧引擎/弹层有界，Key/地图/隐私/授权门禁和授权续行、不重复弹权。失败不循环请求、不自动begin，已经运行必须结束后切方式。保留已验收R4-R6后台/重启/六入口/地图定位/停止链。",
+  "changedFiles": [
+    "official-addon/NavigationSubtitleHUD.m",
+    "official-addon/NavigationSubtitleHUDTests.m",
+    "official-addon/SubtitleHUDCore.m",
+    "official-addon/SubtitleHUD.m",
+    "official-addon/NavigationAutoPlan.inc",
+    "official-addon/NavigationAutoPlanTests.m",
+    "official-addon/NavigationUI.m",
+    "official-addon/NavigationWorkspace.inc",
+    "official-addon/NavigationBackground.inc",
+    "official-addon/NavigationBackgroundTests.m",
+    "official-addon/navigation-subtitle-test.sh",
+    "official-addon/preview/Main.m",
+    "official-addon/preview/HomeTabFixture.m",
+    "official-addon/docs/NAVIGATION_R7.md",
+    "official-addon/docs/NAVIGATION_R6.md"
+  ],
+  "checks": [
+    "500ms双层red exit134→green；actual HUD/Core测试500ms放行/之前阻断、pending最新合并/不积压、dedup/repaint/过期中性、非route旧节流和持续后台通过",
+    "自动规划production include真实dispatch防抖：最新终点/三模式、map就绪/授权续行/拒绝/去重授权、弹层旧引擎4秒界限、cancel/offscreen/background/no destination、已有planning无重复请求、不自动begin通过",
+    "实际UIKit selectPlace/transportModeChanged handler wiring报告PASS：选点三引擎、ready和旧planning退休后替换、running保护、规划按钮不渲染；six-entry既有fixture通过",
+    "真实SDK final arm64 compile+ad-hoc验签、UIKit preview final compile成功（既有警告）",
+    "R4-R6相关targeted全部通过；15项Node资源/合并/签名通过；全量相关高德HTTP字幕通过，整体exit1为既有独立MapKit配置缺MapKitSubtitleHUD.m，不在此包",
+    "最终预合并exit0 ZIP/精确隔离addon/单注入/三资源/500ms+autoplan+six-entry+HTTP+RouteStart/version/location蓝牙/无private配置或AppleDouble成功",
+    "git diff --check通过"
+  ],
+  "artifacts": [
+    "/Users/duriea/Downloads/TurboIO-http-navigation-r7-20261012/TurboIO-HTTP-Navigation-unsigned.ipa",
+    "/Users/duriea/Downloads/TurboIO-http-navigation-r7-20261012/local-http-preparation.json",
+    "official-addon/build/navigation-r7-final/TurboIOPrivateAddon.dylib",
+    "official-addon/docs/NAVIGATION_R7.md",
+    "official-addon/build/navigation-r7-targeted.log",
+    "official-addon/build/navigation-r7-regressions.log",
+    "official-addon/build/navigation-r7-final-build.log",
+    "official-addon/build/navigation-r7-preview-final.log",
+    "official-addon/build/navigation-r7-package-tests.log"
+  ],
+  "risk": "500ms是提交节流目标，绝非高德/GPS新数据频率、蓝牙SDK完成或镜片render保证，不能保证电动车响应/安全；ride仍当前自行车SDK引擎，不新承诺电动车专用策略。没实际新数据不500ms重发旧距离，过期仍中性。新在线自动算路/快速切换/真机镜片延迟待用户安全静止验收。助手未真机安装或固件操作，用户V6验收不外推R7。全量MapKit独立失败披露且不在包。",
+  "reportReceipt": "taskboard_execution_report rejected current session has no bound running/own settled execution; local structured fallback and comment"
+}

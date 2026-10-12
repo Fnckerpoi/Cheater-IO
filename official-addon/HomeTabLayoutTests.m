@@ -42,5 +42,7 @@ int main(void){@autoreleasepool{
         for(NSDictionary *row in live)assert([row[@"height"] doubleValue]==50);
         NSLog(@"PASS: real Air eight-node snapshot selects exactly four 50-pt targets");
     }
-    NSLog(@"PASS: exact home-tab labels, geometry, complete four-item order, unknown/portrait/action guards");
+    assert(TIOHomeOverlaySlotCount()==6&&[TIOHomeOverlayNames()[4] isEqual:@"TurboIO"]&&[TIOHomeOverlayNames()[5] isEqual:@"导航"]);
+    for(NSNumber *width in @[@300,@320,@390,@420]){double w=width.doubleValue;NSMutableArray *scaled=[NSMutableArray new];for(NSUInteger i=0;i<4;i++){NSMutableDictionary *n=[good[i] mutableCopy];n[@"x"]=@(24+i*(w-48)/4);n[@"width"]=@((w-48)/4);[scaled addObject:n];}NSDictionary *layout=TIOHomeTabLayout(scaled,w,912,34);assert(layout&&[layout[@"width"] doubleValue]/TIOHomeOverlaySlotCount()>=44);}
+    NSLog(@"PASS: six overlay slots, original four exact home-tab labels, geometry, complete four-item order, unknown/portrait/action guards");
 }return 0;}

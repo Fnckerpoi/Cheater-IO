@@ -1,6 +1,8 @@
 #import "NavigationSubtitleHUD.h"
 #import "NavigationCore.h"
 #include <math.h>
+// Older/offline consumers link safely; the production bridge provides the strong route starter.
+__attribute__((weak)) NSString *TIOSubtitleRouteStart(NSString *token){return nil;}
 
 static NSString *HoldingTitle(NSString *phase){
     if(![phase isKindOfClass:NSString.class])return nil;
@@ -23,21 +25,26 @@ NSString *TIONavSubtitleText(NSDictionary *f){
     return [NSString stringWithFormat:@"%@\n%@  %@\n%@\n以手机地图为准",title,clean(f[@"turn"],72),clean(f[@"distance"],36),clean(f[@"road"],120)];
 }
 @implementation TIONavSubtitleHUD {
-    BOOL _enabled,_amapFrames,_needsRefresh,_holding;
+    BOOL _enabled,_amapFrames,_needsRefresh,_holding,_routeScoped;
     NSString *(^_formatter)(NSDictionary *);
     NSString *_sid,*_latest,*_sent,*_note,*_mode,*_phase;
-    NSTimeInterval _latestAt,_began,_lastSent;
+    NSTimeInterval _latestAt,_began,_lastSent,_observedAt;
     NSUInteger _frames,_seenRefresh;
 }
 - (instancetype)init{if((self=[self initWithFrameFormatter:^NSString *(NSDictionary *frame){return TIONavSubtitleText(frame);}]))_amapFrames=YES;return self;}
 - (instancetype)initWithFrameFormatter:(NSString *(^)(NSDictionary *))formatter{if(!formatter)return nil;if((self=[super init])){_formatter=[formatter copy];_note=@"字幕导航未开启";}return self;}
 - (BOOL)isRealtime{return _amapFrames&&[_mode isEqual:@"实时导航 · 高德"];}
-- (NSDictionary *)status{return @{@"version":@"nav-subtitle-v3-neutral-resume",@"mode":_mode?:@"",@"phase":_phase?:@"",@"holding":@(_holding),@"enabled":@(_enabled),@"frames":@(_frames),@"note":_note?:@""};}
-- (BOOL)startWithFrame:(NSDictionary *)frame at:(NSTimeInterval)now{
+- (NSDictionary *)status{return @{@"version":@"nav-subtitle-v7-500ms",@"submitMinInterval":@(_routeScoped?0.5:3.2),@"lastSubmitAt":@(_lastSent),@"sourceAge":@(_enabled?MAX(0,_observedAt-_latestAt):0),@"routeScoped":@(_routeScoped),@"mode":_mode?:@"",@"phase":_phase?:@"",@"holding":@(_holding),@"enabled":@(_enabled),@"frames":@(_frames),@"note":_note?:@""};}
+- (BOOL)startRouteWithFrame:(NSDictionary *)frame token:(NSString *)token at:(NSTimeInterval)now{
+    if(!_amapFrames||![frame[@"mode"] isEqual:@"实时导航 · 高德"]||!token.length)return NO;
+    return [self startFrame:frame token:token at:now];
+}
+- (BOOL)startWithFrame:(NSDictionary *)frame at:(NSTimeInterval)now{return [self startFrame:frame token:nil at:now];}
+- (BOOL)startFrame:(NSDictionary *)frame token:(NSString *)token at:(NSTimeInterval)now{
     NSString *text=_formatter(frame);if(_enabled||!text||!isfinite(now)||now<0)return NO;
-    NSString *sid=TIOSubtitleNavigationStart();if(!sid){_note=@"未启动：需要字幕配置、空闲确认和前台连接";return NO;}
-    _sid=sid;_mode=[frame[@"mode"] isKindOfClass:NSString.class]?[frame[@"mode"] copy]:nil;_phase=[frame[@"phase"] copy];_holding=TIONavSubtitleIsHolding(frame);
-    _enabled=YES;_latest=text;_latestAt=_began=now;_sent=nil;_frames=0;_lastSent=0;_needsRefresh=NO;_seenRefresh=[TIOSubtitleNavigationStatus()[@"refreshEpoch"] unsignedIntegerValue];_note=@"等待字幕临时会话成功回执";return YES;
+    NSString *sid=token?TIOSubtitleRouteStart(token):TIOSubtitleNavigationStart();if(!sid){_note=@"未启动：需要字幕配置、空闲确认和前台连接";return NO;}
+    _routeScoped=token!=nil;_sid=sid;_mode=[frame[@"mode"] isKindOfClass:NSString.class]?[frame[@"mode"] copy]:nil;_phase=[frame[@"phase"] copy];_holding=TIONavSubtitleIsHolding(frame);
+    _enabled=YES;_latest=text;_latestAt=_began=_observedAt=now;_sent=nil;_frames=0;_lastSent=0;_needsRefresh=NO;_seenRefresh=[TIOSubtitleNavigationStatus()[@"refreshEpoch"] unsignedIntegerValue];_note=@"等待字幕临时会话成功回执";return YES;
 }
 - (void)offer:(NSDictionary *)frame at:(NSTimeInterval)now{
     if(!_enabled)return;
@@ -45,13 +52,13 @@ NSString *TIONavSubtitleText(NSDictionary *f){
     NSString *text=_formatter(frame);
     if(!text&&[self isRealtime]&&[frame[@"phase"] isEqual:@"navigating"])frame=TIONavSubtitleHoldingFrame(@"invalid"),text=_formatter(frame);
     if(!text){[self stop:@"导航结束或状态不可用，停止本次会话"];return;}
-    _latest=text;_latestAt=now;_phase=[frame[@"phase"] copy];_holding=TIONavSubtitleIsHolding(frame);
+    _latest=text;_latestAt=_observedAt=now;_phase=[frame[@"phase"] copy];_holding=TIONavSubtitleIsHolding(frame);
 }
 - (void)pumpAt:(NSTimeInterval)now{
     if(!_enabled)return;NSDictionary *s=TIOSubtitleNavigationStatus();
-    if(![s[@"sid"] isEqual:_sid]||![s[@"navigation"] boolValue]||![@[@"starting",@"ready"] containsObject:s[@"phase"]]){[self stop:@"字幕会话已退出或不可用，不自动重开"];return;}
-    if(!isfinite(now)||now<_latestAt){[self stop:@"导航时间异常，停止本次会话"];return;}
-    if(now-_began>=240||_frames>=80){[self stop:@"4分钟／80帧字幕研究保护上限"];return;}
+    if(![s[@"sid"] isEqual:_sid]||![s[@"navigation"] boolValue]||![@[@"starting",@"ready"] containsObject:s[@"phase"]]){[self stop:[NSString stringWithFormat:@"字幕会话已退出：%@；不自动重开",s[@"note"]?:s[@"phase"]?:@"未知"]];return;}
+    if(!isfinite(now)||now<_latestAt){[self stop:@"导航时间异常，停止本次会话"];return;}_observedAt=now;
+    if(!_routeScoped&&(now-_began>=240||_frames>=80)){[self stop:@"4分钟／80帧字幕研究保护上限"];return;}
     NSString *text=_latest;
     if(now-_latestAt>15){
         if(![self isRealtime]){[self stop:@"导航数据15秒未更新，停止旧指引"];return;}
@@ -61,10 +68,10 @@ NSString *TIONavSubtitleText(NSDictionary *f){
         _latest=text;
     }
     NSUInteger epoch=[s[@"refreshEpoch"] unsignedIntegerValue];if(epoch!=_seenRefresh){_seenRefresh=epoch;_needsRefresh=YES;}
-    if([s[@"foreground"] isEqual:@NO]){_needsRefresh=YES;_note=@"系统通知暂时遮挡，暂停发送；同会话回前台后续显";return;}
+    if([s[@"foreground"] isEqual:@NO]&&!(_routeScoped&&[s[@"backgroundAllowed"] boolValue])){_needsRefresh=YES;_note=@"系统通知暂时遮挡，暂停发送；同会话回前台后续显";return;}
     // Repaint only the current owned SID, not a new preview or a foreign display.
     BOOL repaint=[self isRealtime]&&_frames&&now-_lastSent>=10;
-    if(![s[@"phase"] isEqual:@"ready"]||[s[@"pending"] boolValue]||(_frames&&now-_lastSent<3.2)||([text isEqual:_sent]&&!_needsRefresh&&!repaint))return;
+    if(![s[@"phase"] isEqual:@"ready"]||[s[@"pending"] boolValue]||(_frames&&now-_lastSent<(_routeScoped?0.5:3.2))||([text isEqual:_sent]&&!_needsRefresh&&!repaint))return;
     if(!TIOSubtitleNavigationText(_sid,text)){[self stop:@"导航文字未能提交，不循环重试"];return;}
     _frames++;_sent=text;_lastSent=now;_needsRefresh=NO;_note=_holding?@"中性等待状态已提交，指引有效后同会话恢复":@"字幕指引已更新；同会话有界续显，距离为最近提交值";
 }
