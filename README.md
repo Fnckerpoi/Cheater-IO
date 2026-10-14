@@ -8,7 +8,9 @@
 
 原创代码仅供学习、研究与非商业使用，沿用 [PolyForm Noncommercial 1.0.0](LICENSE)，未经授权不得商用或收费分发。除源码及明确列出的依赖，Release 提供原厂砸壳 IPA 作为 iOS 扩展输入，以及下述 **Android 1.0.5 非官方完整插件 APK / 高风险实验固件**。原厂部分版权仍归各自权利人，不因分发修改包而重新许可。**不提供个人密钥、Cookie、账号、签名私钥，亦不提供合并后的 IPA / HAP**；第三方服务由用户自行配置。
 
-**文档更新：2026-09-30** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
+**文档更新：2026-10-14** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
+
+**新版本适配预发布：[TMIG1 · Strix OS 1.0.5.5](firmware-research/strix-1.0.5.5/README.md) · [RayNeo AI iOS 1.0.6（218）插件](official-addon/tmig1-edition/README.md) · [原始新版原厂固件](firmware-research/strix-1.0.5.5/stock/README.md)**。**iPhone 17 Pro Max 已由用户刷入、进入并验证这组最新版兼容组合（2026-10-14）。** 保留情境英语；Dots 开发中，尚未完成。不是稳定版、全机型验收或新版 Android APK。
 
 **[Android APK / 固件下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/android-105-guard07-tap1-test01) · [Android 安装与刷机](android-addon/docs/INSTALL_AND_FLASH.md) · [iOS 源码与构建](official-addon/README.md) · [☕ 自愿支持项目](#support)**
 
@@ -39,7 +41,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 | 你的目标 | 现在提供什么 | 从这里开始 |
 | --- | --- | --- |
 | **在 Android 使用插件** | 官方 1.0.5（201）宿主已合并 Turbo IO 的完整实验 APK；不用自己合并，服务配置自行填写 | [下载 APK / 配套固件](https://github.com/Turbo1123/Turbo-IO/releases/tag/android-105-guard07-tap1-test01) → [安装与刷机教程](android-addon/docs/INSTALL_AND_FLASH.md) |
-| **在 iPhone 使用插件（V2）** | 扩展源码、兼容原厂输入与构建工具；自行合并、签名、安装，**不提供合并 IPA**。新 UI / 番茄有 FOCUS-04 可选集成版 | [宿主与签名要求](official-addon/README.md) → [FOCUS-04 集成版](official-addon/focus-edition/README.md) |
+| **在 iPhone 使用插件（V2）** | 扩展源码与构建工具；自行合并、签名、安装，**不提供合并 IPA**。1.0.6（218）用 TMIG1 / Strix 1.0.5.5；旧 1.0.5（201）用各自历史集成版 | [新 TMIG1 集成版](official-addon/tmig1-edition/README.md) · [历史 FOCUS-04](official-addon/focus-edition/README.md) · [签名要求](official-addon/README.md) |
 | **开发自己的仪表盘 / 小应用** | 自托管 API、Python / MCP、20 个模板、Agent Skill；先在电脑生成卡片或 ZIP 并预览，再接入匹配手机和运行时 | [开发 SDK 教程](docs/DEVELOPER_ECOSYSTEM.md) · [模板](app-gallery/README.md) · [Skill](skills/turboio-developer/SKILL.md) |
 | **只看效果 / 离线学习** | Web UI、模板、SVG 预览与本机测试；不要求设备、服务 Key 或刷机，不等于真机验收 | [Web 预览](#web-显示预览与观察台) · [模板离线入门](docs/DEVELOPER_ECOSYSTEM.md#1-十分钟离线入门) |
 | **研究独立连接（iOS V1）** | 独立 SDK 与示例客户端，研究配对、协议和自有 ASR；不是当前 V2 插件的完整替代品 | [V1 快速开始](#快速开始) |
@@ -57,6 +59,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 
 | 日期 | 更新 | 公开范围 |
 | --- | --- | --- |
+| 2026-10-14 | [新版本适配：App 1.0.6 / Strix 1.0.5.5 / TMIG1](#tmig1-update) | iPhone 17 Pro Max 实测兼容；原样固件、可复现 AP 构建、手机适配源码、情境英语、新版原厂 ZIP；Dots 开发中，尚未完成 |
 | 2026-09-30 | [TLC1：全天智记与扩展应用共存](#lifelog-coexist) | 六个扩展应用共存判断、可复现构建与测试、原样实刷固件及 iOS OTA 参考；仅 AP 改动，刷后须结束手机升级保护 |
 | 2026-09-29 | [Apple Watch 遥控实验源码与 TGR1 固件](#apple-watch-remote) | Watch 表冠/屏幕/手势、iOS 桥接、TGR1 AP 输入适配与原样实验 OTA；已知翻页问题未闭环，不含签名包 |
 | 2026-09-27 | [Android 1.0.5 完整插件与官方流程 OTA](#android-release-update) | 去除网页正文适配的完整APK、扩展源码、TAP1-TEST-01原样实刷固件、校验与逐步教程；高风险实验版 |
@@ -69,6 +72,28 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 | 2026-09-22 | [ANIM60 本地动图](#animation-test) | 动图实验源码与独立固件候选；非通用动图上传 |
 
 > **自定义固件是试验用品，非开发者请勿刷。** AP 改动仍可能导致无法启动或失去 OTA；不要混用不同候选的固件、手机门禁或授权。原厂回滚不是救砖保证。实机成功不等于生产稳定版。
+
+<a id="tmig1-update"></a>
+
+### 2026-10-14 · 新版本适配预发布：底层再迁移，体验再延续
+
+![Turbo IO TMIG1 新版本适配预发布：iPhone 17 Pro Max 实测，保留情境英语](docs/screenshots/tmig1-prerelease-hero-20261014.png)
+
+*imagegen 横版宣传设计，不是实机截图。版本号为本轮固定适配对象，不表示未来版本自动兼容。*
+
+**用户已在 iPhone 17 Pro Max 实测：RayNeo AI iOS 1.0.6（218）＋ Strix OS 1.0.5.5 / TMIG1 已刷入、进入并验证兼容。** 上传实刷原样固件，不另改二进制冒充实测；公开手机源码移除私人配置和微信读书网页正文适配后重新编译通过，未再安装做公开派生整包的全量回归。
+
+**这次是底层迁移，不是改版本号。** 旧补丁前置字节在新版相同位置 **0/36 匹配**；重定位 134 个原生绑定，核对 C++ 菜单/头控对象的新尺寸与成员偏移、回调与输入生命周期，再适配 1.0.6 官方查询、下载、解压和 15 个负载的 OTA 校验。公开构建已重建出与实测一致的 AP 和完整 ZIP。适配并不容易，后续官方升级仍须重新审计，不能照搬旧地址。
+
+- 延续四项菜单、仪表盘与小应用 SDK、导航、音乐、原生阅读、番茄、Watch 输入、诊断及智记共存等模块；不承诺各功能已完成长期全量验收。
+- **情境英语进入本次公开研究范围**：从本机已有智记片段生成有界题库，手机授权/校验/发送，眼镜轻量学习与复习。模型与服务凭据自行配置，自动功能默认关闭。
+- **Dots 保留开发中入口，尚未完成**，不是本次已交付的对话产品；不公开私人 Bridge、会话、订阅、隧道或认证配置。
+- 自定义只改新版 AP，其他 **14 个负载与新版原厂逐字节一致**；完整 OTA 仍会安装它们。AP **7,373,064 字节**，低于 9.6 MB 保守预算；体积不是 RAM 或安全保证。
+- **归档官方原始 1.0.5.5 ZIP**：不重封装、无自定义修改，附来源和校验；不是救砖保证，TMIG1 固定门禁不能把它当自定义包刷入。
+
+**[下载 TMIG1 / 校验](https://github.com/Turbo1123/Turbo-IO/releases/tag/firmware-strix-1.0.5.5-tmig1) · [底层迁移、复现与刷写教程](firmware-research/strix-1.0.5.5/README.md) · [1.0.6 插件构建](official-addon/tmig1-edition/README.md) · [原版 1.0.5.5](firmware-research/strix-1.0.5.5/stock/README.md)**
+
+**非官方实验预发布，小白不要刷。** 掉电、中断、错包和代码缺陷可能造成无法启动或设备损坏，不保证稳定、回滚或救砖。旧 Android APK / iOS 候选不能混用，未发布新版 Android 1.0.6 APK。不含任何个人 Key、Cookie、Apple 开发者账号、签名材料或合并 IPA。
 
 <a id="lifelog-coexist"></a>
 
@@ -287,7 +312,9 @@ ANIM60 是基于相同 Strix OS 1.0.4.12 的**另一份实验 AP**：复用第�
 
 ## 各端功能对比
 
-### 手机版本怎么选（2026-09-27）
+### 手机版本怎么选（2026-10-14）
+
+**新增固定组合：iOS 官方 1.0.6（218）＋ TMIG1 / Strix OS 1.0.5.5**，见[新适配教程](official-addon/tmig1-edition/README.md)。其 iPhone 17 Pro Max 实测不自动扩展到旧 Android APK、旧 iOS 门禁或其他机型。以下历史版本仍保留各自兼容边界。
 
 下表比较**当前公开的内容与接入方式**，不把“有源码”“已打包”和“真机全量通过”混为一谈。V1/V2 是架构路线，1.0.5 是官方宿主版本；GUARD-07、FOCUS-04、TAP1 则是不同扩展/固件标记，不是同一组版本号。
 
