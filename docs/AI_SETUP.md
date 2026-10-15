@@ -5,7 +5,7 @@
 ## 先给助手三样东西
 
 1. 本仓库：<https://github.com/Turbo1123/Turbo-IO>。
-2. Android使用 [雷鸟 AI Android 官方下载入口](https://rayneo.cn/commonPage/venus/appDownload/index_m.html)，不是Turbo IO安装包或固定旧版本存档。**iOS官方扩展需用户自行解决砸壳／合法未加密应用副本的准备，我们不提供砸壳IPA、文件、下载来源或代砸壳服务。** 页面即使展示iOS商店渠道，也不等于可获取合并所需的未加密Runner.app。2026-09-15已核对页面可访问，未据此宣称其即时下载包通过校验。
+2. Android 使用 [雷鸟 AI Android 官方下载入口](https://rayneo.cn/commonPage/venus/appDownload/index_m.html)，不是 Turbo IO 安装包或固定旧版存档。**iOS 官方扩展可使用[明确列出的原厂解密输入](../official-apps/ios/README.md)，或自行准备有权使用的兼容副本。1.0.6（218）输入已去签名，对应 TMIG1；无插件，仍需自己合并与签名。** 不提供代砸壳或代签服务。商店安装仍不等于取得可合并的未加密 Runner.app，不能跳过版本与哈希校验。
 3. [首页可复制的完整提示词](../README.md#让-claude-code--codex-帮你接入)，并选好自己的平台。不确定路线时让助手先解释五个选项，而不是同时搭建全部组件。
 
 原生鸿蒙 HarmonyOS、iOS 独立 SDK 与仅 Web 预览不需要官方应用副本；鸿蒙按 [源码安装教程](../harmony-sdk/README.md) 自行编译签名。

@@ -8,7 +8,7 @@
 
 原创代码仅供学习、研究与非商业使用，沿用 [PolyForm Noncommercial 1.0.0](LICENSE)，未经授权不得商用或收费分发。除源码及明确列出的依赖，Release 提供原厂砸壳 IPA 作为 iOS 扩展输入，以及下述 **Android 1.0.5 非官方完整插件 APK / 高风险实验固件**。原厂部分版权仍归各自权利人，不因分发修改包而重新许可。**不提供个人密钥、Cookie、账号、签名私钥，亦不提供合并后的 IPA / HAP**；第三方服务由用户自行配置。
 
-**文档更新：2026-10-14** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
+**文档更新：2026-10-15** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
 
 **新版本适配预发布：[TMIG1 · Strix OS 1.0.5.5](firmware-research/strix-1.0.5.5/README.md) · [RayNeo AI iOS 1.0.6（218）插件](official-addon/tmig1-edition/README.md) · [原始新版原厂固件](firmware-research/strix-1.0.5.5/stock/README.md)**。**iPhone 17 Pro Max 已由用户刷入、进入并验证这组最新版兼容组合（2026-10-14）。** 保留情境英语；Dots 开发中，尚未完成。不是稳定版、全机型验收或新版 Android APK。
 
@@ -59,6 +59,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 
 | 日期 | 更新 | 公开范围 |
 | --- | --- | --- |
+| 2026-10-15 | [原厂 iOS 1.0.6（218）砸壳 · 去签名输入](official-apps/ios/1.0.6/README.md) | 未合并 Turbo IO；95 个代码签名及商店授权元数据移除；原厂功能代码保留，自行合并签名；版权仍归官方 |
 | 2026-10-14 | [新版本适配：App 1.0.6 / Strix 1.0.5.5 / TMIG1](#tmig1-update) | iPhone 17 Pro Max 实测兼容；原样固件、可复现 AP 构建、手机适配源码、情境英语、新版原厂 ZIP；Dots 开发中，尚未完成 |
 | 2026-09-30 | [TLC1：全天智记与扩展应用共存](#lifelog-coexist) | 六个扩展应用共存判断、可复现构建与测试、原样实刷固件及 iOS OTA 参考；仅 AP 改动，刷后须结束手机升级保护 |
 | 2026-09-29 | [Apple Watch 遥控实验源码与 TGR1 固件](#apple-watch-remote) | Watch 表冠/屏幕/手势、iOS 桥接、TGR1 AP 输入适配与原样实验 OTA；已知翻页问题未闭环，不含签名包 |
@@ -294,9 +295,9 @@ ANIM60 是基于相同 Strix OS 1.0.4.12 的**另一份实验 AP**：复用第�
 
 ## iOS 原厂砸壳 IPA 下载
 
-**[雷鸟 AI iOS 1.0.5（201）原厂砸壳 IPA](https://github.com/Turbo1123/Turbo-IO/releases/tag/rayneo-ios-1.0.5-201)**。
+**[1.0.6（218）原厂砸壳 · 已去签名](https://github.com/Turbo1123/Turbo-IO/releases/tag/rayneo-ios-1.0.6-218) · [1.0.5（201）历史输入](https://github.com/Turbo1123/Turbo-IO/releases/tag/rayneo-ios-1.0.5-201) · [版本索引与校验](official-apps/ios/README.md)**。
 
-提供的是**原厂应用的砸壳（解密）版本，未合并 Turbo IO 扩展，不是修改功能后的版本**。砸壳是对原应用二进制解除加密，不代表整个文件与 App Store 原始加密包逐字节相同。下载该 IPA 不会直接获得 Turbo IO 功能；需按 [iOS 扩展教程](official-addon/README.md) 自行合并、配置并使用自己的签名安装。
+提供的是**原厂应用的砸壳（解密）版本，未合并 Turbo IO 扩展，不是修改功能后的版本**。新增 1.0.6 已移除全部 95 个 Mach-O 的代码签名、签名目录及商店授权元数据，不包含个人 Apple 签名信息。解密、去签名及重归档意味着不是 App Store 原始加密包的逐字节副本。下载不会直接获得 Turbo IO 功能；1.0.6 请按 [TMIG1 教程](official-addon/tmig1-edition/README.md)自行合并、配置并用自己的签名安装，历史输入按对应旧版教程使用。
 
 <details>
 <summary>版本、校验值与版权说明</summary>
@@ -306,6 +307,7 @@ ANIM60 是基于相同 Strix OS 1.0.4.12 的**另一份实验 AP**：复用第�
 - 文件：`RayNeo_AI_1.0.5_201_decrypted_original.ipa`
 - 版本 / Build：`1.0.5 / 201`；Bundle ID：`com.rayneo.venus.pub`
 - SHA-256：`39d12aff8f2b312dc3b40ce784a444e52c536e61378434005255177548df966a`
+- **新增 1.0.6（218）**：`RayNeo_AI_1.0.6_218_decrypted_unsigned_original.ipa`，353,545,727 字节；SHA-256：`f20d23c2e90c9f6effb73463491725d2a359af14b1afa1bc06cf68f61bf2a852`。新版是完全未签名输入；旧版附件保持历史原样，不宣称其也按此方式去签名。
 - 普通 App Store 加密 IPA 仍不能直接合并；未知版本必须通过兼容性检查。项目不提供代砸壳或代签名服务。
 
 </details>
@@ -392,7 +394,7 @@ ANIM60 是基于相同 Strix OS 1.0.4.12 的**另一份实验 AP**：复用第�
 
 **Android：[雷鸟 AI Android 官方下载入口](https://rayneo.cn/commonPage/venus/appDownload/index_m.html)** · **[完整 AI 接入说明](docs/AI_SETUP.md)**
 
-**iOS：可使用上方 Release 提供的原厂 1.0.5（201）砸壳 IPA，或自行准备有权使用的兼容未加密副本。提供的 IPA 没有 Turbo IO 扩展，需自行合并和签名；普通 App Store 加密 IPA 不能直接合并。**
+**iOS：可使用上方 Release 提供的原厂 1.0.6（218）去签名输入或 1.0.5（201）历史输入，或自行准备有权使用的兼容未加密副本。1.0.6 对应 TMIG1，旧版输入不能混用。提供的 IPA 没有 Turbo IO 扩展，需自行合并和签名；普通 App Store 加密 IPA 不能直接合并。**
 
 Android 用户把**官方下载入口 + 本仓库 + 下面的提示词**一起交给电脑上的 Claude Code 或 Codex；iOS 官方扩展用户可同时提供上方原厂砸壳 IPA Release 链接，或自行准备合法兼容的未加密应用副本。原生鸿蒙 HarmonyOS 用户只需本仓库与提示词，不需要官方包。再让助手按所选路线检查环境、编译并引导配置；只有官方扩展需要合并宿主。不需要先弄懂所有脚本；但你仍需提供自己的签名、服务配置并完成手机授权和镜片验收。仅聊天、不能访问本机文件和终端的环境不能替你完成真机安装。
 
@@ -405,7 +407,7 @@ Android 用户把**官方下载入口 + 本仓库 + 下面的提示词**一起�
 请帮我在这台电脑上接入 Turbo IO，仅用于个人非商业学习研究。
 源码：https://github.com/Turbo1123/Turbo-IO
 Android 官方 App 下载入口：https://rayneo.cn/commonPage/venus/appDownload/index_m.html
-iOS 官方扩展原厂砸壳 IPA：https://github.com/Turbo1123/Turbo-IO/releases/tag/rayneo-ios-1.0.5-201
+iOS 官方扩展原厂砸壳 IPA 版本索引：https://github.com/Turbo1123/Turbo-IO/tree/main/official-apps/ios
 该 IPA 未合并 Turbo IO，需校验 SHA-256、版本和 UUID，再自行合并、配置并签名；也可使用我自行准备的合法兼容副本。
 目标：[原生鸿蒙 HarmonyOS 客户端 / Android 官方扩展 / iOS 官方扩展 / iOS 独立 SDK / 仅 Web 预览]
 
