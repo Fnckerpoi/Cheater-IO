@@ -60,6 +60,10 @@ for(const [p,h] of Object.entries(focusReview.largeText))reviewedLargeSources.se
 // inspected by android-addon/tests/PrivateArtifactAudit.py; no blanket exemption.
 const androidReview=JSON.parse(fs.readFileSync(new URL('./android-release-reviewed-assets.json',import.meta.url),'utf8'));
 for(const [p,h] of Object.entries(androidReview.files))reviewedScreenshots.set(p,h);
+// Exact TMIG1 concept art/build inputs and unchanged official stock archive.
+// The stock ZIP is independently inspected by the version-pinned firmware audit.
+const tmig1Review=JSON.parse(fs.readFileSync(new URL('./tmig1-reviewed-assets.json',import.meta.url),'utf8'));
+for(const [p,h] of Object.entries(tmig1Review.files))reviewedScreenshots.set(p,h);
 export function audit(root){
   const findings=[];let files=0;
   const rules=[
