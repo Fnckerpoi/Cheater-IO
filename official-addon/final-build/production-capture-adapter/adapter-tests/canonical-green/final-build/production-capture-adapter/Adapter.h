@@ -1,0 +1,7 @@
+#ifndef TIO_STAGEB_CAPTURE_ADAPTER_H
+#define TIO_STAGEB_CAPTURE_ADAPTER_H
+#include <stdbool.h>
+typedef enum{TIOAdapterBlockedPolicy,TIOAdapterBlockedIdentity,TIOAdapterBlockedOrder,TIOAdapterBlockedImage,TIOAdapterBlockedVM,TIOAdapterBlockedResolver,TIOAdapterCASLost,TIOAdapterInstalled,TIOAdapterWaitingOpen,TIOAdapterRootBlocked}TIOAdapterState;
+typedef struct{TIOAdapterState state;bool constructor_ran,bundle_verified,engine_verified,slot_resolver_verified,cas_installed,lookup_observed,open_observed,schema_validated,file_created;}TIOAdapterStatus;
+TIOAdapterStatus TIOStageBCaptureAdapterGetStatus(void);
+#endif

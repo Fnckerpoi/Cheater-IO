@@ -1,0 +1,8 @@
+#ifndef TIO_RUNTIME_CAPTURE_ADAPTER_H
+#define TIO_RUNTIME_CAPTURE_ADAPTER_H
+#include <stdbool.h>
+#include <stdint.h>
+typedef enum{TIOAdapterBlockedBundlePolicy,TIOAdapterBlockedIdentity,TIOAdapterBlockedSlotState,TIOAdapterRaceLost,TIOAdapterOwnFixtureInstalled}TIOAdapterState;
+typedef struct{TIOAdapterState state;bool constructor_ran,slot_installed,lookup_observed,capture_written;uintptr_t initial_slot_value;}TIOAdapterStatus;
+TIOAdapterStatus TIOAdapterGetStatus(void);
+#endif

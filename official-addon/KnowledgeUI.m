@@ -1,9 +1,10 @@
+#import "TIOStorageIdentity.h"
 #import "KnowledgeUI.h"
 #import "KnowledgeClient.h"
 #import "ResearchUI.h"
 UIButton *TIOAgentPicker(void (^changed)(void)){
     UIButton *b=[UIButton buttonWithType:UIButtonTypeSystem];b.showsMenuAsPrimaryAction=YES;UIButtonConfiguration *c=UIButtonConfiguration.tintedButtonConfiguration;c.title=TIOSelectedAgent();c.image=[UIImage systemImageNamed:@"chevron.down"];c.imagePlacement=NSDirectionalRectEdgeTrailing;c.imagePadding=6;c.cornerStyle=UIButtonConfigurationCornerStyleCapsule;b.configuration=c;
-    NSMutableArray *actions=[NSMutableArray new];for(NSString *name in @[@"Codex",@"Claude Code",@"Hermes",@"WorkBuddy",@"OpenClaw"]){UIAction *a=[UIAction actionWithTitle:name image:nil identifier:nil handler:^(UIAction *action){[[[NSUserDefaults alloc]initWithSuiteName:@"io.turboio.official-knowledge"] setObject:name forKey:@"agent"];if(changed)changed();}];a.state=[TIOSelectedAgent() isEqual:name]?UIMenuElementStateOn:UIMenuElementStateOff;[actions addObject:a];}b.menu=[UIMenu menuWithTitle:@"选择 Agent" children:actions];[b sizeToFit];return b;
+    NSMutableArray *actions=[NSMutableArray new];for(NSString *name in @[@"Codex",@"Claude Code",@"Hermes",@"WorkBuddy",@"OpenClaw"]){UIAction *a=[UIAction actionWithTitle:name image:nil identifier:nil handler:^(UIAction *action){[[[NSUserDefaults alloc]initWithSuiteName:TIOStorageKnowledgeDomain()] setObject:name forKey:@"agent"];if(changed)changed();}];a.state=[TIOSelectedAgent() isEqual:name]?UIMenuElementStateOn:UIMenuElementStateOff;[actions addObject:a];}b.menu=[UIMenu menuWithTitle:@"选择 Agent" children:actions];[b sizeToFit];return b;
 }
 @interface TIOKnowledgePanel:UITableViewController
 @property(nonatomic) TIOKnowledgeClient *client;

@@ -3,7 +3,9 @@
 #import "ProtocolContext.h"
 #import "focus.h"
 #import <objc/message.h>
-extern NSDictionary *TIOOTAFlashStatus(void) __attribute__((weak_import));
+#include <dlfcn.h>
+// Strict recipe linking uses -undefined,error without OTA objects, so resolve this optional symbol dynamically.
+static NSDictionary *TIOOTAFlashStatusIfAvailable(void){NSDictionary *(*status)(void)=dlsym(RTLD_DEFAULT,"TIOOTAFlashStatus");return status?status():nil;}
 NSDictionary *TFDecodeReply(NSDictionary *e){if(![e isKindOfClass:NSDictionary.class]||![e[@"eventType"]isEqual:@"messageReceived"])return nil;NSDictionary *m=e[@"message"];if(![m isKindOfClass:NSDictionary.class]||![m[@"businessId"]isEqual:@15])return nil;NSData *d=m[@"payload"];if(![d isKindOfClass:NSData.class]||d.length<7||d.length>512)return nil;const uint8_t *p=d.bytes;const uint8_t prefix[]={8,1,16,6,26};if(memcmp(p,prefix,5)||!(p[5]&128)||(p[6]&128)||d.length!=7+(p[5]&127)+(p[6]<<7))return nil;
  id j=[NSJSONSerialization JSONObjectWithData:[d subdataWithRange:NSMakeRange(7,d.length-7)] options:0 error:nil];if(![j isKindOfClass:NSDictionary.class]||![j[@"cmd"]isEqual:@"turbo_focus_v1"]||![j[@"payload"]isKindOfClass:NSDictionary.class])return nil;NSString *hex=j[@"payload"][@"data"];if(![hex isKindOfClass:NSString.class]||hex.length!=128)return nil;uint8_t raw[64];for(unsigned i=0;i<64;i++){unsigned v=0;for(unsigned k=0;k<2;k++){unichar c=[hex characterAtIndex:i*2+k];unsigned n=c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:16;if(n>15)return nil;v=v*16+n;}raw[i]=v;}
  if(memcmp(raw,"TFA1",4)||raw[4]!=1||raw[5]>TF_NO_SESSION||raw[6]>TF_STOPPED||(raw[7]&~3)||tf_u32(raw+60)!=tf_crc(raw,60))return nil;for(unsigned i=48;i<60;i++)if(raw[i])return nil;if(tf_u32(raw+20)>7200000||tf_u32(raw+24)>7200||tf_u32(raw+28)>2)return nil;
@@ -27,7 +29,7 @@ NSDictionary *TFDecodeReply(NSDictionary *e){if(![e isKindOfClass:NSDictionary.c
 }
 - (void)query{[self perform:TF_QUERY seconds:0 phase:0];}
 - (void)perform:(unsigned)op seconds:(unsigned)seconds phase:(unsigned)phase{NSAssert(NSThread.isMainThread,@"main only");
- if(TIOOTAFlashStatus&&[TIOOTAFlashStatus()[@"stage"]unsignedIntegerValue]!=0){_pendingOp=_pendingSID=0;_note=@"升级保护中，暂不发送番茄命令。请先等眼镜升级完成并回首页，再重新打开 App；也可在眼镜长按停止。";return;}
+ if([TIOOTAFlashStatusIfAvailable()[@"stage"]unsignedIntegerValue]!=0){_pendingOp=_pendingSID=0;_note=@"升级保护中，暂不发送番茄命令。请先等眼镜升级完成并回首页，再重新打开 App；也可在眼镜长按停止。";return;}
  if(self.busy){
   if(op==TF_STOP&&_op==TF_QUERY){_pendingOp=TF_STOP;_pendingSID=[_snapshot[@"sid"]unsignedIntValue];_note=@"刷新后停止眼镜计时…";}
   else if(op!=TF_QUERY)_note=@"上一条命令仍在确认，请稍后再操作";

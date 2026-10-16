@@ -1,3 +1,4 @@
+#import "TIOStorageIdentity.h"
 #import "VoiceTTS.h"
 #if TIO_MUSIC
 #import "music/MusicPlayer.h"
@@ -30,7 +31,7 @@
 }
 - (void)setState:(NSString *)state {
     _state=[state copy];
-    NSUserDefaults *prefs=[[NSUserDefaults alloc]initWithSuiteName:@"io.turboio.official-private-addon"];
+    NSUserDefaults *prefs=[[NSUserDefaults alloc]initWithSuiteName:TIOStorageAddonDomain()];
     NSMutableArray *trace=[[prefs arrayForKey:@"ttsTrace"] mutableCopy]?:[NSMutableArray new];
     [trace addObject:@{@"at":@((NSInteger)(NSDate.date.timeIntervalSince1970*1000)),@"state":_state?:@""}];
     if(trace.count>24)[trace removeObjectsInRange:NSMakeRange(0,trace.count-24)];
@@ -67,7 +68,7 @@
 - (void)appendFullText:(NSString *)text finished:(BOOL)finished {
     NSAssert(NSThread.isMainThread,@"TTS state belongs to the main queue");
     BOOL valid=[text isKindOfClass:NSString.class],prefix=valid&&(!self.full.length||[text hasPrefix:self.full]),wasFinal=self.finalRequested;
-    NSUserDefaults *diag=[[NSUserDefaults alloc]initWithSuiteName:@"io.turboio.official-private-addon"];
+    NSUserDefaults *diag=[[NSUserDefaults alloc]initWithSuiteName:TIOStorageAddonDomain()];
     [diag setObject:@{@"textLength":@(text.length),@"fullLength":@(self.full.length),@"prefix":@(prefix),@"wasFinal":@(wasFinal)} forKey:@"ttsAppendEntry"];
     if(!valid||!prefix||wasFinal){self.state=@"TTS 文本未追加";return;}
     NSString *newText=[text substringFromIndex:self.full.length];self.full=[text copy];

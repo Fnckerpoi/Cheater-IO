@@ -1,3 +1,4 @@
+#import "TIOStorageIdentity.h"
 #import <UIKit/UIKit.h>
 #import <Security/Security.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
@@ -5,11 +6,11 @@
 #import "RecordingText.h"
 #import "ResearchUI.h"
 
-static NSString *const TextDomain=@"io.turboio.official-private-addon";
-static NSUserDefaults *TextPrefs(void){return [[NSUserDefaults alloc]initWithSuiteName:TextDomain];}
+static NSString *TextDomain(void){return TIOStorageAddonDomain();}
+static NSUserDefaults *TextPrefs(void){return [[NSUserDefaults alloc]initWithSuiteName:TextDomain()];}
 static NSURL *TextEndpoint(NSString *s){NSURLComponents *c=[NSURLComponents componentsWithString:s];return [c.scheme.lowercaseString isEqual:@"https"]&&c.host.length&&!c.user&&!c.password&&!c.query&&!c.fragment&&[c.path hasSuffix:@"/chat/completions"]?c.URL:nil;}
 static NSString *TextKey(NSString *endpoint){
-    NSDictionary *q=@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:TextDomain,(__bridge id)kSecAttrAccount:endpoint,(__bridge id)kSecReturnData:@YES};
+    NSDictionary *q=@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:TextDomain(),(__bridge id)kSecAttrAccount:endpoint,(__bridge id)kSecReturnData:@YES};
     CFTypeRef result=NULL;if(SecItemCopyMatching((__bridge CFDictionaryRef)q,&result)!=errSecSuccess)return @"";
     return [[NSString alloc]initWithData:CFBridgingRelease(result) encoding:NSUTF8StringEncoding]?:@"";
 }

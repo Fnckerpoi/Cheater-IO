@@ -1,0 +1,6 @@
+#include <dlfcn.h>
+#include <mach-o/dyld.h>
+#include <mach-o/loader.h>
+#include <stdio.h>
+#include <string.h>
+int main(void){Dl_info i={0};void*p=(void*)dlsym;int r=dladdr(p,&i);printf("DLADDR=%d pointer=%p base=%p image=%s symbol=%s saddr=%p\n",r,p,i.dli_fbase,i.dli_fname?i.dli_fname:"none",i.dli_sname?i.dli_sname:"none",i.dli_saddr);for(unsigned j=0;j<_dyld_image_count();j++)if((void*)_dyld_get_image_header(j)==i.dli_fbase){const struct mach_header_64*h=(void*)i.dli_fbase;const unsigned char*b=(const void*)(h+1);unsigned o=0;printf("SLIDE=%llx ncmds=%u\n",(unsigned long long)_dyld_get_image_vmaddr_slide(j),h->ncmds);for(unsigned k=0;k<h->ncmds;k++){const struct load_command*l=(const void*)(b+o);if(l->cmd==LC_SEGMENT_64){const struct segment_command_64*s=(const void*)l;printf("SEG %.16s vm=%llx size=%llx off=%llx\n",s->segname,s->vmaddr,s->vmsize,s->fileoff);}if(l->cmd==LC_DYLD_INFO_ONLY||l->cmd==LC_DYLD_INFO){const struct dyld_info_command*d=(const void*)l;printf("EXPORT off=%x sz=%x\n",d->export_off,d->export_size);}if(l->cmd==LC_DYLD_EXPORTS_TRIE){const struct linkedit_data_command*d=(const void*)l;printf("TRIE off=%x sz=%x\n",d->dataoff,d->datasize);}o+=l->cmdsize;}}return 0;}

@@ -1,0 +1,7 @@
+#ifndef TIO_RUNTIME_ACTIVATION_H
+#define TIO_RUNTIME_ACTIVATION_H
+#include <stdbool.h>
+typedef enum {TIOActivationBlockedIdentity,TIOActivationBlockedDependencyGraph,TIOActivationBlockedImage,TIOActivationBlockedSlot,TIOActivationBlockedLoaderContext}TIOActivationState;
+typedef struct{TIOActivationState state;bool constructor_ran,identity_verified,strong_dependencies_verified,resolved_slot_verified,slot_installed,capture_started,file_created;}TIOActivationStatus;
+TIOActivationStatus TIOActivationGetStatus(void);
+#endif

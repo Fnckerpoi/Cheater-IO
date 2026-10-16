@@ -1,3 +1,4 @@
+#import "TIOStorageIdentity.h"
 #import <UIKit/UIKit.h>
 #import <Security/Security.h>
 #import <objc/runtime.h>
@@ -46,7 +47,7 @@
 static NSString *const TargetBundle=@TIO_TARGET_BUNDLE_ID;
 
 // No Frida, inline patching, device credentials or official token access.
-static NSString *const Domain=@"io.turboio.official-private-addon";
+static NSString *Domain(void){return TIOStorageAddonDomain();}
 static NSUserDefaults *Prefs;
 static TIOTranscriptArchive *Archive;
 static dispatch_queue_t ArchiveQueue;
@@ -62,7 +63,7 @@ static BOOL VoiceExitReady=NO;
 static NSUInteger CompletionEvents;
 static TIOVoiceTTS *VoiceTTS;
 
-static NSDictionary *KeyQuery(NSString *host) {return @{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:Domain,(__bridge id)kSecAttrAccount:host};}
+static NSDictionary *KeyQuery(NSString *host) {return @{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:Domain(),(__bridge id)kSecAttrAccount:host};}
 static NSString *ReadKey(NSString *host) {
     NSMutableDictionary *q=[KeyQuery(host) mutableCopy];q[(__bridge id)kSecReturnData]=@YES;
     CFTypeRef out=NULL; if(SecItemCopyMatching((__bridge CFDictionaryRef)q,&out)!=errSecSuccess)return @"";
@@ -492,7 +493,7 @@ static void AlwaysOnHook(id self,SEL cmd,id value) {
 // credentials, hardware hooks or network-backed model service.
 #if TIO_UI_PREVIEW
 UITabBarController *TIOCreateResearchPreview(void){
-    Prefs=[[NSUserDefaults alloc]initWithSuiteName:@"io.turboio.research.preview"];
+    Prefs=[[NSUserDefaults alloc]initWithSuiteName:TIOStoragePreviewDomain()];
     [Prefs registerDefaults:@{@"mode":@0,@"voiceExitCommands":@YES,@"ttsEnabled":@YES,@"ttsEngine":@"local"}];
     VoiceTTS=[[TIOVoiceTTS alloc]initWithKeyProvider:^{return @"";}];
     VoiceTTS.localMode=YES;
@@ -545,7 +546,7 @@ __attribute__((constructor)) static void Load(void) {
 #if TIO_OTA_RESEARCH_ENABLED
             TIOStartExperimentalOTAFeedIfMarked();
 #endif
-            Prefs=[[NSUserDefaults alloc]initWithSuiteName:Domain];
+            Prefs=[[NSUserDefaults alloc]initWithSuiteName:Domain()];
             [Prefs registerDefaults:@{@"voiceExitCommands":@YES,@"ttsEnabled":@YES,@"ttsEngine":@"local"}];
             Controller=[TIOController new];
             ImportPrivateBootstrap();

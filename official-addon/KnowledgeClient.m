@@ -1,7 +1,8 @@
+#import "TIOStorageIdentity.h"
 #import "KnowledgeClient.h"
 #import <Security/Security.h>
-static NSUserDefaults *Settings(void){return [[NSUserDefaults alloc]initWithSuiteName:@"io.turboio.official-knowledge"];}
-static NSDictionary *KeyQuery(void){return @{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:@"io.turboio.official-knowledge",(__bridge id)kSecAttrAccount:@"bridge-token"};}
+static NSUserDefaults *Settings(void){return [[NSUserDefaults alloc]initWithSuiteName:TIOStorageKnowledgeDomain()];}
+static NSDictionary *KeyQuery(void){return @{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,(__bridge id)kSecAttrService:TIOStorageKnowledgeDomain(),(__bridge id)kSecAttrAccount:@"bridge-token"};}
 static NSString *Token(void){NSMutableDictionary *q=[KeyQuery() mutableCopy];q[(__bridge id)kSecReturnData]=@YES;CFTypeRef out=NULL;if(SecItemCopyMatching((__bridge CFDictionaryRef)q,&out)!=errSecSuccess)return @"";return [[NSString alloc]initWithData:CFBridgingRelease(out) encoding:NSUTF8StringEncoding]?:@"";}
 NSString *TIOKnowledgeEndpoint(void){return [Settings() stringForKey:@"endpoint"]?:@"";}
 NSString *TIOSelectedAgent(void){return [Settings() stringForKey:@"agent"]?:@"Codex";}
@@ -17,10 +18,14 @@ BOOL TIOConfigureKnowledge(NSString *endpoint,NSString *token){
 }
 NSDictionary *TIOKnowledgeSnapshot(void){NSData *data=[Settings() dataForKey:@"snapshotJSON"];return data?[NSJSONSerialization JSONObjectWithData:data options:0 error:nil]?:@{}:@{};}
 void TIOImportKnowledgeConnection(void){
+#if TIO_STORAGE_IS_LAB
+    return;
+#else
     NSString *path=[NSHomeDirectory() stringByAppendingPathComponent:@"Documents/TurboIOKnowledgeConnection.json"];
     NSDictionary *attr=[NSFileManager.defaultManager attributesOfItemAtPath:path error:nil];if(![attr[NSFileType] isEqual:NSFileTypeRegular]||[attr[NSFileSize] unsignedIntegerValue]>8192)return;
     NSDictionary *j=[NSJSONSerialization JSONObjectWithData:[NSData dataWithContentsOfFile:path] options:0 error:nil];if(![j isKindOfClass:NSDictionary.class]||![j[@"endpoint"] isKindOfClass:NSString.class]||![j[@"token"] isKindOfClass:NSString.class])return;
     if(TIOConfigureKnowledge(j[@"endpoint"],j[@"token"])){TIOSetKnowledgeEnabled(YES);[NSFileManager.defaultManager removeItemAtPath:path error:nil];}
+#endif
 }
 @interface TIOKnowledgeClient()
 @property(nonatomic) NSURLSession *session;
