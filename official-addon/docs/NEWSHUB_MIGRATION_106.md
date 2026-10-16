@@ -112,3 +112,32 @@ node official-addon/tmig1-edition/package.mjs \
 - 1.0.6 宿主上 NewsHub 的加载与行为（未签名、未安装）。
 - 官方稿库直写在新基线上的可行性与持久性（未执行）。
 - 若启用 MapKit/AMap，1.0.5.5 的 AP 预算与资源侧是否能容纳（未测量）。
+
+## 8. 执行记录（2026-10-16，已实现并通过闸门）
+
+### 8.1 C-1 已按「合并源码线」解决
+`final-build/build_modules.py` 把原 45 个生产单元保留为 `MAIN_ADDON_SOURCES`，新增 `BRIDGE_SOURCES`（14 个，均在 `tmig1-edition/` 下），`ADDON_SOURCES = MAIN + BRIDGE`；编译快照保留子目录结构，未新增 `-I`。新增的 `nm -gU` 门禁要求 `_CEPhoneSendCards`、`_TFFocusConsume` 均为已定义全局符号。
+
+14 个桥接单元及其闭包理由：`FocusBridge.m`、`FocusTransport.m`、`focus.c`（`tf_*` 实现）、`DisplayDiagnostics.m`、`display_carrier.c`、`display_runtime.c`（`TDPDiagRecord` 的 envelope 解码）、`ContextEnglishBridge.m`、`ContextEnglishTransport.m`、`ContextEnglishNative.m`、`ContextEnglishHistory.m`、`english_transfer.c`（传输状态机）、`english_progress.c`、`english_wire.c`（进度/CRC）、`english_view.c`（card/deck 校验）。未引入 `english_native.c`、`english_schedule.c`、`english_session.c`、`english_files.c`、`display_client.c`：桥接只用到这些头里的类型/常量，不调用其实现函数，且完整 dylib 链接已验证闭包成立。
+
+移植过程中三处必要的源码调整（都在桥接单元内，未放宽任何 flags）：
+1. `tmig1-edition/FocusTransport.m`：删除既有未使用的 `static unsigned U16(...)`（HEAD 版本里定义 1 次、引用 0 次），否则严格 `-Werror` 失败。
+2. `tmig1-edition/FocusBridge.m`、`context-english-v1/ContextEnglishBridge.m`：`TIOOTAFlashStatus` 的可选检查由 `__attribute__((weak_import))` 直接引用改为 `dlsym(RTLD_DEFAULT, "TIOOTAFlashStatus")`。**原因（已核实）**：HEAD 里这两个文件本就是 `extern … weak_import` + 函数地址真值判断，上游 `official-addon/build.sh:100` 只加 `-Wl,-no_fixup_chains`；而本仓库 recipe 的链接含 `-Wl,-undefined,error`（`build-receipt.json` 的 `compiler_commands` 里 native 与 hub 各一次）且不含任何 OTA 实现单元（`-DTIO_OTA_RESEARCH_ENABLED=0`），于是 weak 引用在链接期即失败：`Undefined symbols for architecture arm64: "_TIOOTAFlashStatus"`（失败构建 `/private/tmp/tio-106-idiom-weakimport`）。`dlsym` 不产生链接期引用，语义不变：符号存在时执行同样的 stage 检查，缺失时等价于「无 OTA 状态、不阻断」。曾按「改回惯用法」返工一次并被该链接失败否证，故保留 `dlsym` 并在两处各留一行说明注释。
+3. `NewsHubIdentityPolicy.h`：新增 `TIO_NEWS_LAB_PREFIX = …manuscriptlab106.`，同时保留 `TIO_NEWS_LEGACY_LAB_PREFIX = …manuscriptlab105.`。依据是 `newshub-identity-tests/check.py` 有 9 处硬编码 `manuscriptlab105`、0 处 106；保留旧前缀才使该套测试继续成立。**遗留**：生成侧已严格 106，而 NewsHub 身份测试侧仍全为 105；终态应把该测试套件迁到 106 并删除 legacy 宏。
+
+### 8.2 C-4 已按「换 106」解决
+`identity()` 返回 `com.duriea.turboio.manuscriptlab106.<run>`（run 校验规则未变）；`TIOStorageIdentity.h:10,29` 的前缀与 `_Static_assert` 同步；`test_recipe.py`、`storage-identity-tests/{check.py,recording-check.py,StorageIdentityTests.m,README.md}` 全部改 106。产物取证：`TurboIOPrivateAddon.dylib` 的字符串里只有 `manuscriptlab106`（5 次），无 `manuscriptlab105`。
+
+### 8.3 步骤 1（输入路径）已参数化
+`manuscript-lab/stage-b-packaging/test_packaging.py` 与 `manuscript-lab/image-attestation/test-images.sh` 默认使用 `.build/ios-inputs/…1.0.6…ipa`，旧 1.0.5 输入经 `TIO_TEST_ORIGINAL_IPA` 显式选择；两输入的期望值按来源分别成立（1.0.6 Runner SHA `d5982356…`/UUID `98a03b57…`/deps 164→165；1.0.5 保持原 pin 156→157）。**遗留**：生产 `manuscript-lab/package-stage-b.py:20,77` 仍硬 pin `RUNNER_SHA='b27f3581…'` + 156 依赖，即生产 Stage-B 包装流程尚未支持 1.0.6；1.0.6 目前只在测试中以 `synthetic=True` 验证字节/命令序号改写。
+
+### 8.4 已跑过的闸门（调度方独立复跑）
+- `final-build/test_recipe.py` 5/5；`storage-identity-tests/check.py` `STORAGE_IDENTITY_ALL_PASS`（16 个非法配置拒绝、7 模块 × 2 模式）；`recording-check.py` `RECORDING_STORAGE_ALL_PASS`；`newshub-identity-tests/check.py` 全绿。
+- `node --test tmig1-edition/package.test.mjs` `# pass 7 / # fail 0`。
+- `loader-order-prototype/test_patch.py` 7/7、`runtime-capture-package/test_build.py` 8/8。
+- 完整 recipe 构建（默认与 `--allow-http` 各一次）：`TIO_LOCAL_HTTP_ENABLED` 分别 0 / 1，两个 dylib `signed:false`，receipt 无签名命令（只有 `-Wl,-no_adhoc_codesign`）。
+- 产物符号取证：`xcrun nm -gU` → `T _CEPhoneSendCards`、`T _TFFocusConsume`（导出总数 302，旧基线为 225）。
+- 未删除任何 build 产物（`git status` 删除计数 0）。
+
+### 8.5 仍未做
+真机签名/安装、NewsHub 在新基线上的实际入库与重启持久、1.0.5.5 固件侧的补丁重算、`package-stage-b.py` 的 1.0.6 pin 升级、`newshub-identity-tests` 的 105→106 迁移。

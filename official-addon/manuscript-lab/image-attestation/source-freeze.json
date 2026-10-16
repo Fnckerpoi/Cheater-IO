@@ -1,0 +1,21 @@
+{
+  "sources": {
+    "ImageAttestation.h": "db2d330e2bf90aa7503fcb5750270536f91a76d9f05d3b7f16956c67d10ff37b",
+    "ImageAttestation.c": "2ab7ac307db26bc3ad35ae260a2015c093238d1f6837875ee806f0117f81f632",
+    "ImageAttestationTests.c": "067cd3b6f8a747efea47b18a0d0ec9fe22c403ebbee0495c11b9f76e5db6c561",
+    "ExpandedTests.c": "2a4f1ce8fcfaca2ae08a369818d29347b5da3ea34ae5635c7dd0fbcd38a636bc",
+    "generate-policy.py": "1005080c06d7a4216f301844ddadc0ab72663e1c503f5ba6878b37e9fb442e83",
+    "test-images.sh": "f58f27fa909e9cde1eff08e892b4232d775dab4fee1693499f745c4d42263571",
+    "README.md": "f1fee0ac52aba07eeb3eeed475d94ea45e7d20b8586bb9e6dd908b8c12e05c1b",
+    "generated/ImagePolicy.inc": "ed3ca8e2100877c67b516a27d4fc738ba454e820d89de0ca9c5ec25dd76b87b1",
+    "generated/policy-provenance.json": "eaac8adaeadcab98c796c5911069d868d83c33693506fd5ce0079bbe445fb5c0"
+  },
+  "tests": "normal ASAN UBSAN own mapped/real dyld and fixed public static members PASS; iOS arm64 object compile PASS",
+  "artifacts": "/private/tmp/tio-image-check.sG9cOa",
+  "log": "/tmp/tio-image-attestation-final.log",
+  "official_runtime": false,
+  "got_content_reads_or_writes": false,
+  "opaque_credential_implemented": false,
+  "cross_named_duplicate_uuid_exhaustive": false,
+  "requires_independent_review": true
+}

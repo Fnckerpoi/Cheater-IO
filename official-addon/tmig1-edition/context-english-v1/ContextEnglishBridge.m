@@ -6,9 +6,11 @@
 #import <objc/message.h>
 #include "english_transfer.h"
 #include "english_progress.h"
-extern NSDictionary *TIOOTAFlashStatus(void) __attribute__((weak_import));
+#include <dlfcn.h>
+// Strict recipe linking uses -undefined,error without OTA objects, so resolve this optional symbol dynamically.
+static NSDictionary *TIOOTAFlashStatusIfAvailable(void){NSDictionary *(*status)(void)=dlsym(RTLD_DEFAULT,"TIOOTAFlashStatus");return status?status():nil;}
 static uint32_t Tick(void){return (uint32_t)(uint64_t)(NSProcessInfo.processInfo.systemUptime*1000);}
-static BOOL Protected(void){return TIOOTAFlashStatus&&[TIOOTAFlashStatus()[@"stage"] unsignedIntegerValue]!=0;}
+static BOOL Protected(void){return [TIOOTAFlashStatusIfAvailable()[@"stage"] unsignedIntegerValue]!=0;}
 static NSData *Reply(NSDictionary *event,NSString *command,NSUInteger length){
     if(![event isKindOfClass:NSDictionary.class]||![event[@"eventType"] isEqual:@"messageReceived"])return nil;
     id m=event[@"message"];if(![m isKindOfClass:NSDictionary.class]||![m[@"businessId"] isEqual:@15])return nil;

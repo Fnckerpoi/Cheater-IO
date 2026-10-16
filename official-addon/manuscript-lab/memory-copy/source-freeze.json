@@ -1,0 +1,14 @@
+{
+  "source_sha256": {
+    "MemoryCopy.h": "bccfbc7bb37c92fb31b8bd2b5a6d51f2090c88212a570555826cd72bc842ca50",
+    "MemoryCopy.c": "5e0a9187f20261dc70c90b7fed36ead890729b195e3f7565bcea2fda4ba8aca6",
+    "MemoryCopyTests.c": "1af53c406dba149500a43558686131ef92e7e331c072ac1b4b22bb10f7bf1c95",
+    "MemoryCopyFaultTests.c": "850770a87b9cd8db5138590a70d47d72e51acc166fc20324c3fa91e8fdcfa716",
+    "test-memory-copy.sh": "b9106ca0d8c3be5cf5dbcfc874a1bb346d4351807a832ffbc93cca14cfb5062c",
+    "README.md": "b8d9488e2e1ad8e5da0f7b6226844b7e79764b50cf0e7683849cf03b8e60d0d1"
+  },
+  "tests": "normal+ASAN+UBSAN real-own-buffer and simulated-short/error PASS; iOS arm64 compile PASS",
+  "runtime_target_access": false,
+  "integration": false,
+  "log": "/tmp/tio-memory-copy-final-check.log"
+}

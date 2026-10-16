@@ -1,5 +1,6 @@
+#import "TIOStorageIdentity.h"
 #import "Profile.h"
-static NSUserDefaults *Store(void){return [[NSUserDefaults alloc]initWithSuiteName:@"io.turboio.official-profile"];}
+static NSUserDefaults *Store(void){return [[NSUserDefaults alloc]initWithSuiteName:TIOStorageProfileDomain()];}
 NSDictionary *TIOValidatedProfile(NSDictionary *value){
     if(![value isKindOfClass:NSDictionary.class])return nil;
     NSDictionary *limits=@{@"name":@80,@"identity":@500,@"preferences":@2000};

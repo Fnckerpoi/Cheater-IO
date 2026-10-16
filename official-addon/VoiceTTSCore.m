@@ -1,3 +1,4 @@
+#import "TIOStorageIdentity.h"
 #import "VoiceTTS.h"
 
 BOOL TIOVoiceTTSServiceURLValid(NSString *url){
@@ -10,7 +11,7 @@ BOOL TIOVoiceTTSServiceURLValid(NSString *url){
         (!c.port||c.port.integerValue==443)&&!c.user&&!c.password&&!c.query&&!c.fragment;
 }
 NSString *TIOVoiceTTSService(void){
-    NSUserDefaults *prefs=[[NSUserDefaults alloc]initWithSuiteName:@"io.turboio.official-private-addon"];
+    NSUserDefaults *prefs=[[NSUserDefaults alloc]initWithSuiteName:TIOStorageAddonDomain()];
     NSString *custom=[prefs stringForKey:@"ttsEndpoint"];
     return TIOVoiceTTSServiceURLValid(custom)?custom:@"wss://dashscope.aliyuncs.com/api-ws/v1/inference";
 }

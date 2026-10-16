@@ -1,0 +1,8 @@
+#ifndef TIO_PRODUCTION_CAPTURE_BOOTSTRAP_H
+#define TIO_PRODUCTION_CAPTURE_BOOTSTRAP_H
+#include <stdbool.h>
+#include <stdint.h>
+typedef enum { TIOBootstrapBlockedIdentityPolicy,TIOBootstrapBlockedMainIdentity,TIOBootstrapBlockedImageIdentity,TIOBootstrapBlockedSlotMetadata,TIOBootstrapBlockedVM,TIOBootstrapBlockedResolver,TIOBootstrapBlockedLifetime,TIOBootstrapUnobserved } TIOProductionBootstrapState;
+typedef struct {TIOProductionBootstrapState state;bool constructor_ran,main_identity_verified,images_verified,slot_metadata_verified,slot_current_read,slot_resolver_verified,slot_installed,entry_observed,capture_started,file_exported;uint64_t bytes_copied;} TIOProductionBootstrapStatus;
+TIOProductionBootstrapStatus TIOProductionBootstrapGetStatus(void);
+#endif

@@ -7,7 +7,6 @@ BOOL TFIsScopedCall(NSString *method,NSDictionary *args){return NSThread.isMainT
 // Canonically rebuild every supported packet, rejecting mismatched lengths,
 // reserved fields, CRCs, geometry and op-specific fields before SDK access.
 static uint32_t U32(const uint8_t *p){return p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24);}
-static unsigned U16(const uint8_t *p){return p[0]|((unsigned)p[1]<<8);}
 static BOOL Valid(NSData *d){TFCommand p;return [d isKindOfClass:NSData.class]&&tf_decode(d.bytes,d.length,&p);}
 @implementation TFTransport {
  NSURL *_root;NSString *_device;NSString *(^_current)(void);BOOL(^_call)(NSString *,NSDictionary *,void(^)(id));

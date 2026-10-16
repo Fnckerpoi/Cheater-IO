@@ -1,0 +1,16 @@
+{
+  "source_manifest_sha256": "5b30cfc7d8a15e4de9563b922cec39829b218c7d12655c47a37a8953a655f9fb",
+  "adapter_source_sha256": "d6566972040454d184cd2cf68ab4283538851d90431060d07cd62c111cd91941",
+  "arm64_module_sha256": "7b197e32281feacd60688b90adf8e23b60fc0942a9123c93a62c814f84783075",
+  "alias_red_exit": 134,
+  "alias_green_exit": 0,
+  "canonical_green_exit": 0,
+  "sdk_link": "PASS",
+  "production_default": "BLOCKED_MISSING_FINAL_LAB_POLICY",
+  "actual_official_slot_rw": false,
+  "no_ipa": true,
+  "asan_ubsan": "NOT_RUN_R114",
+  "invalid_pointer_to_real_dlsym": "NOT_RUN_C_CONTRACT_UNSAFE",
+  "freeze_epoch": 1792075275,
+  "review": "PENDING"
+}

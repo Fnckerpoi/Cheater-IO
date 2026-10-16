@@ -1,0 +1,7 @@
+#ifndef TIO_CAPTURE_INTEGRATION_H
+#define TIO_CAPTURE_INTEGRATION_H
+#include <stdbool.h>
+typedef enum { TIOIntegrationBlockedBundle,TIOIntegrationBlockedImage,TIOIntegrationBlockedSlot,TIOIntegrationBlockedVM,TIOIntegrationUnobserved,TIOIntegrationArmed,TIOIntegrationWaitingCapture } TIOIntegrationState;
+typedef struct {TIOIntegrationState state;bool constructor_ran,slot_installed,target_observed,capture_written;} TIOIntegrationStatus;
+TIOIntegrationStatus TIOIntegrationGetStatus(void);
+#endif
