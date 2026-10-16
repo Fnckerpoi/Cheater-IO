@@ -1,0 +1,13 @@
+{
+  "status": "EXACT_RESOLVER_ONLY_NOT_PACKAGABLE",
+  "unsupported_lazy_allowance_removed": true,
+  "genuine_lazy": "UNOBSERVED_UNSUPPORTED",
+  "normal_alias_runs": "prior R2 resolved paths PASS; final Adapter byteidentical accepted114; not rerun after final revert",
+  "sdk_link_final": "PASS",
+  "asan_ubsan": "NOT_RUN",
+  "source_manifest_sha256": "60cbf9b7b2f039111a35485594f4e3735c2c506f9840b2e096e8ce2845d30139",
+  "module_sha256": "7b197e32281feacd60688b90adf8e23b60fc0942a9123c93a62c814f84783075",
+  "freeze_epoch": 1792077212,
+  "default_production": "BLOCKED_MISSING_FINAL_LAB_POLICY",
+  "official_runtime": false
+}

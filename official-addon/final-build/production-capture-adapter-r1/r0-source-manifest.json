@@ -1,0 +1,134 @@
+{
+  "files": [
+    {
+      "path": "final-build/production-capture-adapter/Adapter.c",
+      "sha256": "26bdb1c17d4d1fe3394f92259201edabaa03c457fa0d96458f1dd6d66ae0292f"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Adapter.h",
+      "sha256": "2e7ab136612b4d1b3f2f0b6b7c5ca412237cc70f6e9e388f9659ca30596bde68"
+    },
+    {
+      "path": "final-build/production-capture-adapter/AdapterConfig.h",
+      "sha256": "9e17f47a07f72ba85ace8ed7833c51da4912dcb347d6f2eb986a2cc7bc55f094"
+    },
+    {
+      "path": "final-build/production-capture-adapter/AdapterDisabled.inc",
+      "sha256": "7bb8445b120973bb78ca82c3f50a8b25ef87000a60a89127a9b942c43e4968c0"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Config-Policy-normal.inc",
+      "sha256": "c720bd21b47a99b3de5cd3f030c3f7d0c3b47d1198b7312c1053b7a03739f5ec"
+    },
+    {
+      "path": "final-build/production-capture-adapter/FrozenBridge/ResolverBridge.S",
+      "sha256": "9a04cb886a9f5befa5c71394fa1d55d56110d5ddce49299c43e2d5265695877e"
+    },
+    {
+      "path": "final-build/production-capture-adapter/FrozenBridge/ResolverBridge.c",
+      "sha256": "b0f19820dc0d19075411907cad140ffe25ec13d116e14acb6cf7eeefe2441c5f"
+    },
+    {
+      "path": "final-build/production-capture-adapter/FrozenBridge/ResolverBridge.h",
+      "sha256": "c0969adab3c31d72856850622b1dc868f44c4d544f0e576641d6f84ddfd93395"
+    },
+    {
+      "path": "final-build/production-capture-adapter/GenerateTrust.py",
+      "sha256": "8a681f8cb35b719417249844cf0d29d6499e02a5a6936e1afb37296ac442fbb9"
+    },
+    {
+      "path": "final-build/production-capture-adapter/OwnFlutter.c",
+      "sha256": "275533b370b643a998f8afb6c8f4e8abd4699257d85d1b946a6a120fe149fd7b"
+    },
+    {
+      "path": "final-build/production-capture-adapter/OwnIsar.c",
+      "sha256": "769316422af00b07843ec41c0b94fa3ace9265c8e3eab3b911ea67829afc73eb"
+    },
+    {
+      "path": "final-build/production-capture-adapter/OwnNative.c",
+      "sha256": "fbcccc85010d2262ee3c0305131a4f7a78bd1349863ac5980012b8d5db3dbb0c"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Policy-normal.inc",
+      "sha256": "a70d1e55c7a74d1b090ff983e1f25369d7744008eb1f33ae0fede4df0b2b1dcb"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Policy-normal.json",
+      "sha256": "6b36dcc270ba1f8ff29b9a5c985ba11a5339c5d3d578c87a6bda01ec7b1b31bb"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Runner.c",
+      "sha256": "04a0b6cd79c8cd75c2b6f9496f06be0b5f643629b259c5577f96b54876f0783a"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Selector.S",
+      "sha256": "0da4d18f8b5cafcaab405725d3e5a92d332e34ba9b728d649362af01d8c31667"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Vendor/Policy.h",
+      "sha256": "8e2ce080190cb858d5e82bee9547908b57d1eb630be4123631a2c325e19430c1"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Vendor/PolicyDisabled.inc",
+      "sha256": "3d8bbfe66deeb81a869f0d51fc09e7319b8c4b989de1e35492aa34ca0a9a3321"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Vendor/SystemResolver.c",
+      "sha256": "49378835b8040ab88496dae43d486169cc507194692ced03cfea74cb830025e2"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Vendor/SystemResolver.h",
+      "sha256": "f4514ef06b6bf2554ab9b13971c4e68fc266b5581df45278ebd6c0519f008aea"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Vendor/View.c",
+      "sha256": "778fc5e2cf69d54778eeeb98731572442c9573166ee048a4a72cc4901c7f972f"
+    },
+    {
+      "path": "final-build/production-capture-adapter/Vendor/View.h",
+      "sha256": "83da8c6f8bade917868223bc9b76fc71cea475cd7a723847c64b96c1a59be4c1"
+    },
+    {
+      "path": "final-build/production-capture-adapter/build-adapter.sh",
+      "sha256": "5f20110171bdc2b41f1fe2ca2bd38a2998f4b25c9975a5cd43980384da63ac68"
+    },
+    {
+      "path": "final-build/schema-capture/Capture.c",
+      "sha256": "6c18e2769b48159ae3c12357a5a9da3ab1608d680d62135173b4a5b613046e16"
+    },
+    {
+      "path": "final-build/schema-capture/Capture.h",
+      "sha256": "70e4beb0e2b980c372ce6784b585b0a2d0a20cd114fa0b1ec220689646cae02f"
+    },
+    {
+      "path": "final-build/schema-capture/CaptureInternal.h",
+      "sha256": "9a3b04204165df00a029e9a7ddf59d1f39f095a5eefd3ee147f37b949ecde974"
+    },
+    {
+      "path": "final-build/schema-capture/SchemaPolicy.c",
+      "sha256": "a2f4e61bf2083b67a84145a251003bcb89e169730a59c292702c018450bafdbb"
+    },
+    {
+      "path": "final-build/schema-capture/SchemaPolicy.h",
+      "sha256": "d985d33079973cebbd288efbae01e680116fb4cd4d4f84f4f6467b161ca515b6"
+    },
+    {
+      "path": "manuscript-lab/memory-copy/MemoryCopy.c",
+      "sha256": "5e0a9187f20261dc70c90b7fed36ead890729b195e3f7565bcea2fda4ba8aca6"
+    },
+    {
+      "path": "manuscript-lab/memory-copy/MemoryCopy.h",
+      "sha256": "bccfbc7bb37c92fb31b8bd2b5a6d51f2090c88212a570555826cd72bc842ca50"
+    },
+    {
+      "path": "manuscript-lab/schema-observer/SchemaView.c",
+      "sha256": "b5ca7dc826c7dc6d593b702bff4b611f87c47e32df81019b36a6b10cf67b9a97"
+    },
+    {
+      "path": "manuscript-lab/schema-observer/SchemaView.h",
+      "sha256": "66d7fb9f3c339c300ba6624b387e79e4c20321873f8fc9e00c0a10724fef758b"
+    }
+  ],
+  "actual_private_snapshot": true,
+  "no_capture_testing_grant": true
+}

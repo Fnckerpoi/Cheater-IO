@@ -1,0 +1,18 @@
+{
+  "status": "R2_CANDIDATE_NOT_PACKAGABLE_LAZY_RUNTIME_UNOBSERVED",
+  "normal_resolved_native_fixture": "PASS_FRESH",
+  "alias_sameVA_refused": "PASS_FRESH",
+  "genuine_lazy_runtime": "UNOBSERVED_RTLD_LAZY_NATIVE_PROBE_EAGER_RESOLVED",
+  "lazy_slot_manually_forced": false,
+  "lazy_branch_domain": "STATIC_ONLY_ARM64_FIXED_FLUTTER_BUILD",
+  "sdk_link": "PASS",
+  "asan_ubsan": "NOT_RUN_R2",
+  "negative_matrix": "INCOMPLETE",
+  "default_production": "BLOCKED_MISSING_FINAL_LAB_POLICY",
+  "official_slot_rw": false,
+  "no_ipa": true,
+  "source_manifest_sha256": "5b55d9421a3cafd4d57214ac9fd271668a0410dd2a941adc224830fc8534d7f6",
+  "module_sha256": "ef9f32e4a23f8f455a7735cd3f70b9d8d0767c62821c8282bc9e0ac29aa45604",
+  "freeze_epoch": 1792077110,
+  "review": "PENDING"
+}
