@@ -1,0 +1,43 @@
+{
+  "images": [
+    {
+      "path": "/Users/duriea/Documents/GitHub/Turbo-IO/official-addon/final-build/production-capture-adapter/build/adapter-u3RxL0/public-normal.app/Runner",
+      "sha256": "90dd8cbf5e175b0888d74b197146d4e94f223ce3f205d971216587c8e65b542a",
+      "uuid": "bb0e08617422310f926bd0108a96434a",
+      "text_va": 4294969200,
+      "text_size": 1136,
+      "slot": 0,
+      "lazy": 0
+    },
+    {
+      "path": "/Users/duriea/Documents/GitHub/Turbo-IO/official-addon/final-build/production-capture-adapter/build/adapter-u3RxL0/public-normal.app/Frameworks/OwnFlutter.dylib",
+      "sha256": "165d479b629de62fc787900a421268a7031fded0d57e80c929c51e23e73692cc",
+      "uuid": "1dfa17c7848c33fcaecfbf7e1b052cd1",
+      "text_va": 2064,
+      "text_size": 61,
+      "slot": 8192,
+      "lazy": 2148
+    },
+    {
+      "path": "/Users/duriea/Documents/GitHub/Turbo-IO/official-addon/final-build/production-capture-adapter/build/adapter-u3RxL0/public-normal.app/Frameworks/OwnNative.dylib",
+      "sha256": "d593dcb898b2e8f81fb18296a7799b683bec5cd8db642814e39301c10778e1a1",
+      "uuid": "64200c0d388f30efa6eb3ad83161ffde",
+      "text_va": 880,
+      "text_size": 11,
+      "slot": 0,
+      "lazy": 0
+    },
+    {
+      "path": "/Users/duriea/Documents/GitHub/Turbo-IO/official-addon/final-build/production-capture-adapter/build/adapter-u3RxL0/public-normal.app/Frameworks/OwnIsar.dylib",
+      "sha256": "1fd6893100536802cae392471ab6a02c801d138766c9aa9ba9ba340f218c72bd",
+      "uuid": "a6b2b184073b365f92d53d88bb9ab798",
+      "text_va": 1264,
+      "text_size": 236,
+      "slot": 0,
+      "lazy": 0
+    }
+  ],
+  "info_sha256": "5e9ae86807d542e4fd1a9e142c9655bdddbc3bf5ebf1306823205f486c46a835",
+  "lab_bundle": "local.public.capture.observer",
+  "entry": 1264
+}

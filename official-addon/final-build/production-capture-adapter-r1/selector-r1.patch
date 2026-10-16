@@ -1,0 +1,12 @@
+--- R0/final-build/production-capture-adapter/Selector.S
++++ R1/final-build/production-capture-adapter/Selector.S
+@@ -10,6 +10,8 @@
+ .globl _TIOStageBSelector
+ _TIOStageBSelector:
+     cmn x0, #2
+-    b.eq _TIOStageBDefault
++    b.eq Lstageb_default
+     b _TIOResolverBridge
++Lstageb_default:
++    b _TIOStageBDefault
+ #endif
