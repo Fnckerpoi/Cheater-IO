@@ -32,9 +32,9 @@ bash official-addon/tmig1-edition/build.sh embedded com.rayneo.venus.pub
 
 ## 用自己的宿主输入与签名打包
 
-必须自行提供合法可用、未加密、thin arm64 的官方 **1.0.6（218）Runner.app**，以及自己的 profile/证书/设备。没有附带新版原厂 IPA；旧 1.0.5 输入不能换版本字符串硬套。
+必须提供合法可用、未加密、thin arm64 的官方 **1.0.6（218）Runner.app**，以及自己的 profile/证书/设备。可从[原厂 1.0.6 去签名 IPA Release](https://github.com/Turbo1123/Turbo-IO/releases/tag/rayneo-ios-1.0.6-218)按[校验说明](../../official-apps/ios/1.0.6/README.md)解压取得输入；它没有 Turbo IO，也不是可直接安装的个人签名包。旧 1.0.5 输入不能换版本字符串硬套。
 
-打包器核对宿主主程序 UUID、App.framework 精确 SHA-256、TMIG1 ZIP 哈希与扩展符号；只修改两条升级查询字符串，保持 Dart 对象长度/头部/缓存哈希，升级仍经官方流程及固定门禁。**不要使用主目录旧 `official-addon/package.mjs` 打包本版。**
+打包器核对宿主主程序 UUID、App.framework 精确 SHA-256、TMIG1 ZIP 哈希与扩展符号；精确允许原始签名保留版与上述未签名 Release 的两个固定 App.framework 哈希，其他输入仍拒绝。只修改两条升级查询字符串，保持 Dart 对象长度/头部/缓存哈希；没有放宽固件或 OTA 校验。**不要使用主目录旧 `official-addon/package.mjs` 打包本版。**
 
 ```sh
 node official-addon/tmig1-edition/package.mjs \
