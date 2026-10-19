@@ -1,5 +1,9 @@
 # Third-party components
 
+## APP107 / iOS 1.0.7 compatibility (2026-10-19)
+
+`official-addon/ios107-edition` reuses reviewed NAVS3 components with their existing attribution and licenses. Its OSM test extracts remain © OpenStreetMap contributors under ODbL 1.0. No original 1.0.7 app binary, merged IPA, private web reading adapter, personal configuration or signing material is included in this source release. Vendor app and SDK rights are unchanged.
+
 ## NAVS3 / TMG2 navigation research (2026-10-19)
 
 The small-area map extracts under `official-addon/navs3-edition/tests/maps` are © OpenStreetMap contributors, licensed under ODbL 1.0; provenance and attribution are retained in each fixture and its README. They are not personal navigation logs and are not relicensed under PolyForm. AMap SDK/services retain their separate terms and require the user's own configuration. TMG2 original vendor firmware components retain the same copyright boundaries as the prior Strix releases; only the listed original extension sources are licensed by this project. No signed/merged iOS app, developer credentials, account session or private reading adapter is included.

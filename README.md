@@ -10,6 +10,8 @@
 
 **文档更新：2026-10-19** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
 
+**最新手机适配：[iOS 1.0.7（230）· APP107](#ios107-update)** · [源码 / 构建](official-addon/ios107-edition/README.md)。iPhone 17 Pro Max 用户实测反馈正常，继承 NAVS3 功能；沿用现有 TMG2，无需因本次手机升级重刷。**1.0.7 OTA 尚未验收，本版禁止刷写。** 不提供合并或个人签名 IPA。
+
 **最新实验版：[NAVS3 矢量导航 + TMG2 可选排数菜单](#navs3-update)** · [iOS 1.0.6 配套源码](official-addon/navs3-edition/README.md) · [原样固件 / 校验下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/navs3-tmg2-20261019)。选择起终点即可模拟新版小地图；修正路网缓存过早清空与路名锚点。**锁屏导航卡住仍未解决，非稳定版。** 已有 TMG2 只需更新手机插件，不用重刷；不提供合并 IPA。
 
 **新版本适配预发布：[TMIG1 · Strix OS 1.0.5.5](firmware-research/strix-1.0.5.5/README.md) · [RayNeo AI iOS 1.0.6（218）插件](official-addon/tmig1-edition/README.md) · [原始新版原厂固件](firmware-research/strix-1.0.5.5/stock/README.md)**。**iPhone 17 Pro Max 已由用户刷入、进入并验证这组最新版兼容组合（2026-10-14）。** 保留情境英语；Dots 开发中，尚未完成。不是稳定版、全机型验收或新版 Android APK。
@@ -43,7 +45,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 | 你的目标 | 现在提供什么 | 从这里开始 |
 | --- | --- | --- |
 | **在 Android 使用插件** | 官方 1.0.5（201）宿主已合并 Turbo IO 的完整实验 APK；不用自己合并，服务配置自行填写 | [下载 APK / 配套固件](https://github.com/Turbo1123/Turbo-IO/releases/tag/android-105-guard07-tap1-test01) → [安装与刷机教程](android-addon/docs/INSTALL_AND_FLASH.md) |
-| **在 iPhone 使用插件（V2）** | 扩展源码与构建工具；自行合并、签名、安装，**不提供合并 IPA**。1.0.6（218）新增 NAVS3 / TMG2 实验版；历史 TMIG1 同为 Strix 1.0.5.5，但固定包与门禁不能混用 | [NAVS3 矢量导航版](official-addon/navs3-edition/README.md) · [历史 TMIG1](official-addon/tmig1-edition/README.md) · [签名要求](official-addon/README.md) |
+| **在 iPhone 使用插件（V2）** | 自行合并、签名、安装，**不提供合并 IPA**。最新 1.0.7（230）APP107 继承 NAVS3，沿用已装 TMG2，**OTA 禁用**；1.0.6（218）NAVS3 的固件门禁不能移用 | [1.0.7 适配](official-addon/ios107-edition/README.md) · [1.0.6 NAVS3](official-addon/navs3-edition/README.md) · [签名要求](official-addon/README.md) |
 | **开发自己的仪表盘 / 小应用** | 自托管 API、Python / MCP、20 个模板、Agent Skill；先在电脑生成卡片或 ZIP 并预览，再接入匹配手机和运行时 | [开发 SDK 教程](docs/DEVELOPER_ECOSYSTEM.md) · [模板](app-gallery/README.md) · [Skill](skills/turboio-developer/SKILL.md) |
 | **只看效果 / 离线学习** | Web UI、模板、SVG 预览与本机测试；不要求设备、服务 Key 或刷机，不等于真机验收 | [Web 预览](#web-显示预览与观察台) · [模板离线入门](docs/DEVELOPER_ECOSYSTEM.md#1-十分钟离线入门) |
 | **研究独立连接（iOS V1）** | 独立 SDK 与示例客户端，研究配对、协议和自有 ASR；不是当前 V2 插件的完整替代品 | [V1 快速开始](#快速开始) |
@@ -61,6 +63,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 
 | 日期 | 更新 | 公开范围 |
 | --- | --- | --- |
+| 2026-10-19 | [iOS 1.0.7（230）APP107 兼容适配](#ios107-update) | iPhone 17 Pro Max 用户实测反馈正常；公开脱敏源码、精确版本校验与打包测试；继承 NAVS3，不改固件，OTA 暂禁用 |
 | 2026-10-19 | [NAVS3 矢量导航与 TMG2 可选排数菜单](#navs3-update) | 起终点直达模拟/真实导航、道路与路名稳定性修正、两/三排菜单；iOS源码、离线测试、原样TMG2固件与可复现构建；锁屏问题仍未闭环 |
 | 2026-10-15 | [原厂 iOS 1.0.6（218）砸壳 · 去签名输入](official-apps/ios/1.0.6/README.md) | 未合并 Turbo IO；95 个代码签名及商店授权元数据移除；原厂功能代码保留，自行合并签名；版权仍归官方 |
 | 2026-10-14 | [新版本适配：App 1.0.6 / Strix 1.0.5.5 / TMIG1](#tmig1-update) | iPhone 17 Pro Max 实测兼容；原样固件、可复现 AP 构建、手机适配源码、情境英语、新版原厂 ZIP；Dots 开发中，尚未完成 |
@@ -76,6 +79,20 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 | 2026-09-22 | [ANIM60 本地动图](#animation-test) | 动图实验源码与独立固件候选；非通用动图上传 |
 
 > **自定义固件是试验用品，非开发者请勿刷。** AP 改动仍可能导致无法启动或失去 OTA；不要混用不同候选的固件、手机门禁或授权。原厂回滚不是救砖保证。实机成功不等于生产稳定版。
+
+<a id="ios107-update"></a>
+
+### 2026-10-19 · iOS 1.0.7 已适配，现有眼镜功能继续使用
+
+**用户在 iPhone 17 Pro Max 安装 1.0.7（230）APP107 后，实测反馈“没啥问题”。** 安装后已回读新版插件加载标记、版本/UUID 门槛及关键回调。公开版从已脱敏的 NAVS3 基线整理，单独编译与离线回归；用户反馈不等于所有功能、机型和后台场景的全量验收。
+
+本轮保留矢量小地图、两/三排菜单配置及现有扩展模块，**只更新手机，不修改眼镜固件**。沿用已安装的 TMG2，无需为了手机升级再次刷机。8 个关键 native 类的 110 个既有方法签名与 Flutter 桥接检查通过；没有把旧版地址直接套到新版。
+
+**重要区别：APP107 的 OTA 尚未验收，暂时禁止刷写（包括官方升级路径）。** 不要将旧版 15 分钟验收/授权流程套到 1.0.7。手机锁屏导航问题仍保留，不以本次兼容适配宣称已解决；Dots 仍未完成。
+
+公开源码、构建及测试，不公开个人签名 IPA、Cookie、Key、私人服务地址、设备备份或微信读书网页正文适配。本次未另发原厂 1.0.7 IPA，开发者需自行准备合法兼容输入；历史原厂 1.0.6 输入不能用于 1.0.7 打包。
+
+**[1.0.7 源码 / 构建与版本对比](official-addon/ios107-edition/README.md) · [APP107 预发布](https://github.com/Turbo1123/Turbo-IO/releases/tag/ios107-app107-20261019) · [现有 TMG2 固件](firmware-research/strix-1.0.5.5-tmg2/README.md)**
 
 <a id="navs3-update"></a>
 
