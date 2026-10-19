@@ -8,7 +8,9 @@
 
 原创代码仅供学习、研究与非商业使用，沿用 [PolyForm Noncommercial 1.0.0](LICENSE)，未经授权不得商用或收费分发。除源码及明确列出的依赖，Release 提供原厂砸壳 IPA 作为 iOS 扩展输入，以及下述 **Android 1.0.5 非官方完整插件 APK / 高风险实验固件**。原厂部分版权仍归各自权利人，不因分发修改包而重新许可。**不提供个人密钥、Cookie、账号、签名私钥，亦不提供合并后的 IPA / HAP**；第三方服务由用户自行配置。
 
-**文档更新：2026-10-15** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
+**文档更新：2026-10-19** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
+
+**最新实验版：[NAVS3 矢量导航 + TMG2 可选排数菜单](#navs3-update)** · [iOS 1.0.6 配套源码](official-addon/navs3-edition/README.md) · [原样固件 / 校验下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/navs3-tmg2-20261019)。选择起终点即可模拟新版小地图；修正路网缓存过早清空与路名锚点。**锁屏导航卡住仍未解决，非稳定版。** 已有 TMG2 只需更新手机插件，不用重刷；不提供合并 IPA。
 
 **新版本适配预发布：[TMIG1 · Strix OS 1.0.5.5](firmware-research/strix-1.0.5.5/README.md) · [RayNeo AI iOS 1.0.6（218）插件](official-addon/tmig1-edition/README.md) · [原始新版原厂固件](firmware-research/strix-1.0.5.5/stock/README.md)**。**iPhone 17 Pro Max 已由用户刷入、进入并验证这组最新版兼容组合（2026-10-14）。** 保留情境英语；Dots 开发中，尚未完成。不是稳定版、全机型验收或新版 Android APK。
 
@@ -41,7 +43,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 | 你的目标 | 现在提供什么 | 从这里开始 |
 | --- | --- | --- |
 | **在 Android 使用插件** | 官方 1.0.5（201）宿主已合并 Turbo IO 的完整实验 APK；不用自己合并，服务配置自行填写 | [下载 APK / 配套固件](https://github.com/Turbo1123/Turbo-IO/releases/tag/android-105-guard07-tap1-test01) → [安装与刷机教程](android-addon/docs/INSTALL_AND_FLASH.md) |
-| **在 iPhone 使用插件（V2）** | 扩展源码与构建工具；自行合并、签名、安装，**不提供合并 IPA**。1.0.6（218）用 TMIG1 / Strix 1.0.5.5；旧 1.0.5（201）用各自历史集成版 | [新 TMIG1 集成版](official-addon/tmig1-edition/README.md) · [历史 FOCUS-04](official-addon/focus-edition/README.md) · [签名要求](official-addon/README.md) |
+| **在 iPhone 使用插件（V2）** | 扩展源码与构建工具；自行合并、签名、安装，**不提供合并 IPA**。1.0.6（218）新增 NAVS3 / TMG2 实验版；历史 TMIG1 同为 Strix 1.0.5.5，但固定包与门禁不能混用 | [NAVS3 矢量导航版](official-addon/navs3-edition/README.md) · [历史 TMIG1](official-addon/tmig1-edition/README.md) · [签名要求](official-addon/README.md) |
 | **开发自己的仪表盘 / 小应用** | 自托管 API、Python / MCP、20 个模板、Agent Skill；先在电脑生成卡片或 ZIP 并预览，再接入匹配手机和运行时 | [开发 SDK 教程](docs/DEVELOPER_ECOSYSTEM.md) · [模板](app-gallery/README.md) · [Skill](skills/turboio-developer/SKILL.md) |
 | **只看效果 / 离线学习** | Web UI、模板、SVG 预览与本机测试；不要求设备、服务 Key 或刷机，不等于真机验收 | [Web 预览](#web-显示预览与观察台) · [模板离线入门](docs/DEVELOPER_ECOSYSTEM.md#1-十分钟离线入门) |
 | **研究独立连接（iOS V1）** | 独立 SDK 与示例客户端，研究配对、协议和自有 ASR；不是当前 V2 插件的完整替代品 | [V1 快速开始](#快速开始) |
@@ -59,6 +61,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 
 | 日期 | 更新 | 公开范围 |
 | --- | --- | --- |
+| 2026-10-19 | [NAVS3 矢量导航与 TMG2 可选排数菜单](#navs3-update) | 起终点直达模拟/真实导航、道路与路名稳定性修正、两/三排菜单；iOS源码、离线测试、原样TMG2固件与可复现构建；锁屏问题仍未闭环 |
 | 2026-10-15 | [原厂 iOS 1.0.6（218）砸壳 · 去签名输入](official-apps/ios/1.0.6/README.md) | 未合并 Turbo IO；95 个代码签名及商店授权元数据移除；原厂功能代码保留，自行合并签名；版权仍归官方 |
 | 2026-10-14 | [新版本适配：App 1.0.6 / Strix 1.0.5.5 / TMIG1](#tmig1-update) | iPhone 17 Pro Max 实测兼容；原样固件、可复现 AP 构建、手机适配源码、情境英语、新版原厂 ZIP；Dots 开发中，尚未完成 |
 | 2026-09-30 | [TLC1：全天智记与扩展应用共存](#lifelog-coexist) | 六个扩展应用共存判断、可复现构建与测试、原样实刷固件及 iOS OTA 参考；仅 AP 改动，刷后须结束手机升级保护 |
@@ -73,6 +76,23 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 | 2026-09-22 | [ANIM60 本地动图](#animation-test) | 动图实验源码与独立固件候选；非通用动图上传 |
 
 > **自定义固件是试验用品，非开发者请勿刷。** AP 改动仍可能导致无法启动或失去 OTA；不要混用不同候选的固件、手机门禁或授权。原厂回滚不是救砖保证。实机成功不等于生产稳定版。
+
+<a id="navs3-update"></a>
+
+### 2026-10-19 · 矢量小地图：从选择起终点，到眼镜原生绘制
+
+**选择起点与目的地，直接开始模拟导航或真实导航。** 手机用高德规划与定位，获取经授权的 OSM 周边道路并完成坐标转换，眼镜用有界矢量场景绘制道路、路线、车标、路名与比例尺，不再连续传整屏截图。时间栏稳定显示，不再与“导航常亮”轮换。
+
+这次 NAVS3 修正旧路网提前清空的问题：保留最多两块区域，提前请求、原子交接；路名沿真实道路选取适合当前航向的可见锚点。首次加载、断网或超过图源请求预算仍可能只剩路线，不伪造周边道路。**手机锁屏后导航停止/卡住仍为已知问题，不能用于驾驶或安全依赖。**
+
+配套 **TMG2** 默认三排三列菜单，手机可切两排三列并保存；保留遥控拍照、音乐、阅读、番茄、情境英语、仪表盘、小应用、Watch输入等。自定义仅修改 AP（7,408,584字节），其余14个原厂载荷不变；完整 OTA 不等于只写 AP。
+
+- TMG2 用户已反馈刷入成功，发布保持原样，公开源码已重建出字节一致的 AP / ZIP。
+- NAVS3 私用手机包已安装到 iPhone 17 Pro Max 并核对加载；公开脱敏派生源码单独编译及离线回归，**不声称持续实机导航或全功能验收完成**。
+- 仅针对 RayNeo AI iOS 1.0.6（218）＋ Strix OS 1.0.5.5；不是新版 Android APK。已有 TMG2 无需为 NAVS3 重刷。
+- 不含 Cookie、Key、签名材料、私用 IPA、真实路线/通知/智记记录或网页阅读适配；Dots 仍未完成。
+
+**[源码与构建](official-addon/navs3-edition/README.md) · [固件与刷写步骤](firmware-research/strix-1.0.5.5-tmg2/README.md) · [下载 / SHA-256](https://github.com/Turbo1123/Turbo-IO/releases/tag/navs3-tmg2-20261019)**
 
 <a id="tmig1-update"></a>
 
