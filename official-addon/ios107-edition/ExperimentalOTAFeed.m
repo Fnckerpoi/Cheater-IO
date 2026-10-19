@@ -1,4 +1,7 @@
 #import "ExperimentalOTAFeed.h"
+#import "OTAHost.h"
+#import "HostCompatibility.h"
+#import <mach-o/dyld.h>
 #import "ExperimentalOTAFlash.h"
 #import "ExperimentalOTA.h"
 #import "ExperimentalOTAGuard.h"
@@ -221,7 +224,7 @@ void TIORefreshExperimentalOTAReport(void){
         NSFileManager *fm=NSFileManager.defaultManager;NSError *error=nil;
         if([fm createDirectoryAtURL:directory withIntermediateDirectories:YES attributes:@{NSFilePosixPermissions:@0700} error:&error]&&[directory setResourceValue:@YES forKey:NSURLIsExcludedFromBackupKey error:&error]){
             NSMutableDictionary *report=[@{@"build":@"OTA-PREPARE-02",@"timestamp":@(NSDate.date.timeIntervalSince1970),@"processIdentifier":@(NSProcessInfo.processInfo.processIdentifier),@"launchID":LaunchID?:@"",@"feed":TIOExperimentalOTAFeedStatus(),@"guard":TIOOTAGuardStatus(),@"flashAuthorized":@NO,@"transferSessionBound":@NO} mutableCopy];
-            if(TIOOTAFlashBuild()){report[@"build"]=@"TMG2-PHONE-01";report[@"flashGate"]=TIOOTAFlashStatus();report[@"flashAuthorized"]=report[@"flashGate"][@"authorized"];}
+            if(TIOOTAFlashBuild()){report[@"build"]=@"APP107-OTA-PHONE-01";report[@"flashGate"]=TIOOTAFlashStatus();report[@"flashAuthorized"]=report[@"flashGate"][@"authorized"];}
             NSURL *zip=[directory URLByAppendingPathComponent:[TIOExperimentalOTASHA() stringByAppendingString:@".zip"]];error=nil;
             report[@"archive"]=TIOReadExperimentalOTA(zip,&error)?:@{@"integrityPassed":@NO};
             NSURL *official=[NSURL fileURLWithPath:[NSHomeDirectory() stringByAppendingPathComponent:@"Library/Application Support/ota/Strix_OS_1.0.5.5"] isDirectory:YES];error=nil;
@@ -240,16 +243,10 @@ void TIOStartExperimentalOTAFeedIfMarked(void){
     dispatch_once(&once,^{
         LaunchID=NSUUID.UUID.UUIDString;
         NSBundle *bundle=NSBundle.mainBundle;
-        if(![[bundle objectForInfoDictionaryKey:@"TIOExperimentalOTAQueryRouting"] isEqual:@"ios106-tmig1-loopback-disabled"]&&!TIOOTAPreparationBuild()&&!TIOOTAFlashBuild())return;
-        if(![bundle.bundleIdentifier isEqual:@"com.rayneo.venus.pub"]||![[bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"1.0.6"]||![[bundle objectForInfoDictionaryKey:@"CFBundleVersion"] isEqual:@"218"]){BootstrapFailure=@"实验升级来源的宿主版本不匹配";TIORefreshExperimentalOTAReport();return;}
-        // Read only two fixed string records. Code signing is handled by packaging;
-        // this check prevents starting a feed with an unpatched/mismatched host.
+        if(!TIOOTAFlashBuild())return;
+        if(!TIOOTA107HostMatches(bundle.infoDictionary)||!TIOHostImageMatches(_dyld_get_image_header(0),bundle.infoDictionary)){BootstrapFailure=@"1.0.7 实验来源宿主版本/UUID/标记不匹配";TIORefreshExperimentalOTAReport();return;}
         NSString *file=[bundle.bundlePath stringByAppendingPathComponent:@"Frameworks/App.framework/App"];
-        NSFileHandle *handle=[NSFileHandle fileHandleForReadingAtPath:file];BOOL ok=handle!=nil;
-        @try{NSArray *offsets=@[@41185344,@32098976];NSArray *strings=@[@"http://127.0.0.1:18794/g/xxxxxxxA78p2M",@"http://127.0.0.1:18794/g/xxxxxxxxxxCCXhB"];
-            for(NSUInteger i=0;i<offsets.count&&ok;i++){NSData *expected=[strings[i] dataUsingEncoding:NSASCIIStringEncoding];[handle seekToFileOffset:[offsets[i] unsignedLongLongValue]];ok=[[handle readDataOfLength:expected.length] isEqual:expected];}
-        }@catch(NSException *exception){(void)exception;ok=NO;}@finally{[handle closeFile];}
-        if(!ok){BootstrapFailure=@"实验升级查询路径不匹配，未启动服务";TIORefreshExperimentalOTAReport();return;}
+        if(!TIOOTA107RouteFileMatches(file)){BootstrapFailure=@"1.0.7 实验查询路径或对象头不匹配，未启动服务";TIORefreshExperimentalOTAReport();return;}
         BootstrapEligible=YES;EnsureFeedListening();ScheduleHealthCheck();
         TIORefreshExperimentalOTAReport();
 #if TARGET_OS_IPHONE

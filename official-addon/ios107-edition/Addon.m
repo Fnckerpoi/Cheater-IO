@@ -630,7 +630,7 @@ __attribute__((constructor)) static void Load(void) {
             NSMutableString *loadInfo=[NSMutableString stringWithFormat:@"setup reached; hooks=%d; version=%d; voiceClass=%d; alwaysOnClass=%d\n",valid,VersionMatches(),voice!=Nil,ao!=Nil];
 #if TIO_DISPLAY_PHONE
 #if TIO_DISPLAY_FLASH
-            [loadInfo appendString:@"display extension=APP107-PHONE-01; loopback restart recovery; OTA default locked\n"];
+            [loadInfo appendString:@"display extension=APP107-OTA-PHONE-01; loopback restart recovery; OTA default locked\n"];
 #else
             [loadInfo appendString:@"display extension=MUSIC-OTA-PHONE-01; numeric diagnostics; OTA writes disabled; legacy N8W retained\n"];
 #endif

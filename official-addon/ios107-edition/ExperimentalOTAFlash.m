@@ -1,3 +1,5 @@
+#import "OTAHost.h"
+#import "ExperimentalOTAFeed.h"
 #import "dots-v1/DotsGlassesTransfer.h"
 #import "context-english-v1/ContextEnglishTransport.h"
 #import "ExperimentalOTAFlash.h"
@@ -103,7 +105,7 @@ BOOL TIOOTAFlashBuild(void){
     // Authorization/feed still require the exact marker below.
     return YES;
 #else
-    return [[NSBundle.mainBundle objectForInfoDictionaryKey:@"TIOExperimentalOTAQueryRouting"] isEqual:@"ios106-tmig1-loopback-flash-gated"];
+    return TIOOTA107HostMatches(NSBundle.mainBundle.infoDictionary);
 #endif
 #else
     return NO;
@@ -122,7 +124,7 @@ BOOL TIOOTAAutoUpdateDisabled(NSDictionary *preferences){
 static TIOOTAFlashGate *Current(void){@synchronized(NSProcessInfo.processInfo){if(!Gate)Gate=[TIOOTAFlashGate new];return Gate;}}
 BOOL TIOOTAFlashProtected(void){
 #if TARGET_OS_IPHONE && TIO_DISPLAY_FLASH
-    if(![[NSBundle.mainBundle objectForInfoDictionaryKey:@"TIOExperimentalOTAQueryRouting"] isEqual:@"ios106-tmig1-loopback-flash-gated"])return NO;
+    if(!TIOOTA107HostMatches(NSBundle.mainBundle.infoDictionary))return NO;
 #endif
     return TIOOTAFlashBuild()&&[TIOOTAGuardStatus()[@"transportHookReady"] boolValue];
 }
@@ -147,11 +149,7 @@ BOOL TIOOTAFlashBlockCall(id call){
         NSUInteger business=0;if(![args isKindOfClass:NSDictionary.class]||!Number(args[@"businessId"],&business))return YES;
         if(business!=9)return NO;
         id data=args[@"payload"];if(![data isKindOfClass:NSData.class])data=Get(data,@"data");
-        if([[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"1.0.7"])
-            return !TIOOTAIsEmptyVersionQuery(data);
-        // New host OTA/resume flow is not accepted yet. No mutation on 1.0.6,
-        // even if someone restores an old Info.plist marker or authorization.
-        if([[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"1.0.6"]&&![[NSBundle.mainBundle objectForInfoDictionaryKey:@"TIOExperimentalOTAQueryRouting"] isEqual:@"ios106-tmig1-loopback-flash-gated"])
+        if(!TIOOTA107HostMatches(NSBundle.mainBundle.infoDictionary))
             return !TIOOTAIsEmptyVersionQuery(data);
 #if TIO_DISPLAY_PHONE && !TIO_DISPLAY_FLASH
         // Phone-only test package: no OTA mutation, even if an old gate was armed.
@@ -182,8 +180,9 @@ void TIOOTAFlashObserveEvent(NSDictionary *event){
     }
 }
 BOOL TIOOTAFlashAuthorize(NSError **error){
-    if([[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"1.0.7"]){Error(error,@"1.0.7 兼容验证版：尚未验收新版 OTA，暂不允许刷写眼镜。");return NO;}
-    if([[NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"] isEqual:@"1.0.6"]&&![[NSBundle.mainBundle objectForInfoDictionaryKey:@"TIOExperimentalOTAQueryRouting"] isEqual:@"ios106-tmig1-loopback-flash-gated"]){Error(error,@"1.0.6 插件适配测试版：新版 OTA 流程未验收，禁止刷写；请使用已验收的 1.0.5 刷机包。");return NO;}
+    if(!TIOOTA107HostMatches(NSBundle.mainBundle.infoDictionary)){Error(error,@"1.0.7 OTA 专用宿主或路由标记不匹配，未授权。");return NO;}
+    NSDictionary *feed=TIOExperimentalOTAFeedStatus();
+    if(![feed[@"bootstrapEligible"] boolValue]||![feed[@"running"] boolValue]||![feed[@"healthPassed"] boolValue]){Error(error,@"未确认本机下载来源与健康检查，未授权。");return NO;}
 #if TARGET_OS_IPHONE && TIO_DISPLAY_PHONE
     if(TAPPhoneBridge.shared.busy||TAPPhoneBridge.shared.needsReadback){Error(error,@"应用文件仍在传输或结果未知，先查询完成；未开放升级。");return NO;}
 #endif

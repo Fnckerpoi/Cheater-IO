@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import {amapResources,copyAMapResources} from '../amap-resources.mjs';
 import {validateTranslationPair,prepareTranslationResources,copyTranslationResources} from '../local-translation/package-resources.mjs';
 import {inspectMachO} from './macho-embed.mjs';
+import {patch as patchOTARoute,verifyRoute} from './patch-route.mjs';
 const here=path.dirname(fileURLToPath(import.meta.url));
 const digest=b=>createHash('sha256').update(b).digest('hex');
 export function validateHost(info,runner,appImage){
@@ -22,7 +23,7 @@ export function validateOptions(o) {
   if(!/^[A-Za-z0-9][A-Za-z0-9.-]+\.[A-Za-z0-9.-]+$/.test(o.bundle||''))throw Error('invalid_bundle');
   if(o.product&&!/^iPhone\d+,\d+$/.test(o.product))throw Error('invalid_explicit_product');
   if(fs.existsSync(o.out))throw Error('output_must_not_exist');
-  if(o['experimental-ota']!==undefined)throw Error('ios107_ota_not_accepted');
+  if(o['experimental-ota']!==undefined&&o['experimental-ota']!=='TMG2')throw Error('only_exact_tmg2_supported');
   if(o.bundle!=='com.rayneo.venus.pub'||typeof o.firmware!=='string'||!path.isAbsolute(o.firmware))throw Error('exact_host_and_firmware_resource_required');
 }
 export function validateResearchPair(symbols, kind, firmware) {
@@ -40,7 +41,7 @@ export function entitlementsFor(p,o) {
 }
 function run(program,args,options={}){return exec(program,args,{stdio:['pipe','pipe','pipe'],...options});}
 function main(){
-  if(process.argv.includes('--help'))console.log('iOS 1.0.7/230 APP107: OTA disabled. --firmware is an exact TMG2 RESOURCE only; --experimental-ota is rejected.');
+  if(process.argv.includes('--help'))console.log('iOS 1.0.7/230 APP107: exact TMG2 OTA route included by default. Installation does NOT grant flash permission; manual one-shot authorization required.');
   if(process.argv.includes('--help'))console.log('Optional local translation: --translation-module-dir /absolute/module --translation-models /absolute/models (requires TIO_LOCAL_TRANSLATION=1 addon; see local-translation/README.md)');
   if(process.argv.includes('--help')){console.log('node official-addon/ios107-edition/package.mjs --app /absolute/Runner.app --addon /absolute/TurboIOPrivateAddon.dylib --profile /absolute/profile.mobileprovision --identity CERTIFICATE_SHA1 --device YOUR_DEVICE_ID --out /absolute/new-private-output --bundle com.rayneo.venus.pub --firmware /absolute/exact-TMG2-release.zip [--product iPhone18,2] [--amap-sdk-root /absolute/build/amap-sdk]');return;}
   const o={bundle:'com.rayneo.venus.pub'};const args=process.argv.slice(2);
@@ -55,7 +56,7 @@ function main(){
   const translationResources=prepareTranslationResources(o);
   if(symbols.includes('OBJC_CLASS_$_AMapNaviWalkManager')&&!mapResources.length)throw Error('amap_resources_option_required');
   const source=fs.realpathSync(o.app),destination=path.resolve(o.out);
-  if(!symbols.includes('_TIOOTAFlashBuild')||!fs.readFileSync(o.addon).includes(Buffer.from('display extension=APP107-PHONE-01;')))throw Error('ios107_addon_marker_required');
+  if(!symbols.includes('_TIOOTAFlashBuild')||!fs.readFileSync(o.addon).includes(Buffer.from('display extension=APP107-OTA-PHONE-01;')))throw Error('ios107_addon_marker_required');
   const firmware=o.firmware?fs.readFileSync(o.firmware):undefined;
   validateResearchPair(symbols,'TMG2',firmware);
   const info=JSON.parse(run('plutil',['-convert','json','-o','-',path.join(source,'Info.plist')],{encoding:'utf8'}));
@@ -82,12 +83,14 @@ print(json.dumps({'entitlements':p['Entitlements'],'expires':p['ExpirationDate']
     if(!info.NSMicrophoneUsageDescription)run('plutil',['-insert','NSMicrophoneUsageDescription','-string','在用户主动开启英语离线字幕时使用所选麦克风；停止后结束收音。',plist]);
   }
   {
-    // Preserve official 1.0.7 Dart bytes. No loopback route, offset transplant or OTA grant.
+    // Exact inspected 1.0.7 data records only; no instruction/header edits or OTA grant.
+    const image=path.join(app,'Frameworks/App.framework/App');
+    fs.writeFileSync(image,patchOTARoute(fs.readFileSync(image)).output);
     const plist=path.join(app,'Info.plist');
     const music=true;
-    run('plutil',['-insert','TIOExperimentalOTAQueryRouting','-string','ios107-migration-ota-disabled',plist]);
-    run('plutil',['-insert','TIOPackagingRevision','-string','APP107-PUBLIC-SOURCE-01',plist]);
-    run('plutil',['-insert','TIOExperimentalOTABuild','-string','TMG2-RESOURCE-OTA-DISABLED',plist]);
+    run('plutil',['-insert','TIOExperimentalOTAQueryRouting','-string','ios107-tmg2-loopback-flash-gated',plist]);
+    run('plutil',['-insert','TIOPackagingRevision','-string','APP107-OTA-PUBLIC-SOURCE-01',plist]);
+    run('plutil',['-insert','TIOExperimentalOTABuild','-string','TMG2',plist]);
     if(firmware)fs.writeFileSync(path.join(app,focusEdition?'TurboWeReadCandidate.zip':music?'TurboMusicCandidate.zip':'TurboNavigationCandidate.zip'),firmware,{flag:'wx'});
     if(music){
       fs.copyFileSync(path.join(here,'../music/Beans-MIT-LICENSE.txt'),path.join(app,'TurboMusic-Beans-MIT-LICENSE.txt'));
@@ -110,11 +113,12 @@ print(json.dumps({'entitlements':p['Entitlements'],'expires':p['ExpirationDate']
   for(const p of nested)run('codesign',['--force','--sign',o.identity,'--timestamp=none','--generate-entitlement-der',p]);
   run('codesign',['--force','--sign',o.identity,'--timestamp=none','--generate-entitlement-der','--entitlements',ep,app]);
   run('codesign',['--verify','--deep','--strict',app]);
+  verifyRoute(fs.readFileSync(path.join(app,'Frameworks/App.framework/App')));
   const ipa=path.join(destination,'TurboIO-local-only.ipa');
   run('/usr/bin/ditto',['-c','-k','--norsrc','--noextattr','--keepParent',path.join(destination,'Payload'),ipa]);fs.chmodSync(ipa,0o600);
   run('/usr/bin/unzip',['-tq',ipa]);
   const names=run('/usr/bin/unzip',['-Z1',ipa],{encoding:'utf8'}).split('\n');if(names.some(n=>n.split('/').some(x=>x==='__MACOSX'||x.startsWith('._'))))throw Error('unexpected_archive_metadata');
-  const report={status:'SIGNED_NOT_DEVICE_ACCEPTED',host:'1.0.7 (230)',signatureVerified:true,officialSourceUploaded:false,privateBootstrapIncluded:false,experimentalOTA:false,flashAuthorized:false,firmwareResourceOnly:true,ipaSHA256:createHash('sha256').update(fs.readFileSync(ipa)).digest('hex'),pushEntitled:!!entitlement['aps-environment'],appleSignInEntitled:!!entitlement['com.apple.developer.applesignin']};
+  const report={status:'SIGNED_NOT_DEVICE_ACCEPTED',host:'1.0.7 (230)',signatureVerified:true,officialSourceUploaded:false,privateBootstrapIncluded:false,experimentalOTA:true,flashAuthorized:false,firmwareResourceOnly:false,postSigningRouteVerified:true,ipaSHA256:createHash('sha256').update(fs.readFileSync(ipa)).digest('hex'),pushEntitled:!!entitlement['aps-environment'],appleSignInEntitled:!!entitlement['com.apple.developer.applesignin']};
   fs.writeFileSync(path.join(destination,'report.json'),JSON.stringify(report,null,2)+'\n',{flag:'wx',mode:0o600});console.log(JSON.stringify(report,null,2));
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){try{main();}catch(e){const known=/^[a-z_]+$/.test(e.message);console.error(known?e.message:'Local packaging failed. Check compatible source, profile and signing identity. No subprocess output or credentials are printed.');process.exitCode=1;}}
