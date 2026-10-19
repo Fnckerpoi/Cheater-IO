@@ -14,7 +14,11 @@ const digest=b=>createHash('sha256').update(b).digest('hex');
 export function validateHost(info,runner,appImage){
   if(info.CFBundleIdentifier!=='com.rayneo.venus.pub'||info.CFBundleShortVersionString!=='1.0.7'||String(info.CFBundleVersion)!=='230'||Object.keys(info).some(k=>k.startsWith('TIO')))throw Error('requires_original_ios107_230');
   const h=inspectMachO(runner);
-  if(h.encrypted||h.uuid!=='410defdbf93739eaacf2f616abff9d0b'||digest(runner)!=='c416d939c90745b170027171844e3275faf5e502306746176375dee5837aadcf'||digest(appImage)!=='fd83c578708e929d732d06a97c2b8e3dd4dd665d0ec72ea16420fcbcca4bae3e')throw Error('host_image_identity_mismatch');
+  const acceptedPairs=[
+    ['c416d939c90745b170027171844e3275faf5e502306746176375dee5837aadcf','fd83c578708e929d732d06a97c2b8e3dd4dd665d0ec72ea16420fcbcca4bae3e'],
+    ['765715adebb3b6132a1870d9b500e861e028cdaecc2f6485296a428c1812e0b3','041dc97ad3a864ac322e92a49d3b1ebbd466d371dc427591b0b82c8c56b5090d'],
+  ];
+  if(h.encrypted||h.uuid!=='410defdbf93739eaacf2f616abff9d0b'||!acceptedPairs.some(([r,a])=>digest(runner)===r&&digest(appImage)===a))throw Error('host_image_identity_mismatch');
 }
 export function validateOptions(o) {
   for(const k of ['app','addon','profile','out'])if(typeof o[k]!=='string'||!path.isAbsolute(o[k]))throw Error('absolute_paths_required');

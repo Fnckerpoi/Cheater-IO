@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 import {makeRoute,stringHash,originals} from './route-hash.mjs';
 export const originalSHA='fd83c578708e929d732d06a97c2b8e3dd4dd665d0ec72ea16420fcbcca4bae3e';
+export const unsignedSHA='041dc97ad3a864ac322e92a49d3b1ebbd466d371dc427591b0b82c8c56b5090d';
 export const offsets=[41206352,32115728];
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
 const check=(v,m)=>{if(!v)throw Error(m);};
@@ -20,7 +21,7 @@ export function verifyRoute(input){
   return true;
 }
 export function patch(input){
-  check(sha(input)===originalSHA,'Wrong host image: requires original 1.0.7/230');
+  check([originalSHA,unsignedSHA].includes(sha(input)),'Wrong host image: requires pinned original or unsigned 1.0.7/230');
   const output=Buffer.from(input),changes=[];
   for(let i=0;i<originals.length;i++){
     const original=originals[i],offset=offsets[i];

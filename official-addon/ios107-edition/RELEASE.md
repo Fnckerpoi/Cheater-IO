@@ -15,7 +15,7 @@
 - [原样 TMG2 固件下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/navs3-tmg2-20261019)
 - [首页更新日志](https://github.com/Turbo1123/Turbo-IO#ios107-update)
 
-旧的 APP107 禁用 OTA 构建需要重新合并、签名；仅更新文档不会改变已装 App。源码快照随本 Release 提供，审计 JSON 单独附上。**不提供合并或个人签名 IPA，不额外分发原厂 1.0.7 IPA。** 原厂输入、第三方 SDK、签名和服务配置须自行合法取得。
+旧的 APP107 禁用 OTA 构建需要重新合并、签名；仅更新文档不会改变已装 App。源码快照随本 Release 提供，审计 JSON 单独附上。**不提供合并或个人签名 IPA。** [原厂 1.0.7 去签名 IPA](https://github.com/Turbo1123/Turbo-IO/releases/tag/rayneo-ios-1.0.7-230)另行归档，使用最新主分支打包器接受其精确哈希；原厂输入、第三方 SDK、签名和服务配置须自行合法使用。
 
 本轮实刷使用逐字节校验一致的官方缓存，没有另做网络重新下载实测。公开脱敏派生包单独编译和本地签名验证，不是私用实测 IPA 的原样公开；不宣称所有机型、账号、功能或后台场景均验收通过。手机锁屏导航问题仍保留，Dots 未完成。
 

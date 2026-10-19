@@ -45,12 +45,14 @@ python3 test.py --firmware /absolute/path/to/exact-TMG2-release.zip
 
 ## 自行合并与签名
 
-需合法的 **1.0.7（230）未加密原厂 Runner.app**。本次不额外分发原厂 1.0.7 IPA，也不提供提取工具；1.0.6 输入不能代替。严格匹配本轮已核验输入，其他去签名/重签派生文件不接受，不能通过删校验绕过。
+需合法的 **1.0.7（230）未加密原厂 Runner.app**。可参见[原厂去签名 IPA 归档](../../official-apps/ios/1.0.7/README.md)，它没有 Turbo IO，也不是签名安装包。本工具不提取或解密；1.0.6 输入不能代替。只接受下列两种精确配对，其他去签名/重签派生文件不接受，不能通过删校验绕过。
 
 | 输入 | SHA-256 |
 | --- | --- |
 | 解密 Runner | `c416d939c90745b170027171844e3275faf5e502306746176375dee5837aadcf` |
 | 原厂 App.framework/App | `fd83c578708e929d732d06a97c2b8e3dd4dd665d0ec72ea16420fcbcca4bae3e` |
+| 发布去签名版 Runner | `765715adebb3b6132a1870d9b500e861e028cdaecc2f6485296a428c1812e0b3` |
+| 发布去签名版 App.framework/App | `041dc97ad3a864ac322e92a49d3b1ebbd466d371dc427591b0b82c8c56b5090d` |
 
 ```bash
 node package.mjs \

@@ -60,3 +60,15 @@ test('real decrypted original input and loader preservation',t=>{
    const corrupt=Buffer.from(output);corrupt[offset]^=1;assert.throws(()=>verifyRoute(corrupt));
  }
 });
+test('published unsigned original accepted; mutations and mixed input pairs rejected',t=>{
+ const p=process.env.IOS107_TEST_UNSIGNED_APP;
+ if(!p)return t.skip('set IOS107_TEST_UNSIGNED_APP');
+ const r=fs.readFileSync(p+'/Runner'),a=fs.readFileSync(p+'/Frameworks/App.framework/App');
+ validateHost(info,r,a);
+ assert.equal(inspectMachO(addEmbeddedLoad(r)).uuid,inspectMachO(r).uuid);
+ const {output}=patch(a);assert.ok(verifyRoute(output));assert.throws(()=>patch(output));
+ const bad=Buffer.from(a);bad[4096]^=1;assert.throws(()=>validateHost(info,r,bad));assert.throws(()=>patch(bad));
+ const wrong=Buffer.from(r);wrong[4096]^=1;assert.throws(()=>validateHost(info,wrong,a));
+ if(process.env.IOS107_TEST_RUNNER)assert.throws(()=>validateHost(info,fs.readFileSync(process.env.IOS107_TEST_RUNNER),a));
+ if(process.env.IOS107_TEST_APP_IMAGE)assert.throws(()=>validateHost(info,r,fs.readFileSync(process.env.IOS107_TEST_APP_IMAGE)));
+});
