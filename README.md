@@ -1,4 +1,16 @@
-# Turbo-IO · SCADA 事实字幕与环境感知扩展 (Personal Branch)
+# Turbo-IO · Android SCADA 事实字幕与环境感知扩展
+
+## Android 路线分支
+
+本分支维护 Android 宿主扩展与 ESP32 SCADA 定制。README、代码和提交独立于 iOS V1、iOS V2 与上游同步用的 `main`。
+
+- 其它路线：[上游总览](https://github.com/Fnckerpoi/Turbo-IO/tree/main)、[iOS V1](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v1)、[iOS V2](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v2)。
+- 开始定制：`git switch android`；提交后执行 `git push origin android`。
+- 吸收作者更新：在 `main` 快进同步 `upstream/main`，切回本分支合并 `main`，验证 Android/ESP32 改动后推送。
+
+以下说明仅适用于 Android/ESP32 路线；iOS 构建和升级方式请查看对应 iOS 分支 README。
+
+---
 
 本仓库为基于 [Turbo1123/Turbo-IO (Upstream)](https://github.com/Turbo1123/Turbo-IO) 的个人定制与功能扩展分支。
 
