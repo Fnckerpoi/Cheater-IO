@@ -1,4 +1,4 @@
-# Turbo-IO · SCADA 事实字幕与环境感知扩展 (Personal Branch)
+﻿# Turbo-IO · SCADA 事实字幕与环境感知扩展 (Personal Branch)
 
 本仓库为基于 [Turbo1123/Turbo-IO (Upstream)](https://github.com/Turbo1123/Turbo-IO) 的个人定制与功能扩展分支。
 
@@ -32,7 +32,7 @@
 
 ## 🛠️ 硬件与环境架构
 
-```text
+`	ext
 [ ESP32-C3 + BMP280 传感器 ]
        │  (每 500ms 刷新加密数据 / 100ms BLE 广播)
        ▼  [AES-128-GCM 加密广播 (Company ID: 0xFFFF)]
@@ -44,7 +44,7 @@
        ▼  [AI_SUBTITLE 纯文字协议 (业务 ID: 19)]
 [ RayNeo 智能眼镜 (显示镜片) ]
        └─► 实时呈现: "SCADA / 温度: xx.xx °C / 环境气压: xxxxxx Pa"
-```
+`
 
 ---
 
@@ -63,20 +63,20 @@
 ## 🚀 快速上手 (Quick Start)
 
 ### 1. 固件准备 (ESP32-C3)
-源码位于 `esp32-scada/` 目录下，使用 ESP-IDF 5.5 编译与烧录：
-```powershell
+源码位于 esp32-scada/ 目录下，使用 ESP-IDF 5.5 编译与烧录：
+`powershell
 cd esp32-scada
 idf.py set-target esp32c3
 idf.py build
 idf.py -p COM3 flash monitor
-```
+`
 在控制台输入一次性密钥配置命令（密钥需与手机端一致）：
-```text
+`	ext
 scada> provision <32位十六进制AES密钥> <16位十六进制设备前缀>
-```
+`
 
 ### 2. 手机端运行与配置
-1. 打开手机端 `TurboIO TMIG1刷写`（或基于此分支构建的测试包）。
+1. 打开手机端 TurboIO TMIG1刷写（或基于此分支构建的测试包）。
 2. 进入 **SCADA sensor（本机实验）** 页面。
 3. 填入与 ESP32 相同的密钥与前缀，点击 **Save encrypted lab provisioning**。
 4. 点击 **Start SCADA BLE scan** 开始扫描。
@@ -88,3 +88,4 @@ scada> provision <32位十六进制AES密钥> <16位十六进制设备前缀>
 
 - 本分支新增的 SCADA 固件、字幕状态机控制器、测试用例及相关文档均沿用原项目协议，仅供学习、研究与非商业交流使用。
 - 本项目不提供任何商业保证，涉及无线电传输及眼镜硬件操作的风险由使用者自行评估。
+
