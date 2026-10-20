@@ -14,6 +14,12 @@ python3 tests/ApkAssemblyTest.py
 python3 tests/ReaderDemoTest.py
 python3 tests/TtsManifestTest.py
 python3 tests/BackgroundManifestTest.py
+javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test src/com/turboio/addon/{ScadaReading,ScadaPacketCodec,ScadaReplayGuard,ScadaProximity}.java tests/scadable/*.java
+java -cp build/test com.turboio.addon.ScadaPacketCodecTest
+java -cp build/test com.turboio.addon.ScadaReplayGuardTest
+java -cp build/test com.turboio.addon.ScadaProximityTest
+javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test src/com/turboio/addon/{BoundedJson,CardCodec,CardEnvelope,CardTransport,ScadaCardController,ScadaReading}.java tests/scadacard/*.java
+java -cp build/test com.turboio.addon.ScadaCardControllerTest
 mkdir -p build/test/focus-golden
 cc -Wall -Wextra -Werror -I../official-addon/research/focus-v1 tests/focus_golden.c ../official-addon/research/focus-v1/focus.c -o build/test/focus-golden/generate
 build/test/focus-golden/generate build/test/focus-golden

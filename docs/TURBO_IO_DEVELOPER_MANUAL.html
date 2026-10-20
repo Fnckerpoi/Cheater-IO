@@ -1,0 +1,1073 @@
+﻿<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Turbo-IO 开发手册</title><style>html{scroll-behavior:smooth}body{margin:0;background:#f6f8fa;color:#202b33;font:16px/1.85 system-ui,"Microsoft YaHei",sans-serif}main{max-width:1000px;margin:32px auto;padding:48px 56px;background:white;border:1px solid #e1e7eb;border-radius:12px}h1,h2,h3,h4{line-height:1.4;color:#123f36}h1{font-size:36px}h2{font-size:26px;border-bottom:1px solid #dce7e2;padding-bottom:12px}h3{font-size:21px}section{margin-top:64px;scroll-margin-top:20px}a{color:#16705b;overflow-wrap:anywhere}nav{padding:20px 28px;background:#eef6f3;border-radius:8px}nav ol{columns:2;column-gap:36px;padding-left:0;list-style:none}nav li{break-inside:avoid;margin:7px 0}table{border-collapse:collapse;width:100%;display:block;overflow:auto;font-size:14px}th,td{border:1px solid #dce4e7;padding:10px 14px;text-align:left;min-width:100px}th{background:#f0f5f3}pre{padding:18px;background:#f1f4f6!important;overflow:auto;border-radius:6px;line-height:1.6}code{font-family:Consolas,monospace;font-size:.9em}p code,li code,td code{background:#eef2f4;padding:2px 4px;border-radius:3px}.header-anchor{display:none}blockquote{border-left:4px solid #52a58b;margin-left:0;padding-left:18px;color:#56636b}.lead{color:#586a73}.top{position:fixed;right:20px;bottom:16px;background:#16705b;color:white;padding:7px 14px;border-radius:6px;text-decoration:none}@media(max-width:700px){main{margin:0;padding:26px 18px;border:0;border-radius:0}nav ol{columns:1}h1{font-size:29px}}@media print{body{background:white;font-size:11pt}main{margin:0;max-width:none;padding:0;border:0}section{break-before:page}.top{display:none}pre{white-space:pre-wrap;overflow-wrap:anywhere}a{color:inherit;text-decoration:none}nav ol{columns:2}table{font-size:9pt}}</style></head><body><main id="top"><header><h1>Turbo-IO 开发手册</h1><p class="lead">面向开发者的全项目指南 · Android 实现、扩展与持续升级重点说明</p><p>本手册覆盖路线选择、环境准备、整体架构、应用 SDK、服务端与 Android 开发。请先核对版本兼容矩阵，再执行对应路线的构建与验证步骤。</p></header><nav aria-label="手册目录"><h2>目录</h2><ol><li><a href="#start-introduction">1. 项目简介</a></li><li><a href="#start-routes">2. 选择开发路线</a></li><li><a href="#start-environment">3. 环境准备</a></li><li><a href="#reference-compatibility">4. 版本与兼容矩阵</a></li><li><a href="#guide-source-map">5. 源码导航</a></li><li><a href="#guide-architecture">6. 全项目架构</a></li><li><a href="#guide-app-sdk">7. 第一个应用与仪表盘</a></li><li><a href="#guide-server">8. 服务端与 MCP 接入</a></li><li><a href="#guide-platforms">9. iOS、V1 与历史鸿蒙</a></li><li><a href="#android-overview">10. Android 开发入口与版本边界</a></li><li><a href="#android-build">11. Android 环境、构建与签名</a></li><li><a href="#android-architecture">12. Android 运行架构与耦合边界</a></li><li><a href="#android-extension">13. 跟随现有链路扩展一个小功能</a></li><li><a href="#android-upgrade">14. 持续维护：宿主、系统和固件升级</a></li><li><a href="#android-testing">15. 分层测试、故障诊断与验收</a></li><li><a href="#reference-firmware">16. 固件与证据边界</a></li><li><a href="#maintenance-contributing">17. 贡献约定</a></li><li><a href="#reference-directory">18. 文档目录与原始资料</a></li><li><a href="#handbook-maintenance">19. 手册使用与维护</a></li><li><a href="#project-directory-detail">20. 项目目录结构与职责</a></li><li><a href="#module-responsibilities">21. 模块说明与改动定位</a></li><li><a href="#page-reference">22. 页面说明与导航关系</a></li></ol></nav><section id="start-introduction"><h2 id="start-introduction--项目简介" tabindex="-1">1. 项目简介 </h2>
+<p>Turbo IO 围绕 RayNeo iO 眼镜提供手机侧扩展、独立客户端研究、应用与仪表盘工具链，以及特定版本的固件研究。它不是官方 SDK，也不是适配所有版本的统一刷机工具。</p>
+<h2 id="start-introduction--三层开发对象" tabindex="-1">三层开发对象 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>层次</th>
+<th>你可以开发什么</th>
+<th>先读</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>手机侧</td>
+<td>模型、字幕、音乐、导航、阅读，以及蓝牙业务桥接</td>
+<td><a href="#android-overview">Android 专题</a>、<a href="#guide-platforms">其他平台</a></td>
+</tr>
+<tr>
+<td>Server / 应用 SDK</td>
+<td>将自有数据变成卡片、原生小应用 ZIP</td>
+<td><a href="#guide-app-sdk">应用入门</a>、<a href="#guide-server">服务端</a></td>
+</tr>
+<tr>
+<td>眼镜 AP</td>
+<td>在固定底座上研究菜单、协议与原生运行时</td>
+<td><a href="#reference-firmware">固件边界</a></td>
+</tr>
+</tbody>
+</table>
+<p>手机模型接入和部分字幕可以复用原厂显示；新增原生菜单、图形仪表盘与小应用需要相应实验运行时。安装 APK 不等于安装眼镜固件。已有兼容运行时后，导入兼容应用不要求每次重刷。</p>
+<h2 id="start-introduction--v1-与-v2" tabindex="-1">V1 与 V2 </h2>
+<p><strong>V1</strong> 指 iOS 独立客户端与分层 Swift SDK 的研究路线；<strong>V2</strong> 指复用官方宿主配对、通信与业务链路的手机扩展路线。这里的 V1/V2 不是厂商 App 版本号，也不是 Strix 固件版本号。Android 当前路线是宿主扩展，不是独立 Android BLE SDK。</p>
+<h2 id="start-introduction--如何阅读证据" tabindex="-1">如何阅读证据 </h2>
+<p>源码存在、单测通过、本机成功构建、模拟器表现、蓝牙回执、镜片效果、特定设备用户反馈是不同层次。历史说明可能只描述某一层、某个构建或某台设备；本手册按<a href="#reference-compatibility">兼容矩阵</a>记录范围，不把历史成功推广到新组合。</p>
+<p>原始来源：<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/README.md" target="_blank" rel="noreferrer">根 README</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/DEVELOPER_ECOSYSTEM.md" target="_blank" rel="noreferrer">开发生态</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/SOURCE_RELEASE.md" target="_blank" rel="noreferrer">源码发布范围</a>。原创内容采用 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/LICENSE" target="_blank" rel="noreferrer">PolyForm Noncommercial 1.0.0</a>，第三方材料另遵循各自许可。</p>
+</section><section id="start-routes"><h2 id="start-routes--选择开发路线" tabindex="-1">2. 选择开发路线 </h2>
+<p>先确定交付物，再确定宿主和设备版本。不要因为目录排列从 V1 开始，也不要为学习 SDK 先刷固件。</p>
+<table tabindex="0">
+<thead>
+<tr>
+<th>目标</th>
+<th>推荐起点</th>
+<th>所需条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>先生成自己的小应用</td>
+<td><a href="#guide-app-sdk">离线应用 SDK</a></td>
+<td>Python 3.11+、uv；ZIP 与 SVG 无需设备</td>
+</tr>
+<tr>
+<td>扩展 Android 手机功能</td>
+<td><a href="#android-build">Android 构建</a></td>
+<td>精确 1.0.5（201）宿主、自有签名和 Android 工具链</td>
+</tr>
+<tr>
+<td>构建 iOS 当前插件</td>
+<td><a href="#guide-platforms">iOS 路线</a></td>
+<td>macOS/Xcode、自有签名、精确宿主与匹配候选</td>
+</tr>
+<tr>
+<td>自托管卡片 API / MCP</td>
+<td><a href="#guide-server">服务端接入</a></td>
+<td>本机 API、分角色凭据、明确手机桥接边界</td>
+</tr>
+<tr>
+<td>研究独立连接和协议</td>
+<td><a href="#guide-source-map">V1 与源码导航</a></td>
+<td>Swift/Xcode；与插件验收独立</td>
+</tr>
+<tr>
+<td>研究固件原生运行时</td>
+<td><a href="#reference-firmware">固件边界</a></td>
+<td>精确底座与可复现工具，单独评估硬件风险</td>
+</tr>
+<tr>
+<td>阅读历史 HarmonyOS</td>
+<td><a href="#guide-platforms">历史平台说明</a></td>
+<td>已停止更新，不承诺新功能适配</td>
+</tr>
+</tbody>
+</table>
+<h2 id="start-routes--推荐学习路径" tabindex="-1">推荐学习路径 </h2>
+<ol>
+<li>阅读<a href="#start-introduction">简介</a>与<a href="#reference-compatibility">兼容矩阵</a>，记录开发目标的版本组合。</li>
+<li>准备对应的<a href="#start-environment">环境</a>，完成本地无设备样例。</li>
+<li>沿<a href="#guide-architecture">架构</a>与<a href="#guide-source-map">源码导航</a>定位改动边界。</li>
+<li>需要设备时再进入平台文档，区分本机检查与真机验收：<a href="#android-testing">Android 验收</a>，iOS/V1/鸿蒙按<a href="#guide-platforms">各自平台记录</a>。</li>
+</ol>
+<p>普通日常用户使用官方 App 与原厂固件；研究路线不提供稳定性、回滚或救砖保证。</p>
+<p>来源：<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/README.md" target="_blank" rel="noreferrer">根 README 的路线与平台说明</a>。</p>
+</section><section id="start-environment"><h2 id="start-environment--环境准备" tabindex="-1">3. 环境准备 </h2>
+<p>以下开发工具按所选路线安装；阅读本手册只需浏览器，无需安装任何产品工具链。</p>
+<table tabindex="0">
+<thead>
+<tr>
+<th>路线</th>
+<th>环境要求</th>
+<th>核查入口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>应用与服务端</td>
+<td>Python 3.11+、uv；JS 构建样例另需 Node.js</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/pyproject.toml" target="_blank" rel="noreferrer">pyproject.toml</a></td>
+</tr>
+<tr>
+<td>Android</td>
+<td>JDK、Node.js、Python、apktool、Android SDK platform36 / build-tools36.0.0、C 编译器</td>
+<td><a href="#android-build">平台构建详解</a></td>
+</tr>
+<tr>
+<td>iOS 插件</td>
+<td>macOS、Xcode iPhoneOS SDK、Node.js、自有签名</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/tmig1-edition/README.md" target="_blank" rel="noreferrer">TMIG1 构建说明</a></td>
+</tr>
+<tr>
+<td>V1 iOS</td>
+<td>macOS/Xcode，按独立工程要求准备依赖</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/README.md" target="_blank" rel="noreferrer">根 README</a></td>
+</tr>
+<tr>
+<td>历史鸿蒙</td>
+<td>DevEco Studio 与 SDK；历史基线 6.1.1.268、API24</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/harmony-sdk/README.md" target="_blank" rel="noreferrer">历史环境</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="start-environment--获取源码" tabindex="-1">获取源码 </h2>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">git</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> clone</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> https://github.com/Fnckerpoi/Turbo-IO.git</span></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">cd</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> Turbo-IO</span></span></code></pre>
+</div><p>保留完整目录结构，平台脚本与资源依赖相对路径。首次开始先运行 <code>git status --short</code>，区分已有改动；不要覆盖本机配置和签名。</p>
+<h2 id="start-environment--最小自检" tabindex="-1">最小自检 </h2>
+<p>Python 应用 SDK 与服务端先确认 <code>python --version</code> 和 <code>uv --version</code>，仅运行 JS 构建样例时另检查 Node.js。随后从 <code>dashboard-service</code> 执行 <code>uv sync --locked</code>，避免修改既有锁文件。</p>
+<p>Windows PowerShell 与 POSIX Shell 的环境变量和建目录写法不同。本手册在需要处给出两种写法；Android 原有 <code>.sh</code> 构建按平台文档准备 Bash 环境，不把命令改名视为完成迁移。</p>
+<p>宿主输入、第三方地图 SDK、个人证书和模型凭据由使用者自行准备；版本与哈希必须核对具体路线。<code>1.0.5</code> 这一字符串不能替代构建号、ABI 或固件候选检查。</p>
+</section><section id="reference-compatibility"><h2 id="reference-compatibility--版本与兼容矩阵" tabindex="-1">4. 版本与兼容矩阵 </h2>
+<p>版本必须同时记录 <strong>路线 / 手机系统和机型 / 宿主版本与构建号 / 固件底座与候选 / 产物来源 / 验收层次</strong>。下表来自仓库已有记录，不表示编写手册时重新实测设备。</p>
+<h2 id="reference-compatibility--主要组合" tabindex="-1">主要组合 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>路线</th>
+<th>宿主 / 手机</th>
+<th>固件与运行时</th>
+<th>已记录证据与限制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Android V2 / GUARD-07</td>
+<td>RayNeo AI 1.0.5（201）；Fold3 / Android15</td>
+<td>Strix 1.0.4.12 / TAP1-TEST-01</td>
+<td>私用 GUARD-07 经用户实刷；公开删减 APK 构建/审计不等于再次实刷</td>
+</tr>
+<tr>
+<td>iOS V2 / TMIG1</td>
+<td>RayNeo AI 1.0.6（218）；iPhone 17 Pro Max / iOS 27.0.1</td>
+<td>Strix 1.0.5.5 / TMIG1</td>
+<td>私用整合版用户反馈刷入并兼容；公开派生手机源码重新编译，未重做全部真机回归</td>
+</tr>
+<tr>
+<td>iOS V2 / FOCUS-04</td>
+<td>历史宿主与签名按专页</td>
+<td>历史精确候选</td>
+<td>不自动含当前 TCE1/TAP1 SDK，不用于刷 TMIG1</td>
+</tr>
+<tr>
+<td>iOS V1</td>
+<td>独立客户端，无 V2 宿主</td>
+<td>依其测试记录</td>
+<td>厂商通信核心与纯 Swift 包验收独立，不能套用 V2 结论</td>
+</tr>
+<tr>
+<td>HarmonyOS</td>
+<td>WB14 / 0.1.14；Mate X5 / HarmonyOS 6.1</td>
+<td>历史协议研究</td>
+<td>已停止更新；不承诺当前新固件或其他机型兼容</td>
+</tr>
+<tr>
+<td>离线应用 SDK</td>
+<td>Python 3.11+ / uv；无需宿主</td>
+<td>无需设备</td>
+<td>可生成 ZIP / SVG，不能因此声称已在镜片显示</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reference-compatibility--能力与版本关系" tabindex="-1">能力与版本关系 </h2>
+<ul>
+<li>模型接入、TTS 与部分字幕可以复用手机和原厂显示能力；不是所有功能都要求自定义固件。</li>
+<li>TCE1 卡片需要对应手机编辑器桥和眼镜运行时；旧 TDC1 不能替代。</li>
+<li>TAP1 / TAX1 应用需要对应手机 App SDK 桥和原生运行时，最多四槽；20 个模板不是 20 槽。</li>
+<li>旧 Android GUARD-07 / iOS FOCUS-04 / TLC1 门禁不能刷 TMIG1；仓库记录没有发布 Android 1.0.6 APK，也没有证明旧 Android 与 1.0.5.5 全量兼容。</li>
+<li>实验功能、未跟踪工作区内容或新协议文件不自动成为已发布稳定接口；Dots 明确尚未完成。</li>
+</ul>
+<h2 id="reference-compatibility--资料来源" tabindex="-1">资料来源 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/README.md" target="_blank" rel="noreferrer">Android 当前说明</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/INSTALL_AND_FLASH.md" target="_blank" rel="noreferrer">Android 安装与实测边界</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/tmig1-edition/README.md" target="_blank" rel="noreferrer">TMIG1 手机</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/firmware-research/strix-1.0.5.5/README.md" target="_blank" rel="noreferrer">TMIG1 固件</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/DEVELOPER_ECOSYSTEM.md" target="_blank" rel="noreferrer">开发生态</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/harmony-sdk/VALIDATION.md" target="_blank" rel="noreferrer">鸿蒙历史验收</a>。</p>
+<p>源码链接指向当前 fork <code>Fnckerpoi/Turbo-IO</code>；<a href="https://github.com/Turbo1123/Turbo-IO/releases/tag/android-105-guard07-tap1-test01" target="_blank" rel="noreferrer">Android 发行</a>和<a href="https://github.com/Turbo1123/Turbo-IO/releases/tag/firmware-strix-1.0.5.5-tmig1" target="_blank" rel="noreferrer">TMIG1 发行</a>来自上游 <code>Turbo1123/Turbo-IO</code>，不暗示 fork 已发布相同附件。更新矩阵的方法见文档维护说明（见手册末尾）。</p>
+</section><section id="guide-source-map"><h2 id="guide-source-map--源码导航" tabindex="-1">5. 源码导航 </h2>
+<p>从交付目标定位模块，研究目录不是统一的生产 SDK。表中链接对应当前 fork 的真实目录。</p>
+<table tabindex="0">
+<thead>
+<tr>
+<th>目录</th>
+<th>职责</th>
+<th>推荐阅读</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/android-addon" target="_blank" rel="noreferrer">android-addon</a></td>
+<td>Android 宿主扩展、打包与测试</td>
+<td><a href="#android-architecture">Android 调用链</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/official-addon" target="_blank" rel="noreferrer">official-addon</a></td>
+<td>iOS 宿主扩展与历史研究模块</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/tmig1-edition/README.md" target="_blank" rel="noreferrer">TMIG1</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/dashboard-service" target="_blank" rel="noreferrer">dashboard-service</a></td>
+<td>Python API、SDK、MCP、ZIP/原生编码与校验</td>
+<td><a href="#guide-server">服务端</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/app-gallery" target="_blank" rel="noreferrer">app-gallery</a></td>
+<td>20 个离线模板、目录及提示词</td>
+<td><a href="#guide-app-sdk">应用入门</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/apps/RayNeoCompanion" target="_blank" rel="noreferrer">apps/RayNeoCompanion</a></td>
+<td>V1 独立 iOS 客户端与测试</td>
+<td><a href="#guide-platforms">平台说明</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/core-probe" target="_blank" rel="noreferrer">core-probe</a></td>
+<td>通信核心依赖、适配及历史探针</td>
+<td>不将历史探针成功等同纯 Swift SDK 验收</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/firmware-research" target="_blank" rel="noreferrer">firmware-research</a></td>
+<td>特定 Strix 底座的 AP 研究</td>
+<td><a href="#reference-firmware">固件边界</a></td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/harmony-sdk" target="_blank" rel="noreferrer">harmony-sdk</a></td>
+<td>已停止更新的 ArkTS 客户端和协议研究</td>
+<td>阅读其历史验收</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/watch-remote" target="_blank" rel="noreferrer">watch-remote</a></td>
+<td>Watch 输入、iOS 桥和固件配套</td>
+<td>独立构建、签名及验收</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/codex-bridge" target="_blank" rel="noreferrer">codex-bridge</a></td>
+<td>电脑端 Codex app-server 桥</td>
+<td>与 MCP 应用取数链路不同</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/display-observer" target="_blank" rel="noreferrer">display-observer</a></td>
+<td>浏览器显示观察与重绘</td>
+<td>不是 framebuffer 镜像</td>
+</tr>
+</tbody>
+</table>
+<h2 id="guide-source-map--v1-的-swift-分层" tabindex="-1">V1 的 Swift 分层 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-protocol" target="_blank" rel="noreferrer">rayneo-protocol</a> 管帧与纯计算；<a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-transport-ios" target="_blank" rel="noreferrer">rayneo-transport-ios</a> 管公共字节通道；<a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-session" target="_blank" rel="noreferrer">rayneo-session</a> 与 <a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-session-runtime" target="_blank" rel="noreferrer">rayneo-session-runtime</a> 管会话；<a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-display" target="_blank" rel="noreferrer">rayneo-display</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-archive" target="_blank" rel="noreferrer">rayneo-archive</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-audio-container" target="_blank" rel="noreferrer">rayneo-audio-container</a> 分别管显示分型、归档与音频容器。</p>
+<p>纯逻辑分层支持测试与逐步替换；当前设备路线仍有厂商通信依赖和 ABI 耦合。<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noreferrer">历史实现思路</a>主要描述 V1，不能套用为当前全部平台架构。</p>
+<h2 id="guide-source-map--从应用样例追踪" tabindex="-1">从应用样例追踪 </h2>
+<p>先读 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/gallery.py" target="_blank" rel="noreferrer">gallery.py</a>，再到 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/app_package.py" target="_blank" rel="noreferrer">app_package.py</a> 与 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/app_wire.py" target="_blank" rel="noreferrer">app_wire.py</a>。CLI 入口由 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/pyproject.toml" target="_blank" rel="noreferrer">pyproject.toml</a> 定义。接设备前转到相应手机实现与验收记录。</p>
+</section><section id="guide-architecture"><h2 id="guide-architecture--全项目架构" tabindex="-1">6. 全项目架构 </h2>
+<p>Turbo IO 有多条产品与研究路线。应用 SDK 的自托管链路、V2 手机宿主扩展和 V1 独立客户端共享部分协议认识，但各自构建与验收。</p>
+<h2 id="guide-architecture--应用与卡片的数据流" tabindex="-1">应用与卡片的数据流 </h2>
+<p>数据源不是眼镜应用的运行环境。当前链路如下：</p>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>自有 Server / 授权 MCP</span></span>
+<span class="line"><span>  → 白名单展示字段</span></span>
+<span class="line"><span>  → Python SDK：卡片文档或版本化应用 ZIP</span></span>
+<span class="line"><span>  → 校验、哈希、SVG 预览</span></span>
+<span class="line"><span>  → 手机预览和人工确认</span></span>
+<span class="line"><span>  → 现有蓝牙业务桥</span></span>
+<span class="line"><span>  → 兼容 TCE1 / TAP1 / TAX1 原生运行时</span></span></code></pre>
+</div><p>MCP 在 Server 上运行，JS 在开发机参与构建；眼镜不运行 MCP、浏览器、任意 HTML 或 JS。ZIP 是有界页面和资源，不是远程脚本执行包。应用包安装与 Dashboard API 的发布/批准任务是两条入口，不能将卡片 API 发布称为自动应用安装。</p>
+<h2 id="guide-architecture--v2-复用宿主" tabindex="-1">V2：复用宿主 </h2>
+<p>Android 扩展和 iOS 插件沿用官方宿主的配对与通信，增加 UI、数据转换与特定消息桥接。Android 基于 1.0.5（201），iOS TMIG1 基于 1.0.6（218）；官方更新可能改变类、符号、ABI、文件、校验或生命周期。详细看 <a href="#android-architecture">Android 调用链</a> 与 <a href="#guide-platforms">平台路线</a>。</p>
+<h2 id="guide-architecture--v1-独立客户端与分层-sdk" tabindex="-1">V1：独立客户端与分层 SDK </h2>
+<p>独立 iOS App 管连接、音频、会话与归档，复用厂商通信核心并逐步抽出纯 Swift 逻辑。语音链路里，ASR 句末、模型流结束、提交显示和 TTS 完成是不同事件；取消与代际隔离必须防止旧回调污染新会话。SDK 接受发送也不是镜片渲染完成的证据。</p>
+<h2 id="guide-architecture--固件层与边界" tabindex="-1">固件层与边界 </h2>
+<p>手机模型和部分字幕能力可复用原厂业务；图形仪表盘、原生菜单及小应用依赖配套 AP 运行时。AP 内容修改范围与 OTA 实际安装范围不同，版本迁移需重新核对 ABI 和全部候选校验，见<a href="#reference-firmware">固件说明</a>。</p>
+<h2 id="guide-architecture--状态不能合并" tabindex="-1">状态不能合并 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>信号</th>
+<th>可以证明</th>
+<th>不能证明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ZIP / Schema 通过</td>
+<td>结构和检查预算满足规则</td>
+<td>页面已安装、数据实时</td>
+</tr>
+<tr>
+<td>SVG 预览</td>
+<td>开发机重绘可读</td>
+<td>眼镜字体、裁剪、亮度一致</td>
+</tr>
+<tr>
+<td>API 发布成功</td>
+<td>快照进入批准流程</td>
+<td>手机在线、已显示</td>
+</tr>
+<tr>
+<td>device_accepted</td>
+<td>指定桥接报告接受</td>
+<td>用户视野像素正确</td>
+</tr>
+<tr>
+<td>单设备实测</td>
+<td>记录组合下的现象</td>
+<td>所有 OEM、固件、后台长期稳定</td>
+</tr>
+</tbody>
+</table>
+<p>来源：<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/DEVELOPER_ECOSYSTEM.md" target="_blank" rel="noreferrer">开发生态</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/README.md" target="_blank" rel="noreferrer">后端状态语义</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noreferrer">V1 历史架构</a>。</p>
+</section><section id="guide-app-sdk"><h2 id="guide-app-sdk--第一个应用与仪表盘" tabindex="-1">7. 第一个应用与仪表盘 </h2>
+<p>先生成一个不联网的城市天气应用。样例来自仓库现有 gallery CLI，不需要模型 Key、MCP 服务、手机或刷机。演示天气不是实时查询。</p>
+<h2 id="guide-app-sdk--_1-安装并生成-zip" tabindex="-1">1. 安装并生成 ZIP </h2>
+<p>从仓库根开始：</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">cd</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> dashboard-service</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> sync</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --locked</span></span></code></pre>
+</div><p>创建新的输出目录。POSIX Shell：</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">mkdir</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -p</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo</span></span></code></pre>
+</div><p>Windows PowerShell：</p>
+<div class="language-powershell vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">powershell</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">New-Item</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583"> -</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">ItemType Directory </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">-</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">Force .state</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">/</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">docs</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">-</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">demo</span></span></code></pre>
+</div><p>然后两种终端都可运行：</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-app</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> gallery</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> list</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-app</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> gallery</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> build</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> city_weather</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --out</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather.zip</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-app</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> check</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather.zip</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-app</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> preview</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather.zip</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --page</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> home</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --out</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather.svg</span></span></code></pre>
+</div><p>输出 ZIP、校验结果与 SVG；用浏览器打开 SVG 阅读布局。输出文件已存在时工具拒绝覆盖，重复练习请换目录或文件名。预览使用电脑字体，不是镜片截图。</p>
+<h2 id="guide-app-sdk--_2-用自己的数据更新" tabindex="-1">2. 用自己的数据更新 </h2>
+<p>Server 只提取需要显示的字段，在 <code>dashboard-service/snapshot.json</code> 创建自己的快照：</p>
+<div class="language-json vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">json</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">{</span></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">  "headline"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"我的天气快照"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">  "lines"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: [</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"当前数据尚未接入"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">, </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"请替换为授权查询结果"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">],</span></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">  "observedAt"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">: </span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"2026-10-15T09:00:00+08:00"</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre>
+</div><p>时间只是格式示例，必须换成数据实际采集时间。只允许这三个字段；<code>lines</code> 1–4 条，每个字符串最多 80 UTF-8 字节，不允许控制字符，时间需要时区。中文字符的字节数不是字符数。</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-app</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> gallery</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> build</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> city_weather</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --data</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> snapshot.json</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --version</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> 2</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --out</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather-v2.zip</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-app</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> check</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather-v2.zip</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-app</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> preview</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather-v2.zip</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --page</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> home</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --out</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/docs-demo/weather-v2.svg</span></span></code></pre>
+</div><p>同一应用 ID 的更新提高 <code>version</code>。不要把 Token、Cookie、完整 MCP 响应或网页放入快照；后端接入见<a href="#guide-server">服务端指南</a>。</p>
+<h2 id="guide-app-sdk--_3-理解原生能力" tabindex="-1">3. 理解原生能力 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>对象</th>
+<th>仪表盘</th>
+<th>小应用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>协议</td>
+<td>TCE1</td>
+<td>TAP1 / TAX1</td>
+</tr>
+<tr>
+<td>区域</td>
+<td>256×194，四边 6px 安全区</td>
+<td>540×180</td>
+</tr>
+<tr>
+<td>组件</td>
+<td>文本、图标、图片、进度条、柱/折线、线、框</td>
+<td>文本、图片、按钮、进度条、框</td>
+</tr>
+<tr>
+<td>生命周期</td>
+<td>卡片快照</td>
+<td>最多 4 页、4 槽、单实例</td>
+</tr>
+</tbody>
+</table>
+<p>按钮不代表已接入 Server 事件回流；当前模板是手动安装快照，不支持自动后台数据刷新。地图逐秒导航应走专门的导航能力，不要定时重装 ZIP。</p>
+<h2 id="guide-app-sdk--_4-接到手机和眼镜" tabindex="-1">4. 接到手机和眼镜 </h2>
+<p>只有确认手机包含 App SDK 桥、眼镜包含兼容运行时后，才在手机 <strong>首页 → 应用广场 → 我的应用 → 导入应用 ZIP</strong>。逐页检查内容、权限与哈希，查询槽位，让眼镜回首页后确认安装。手机来源和固件候选按<a href="#reference-compatibility">兼容矩阵</a>核对，旧 FOCUS-04 不自动获得当前能力。</p>
+<h2 id="guide-app-sdk--_5-继续写自己的应用" tabindex="-1">5. 继续写自己的应用 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/app-gallery/README.md" target="_blank" rel="noreferrer">20 个模板目录</a>适合替换静态展示数据；<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/examples/tasks.mjs" target="_blank" rel="noreferrer">tasks.mjs</a>与<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/examples/app-sdk.mjs" target="_blank" rel="noreferrer">app-sdk.mjs</a>展示 JS 构建工具。它们在开发机运行，不是眼镜 JS Runtime。</p>
+<p>卡片 API 使用独立的草稿/发布/手机批准链路，继续阅读<a href="#guide-server">服务端指南</a>。原始步骤和验收边界见<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/DEVELOPER_ECOSYSTEM.md" target="_blank" rel="noreferrer">开发生态</a>，实现来源为 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/gallery.py" target="_blank" rel="noreferrer">gallery.py</a>。</p>
+</section><section id="guide-server"><h2 id="guide-server--服务端与-mcp-接入" tabindex="-1">8. 服务端与 MCP 接入 </h2>
+<p><code>dashboard-service</code> 是用户自托管的 Python API、SDK 和 MCP 适配层，不依赖维护者的账号或服务。先本机运行，再决定远程访问方式。</p>
+<h2 id="guide-server--本机启动" tabindex="-1">本机启动 </h2>
+<p>从仓库根进入 <code>dashboard-service</code>，运行 <code>uv sync --locked</code> 并创建 <code>.state</code> 目录（PowerShell 使用 <code>New-Item -ItemType Directory -Force .state</code>，POSIX 使用 <code>mkdir -p .state</code>）。</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-dashboard</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> grant</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --role</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> writer</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --device</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> my_glasses</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --out</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> .state/writer.token</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> turbo-dashboard</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> serve</span></span></code></pre>
+</div><p>默认地址 <code>http://127.0.0.1:18796</code>，不自动部署公网、不连接设备。Token 写入新文件，不打印内容；文件存在拒绝覆盖，数据库只存哈希。<code>GET /health</code> 无需认证，其他接口及 OpenAPI 要求 Bearer Token。</p>
+<p>另一个终端在同目录运行现有样例。POSIX Shell：</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">TURBOIO_TOKEN_FILE</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">$PWD</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">/.state/writer.token"</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0"> uv</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> run</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> python</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> examples/backend_metrics.py</span></span></code></pre>
+</div><p>PowerShell：</p>
+<div class="language-powershell vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">powershell</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">$</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">env:</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">TURBOIO_TOKEN_FILE </span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> "</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">$PWD</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">/.state/writer.token"</span></span>
+<span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">uv run python examples</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">/</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">backend_metrics.py</span></span></code></pre>
+</div><p>样例写入 CPU 演示数据草稿，不读取真实账户，也不自动发布。</p>
+<h2 id="guide-server--卡片发布状态" tabindex="-1">卡片发布状态 </h2>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>草稿 revision → 校验 / 预览 → 不可变发布快照</span></span>
+<span class="line"><span>→ awaiting_phone_approval → 手机核对 exact hash 并批准</span></span>
+<span class="line"><span>→ sending → 手机回执 / 结果未知</span></span></code></pre>
+</div><p>更新草稿需 <code>expectedRevision</code>；发布含 revision、hash、idempotencyKey、ttlSeconds。重复幂等键与不同内容、旧 revision 覆盖都会被拒绝。超时的 <code>outcome_unknown</code> 需要手机核对并完成回执，不自动重发。</p>
+<table tabindex="0">
+<thead>
+<tr>
+<th>Token 角色</th>
+<th>使用者</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>reader</td>
+<td>查询端 / Agent</td>
+<td>读取其设备范围内数据</td>
+</tr>
+<tr>
+<td>writer</td>
+<td>Server / Agent</td>
+<td>创建和更新草稿、发布快照</td>
+</tr>
+<tr>
+<td>phone</td>
+<td>手机</td>
+<td>核对身份、批准 exact hash、提交回执</td>
+</tr>
+</tbody>
+</table>
+<p>不要向模型提供 phone Token。当前 Token 长效，没有完整用户体系、撤销命令或轮换界面，仅适合单所有者本机预览；远程使用由所有者配置 HTTPS、访问控制与凭据管理。手机连接测试版要求 HTTPS，设备绑定和固件 TCE1 也必须匹配。</p>
+<h2 id="guide-server--mcp-的两种关系" tabindex="-1">MCP 的两种关系 </h2>
+<p>一是本项目 <code>turbo-dashboard-mcp</code> 暴露卡片 API 工具；二是你的 Server 连接第三方 MCP 获取授权数据，再交给<a href="#guide-app-sdk">应用 SDK</a>。二者都不在眼镜运行。</p>
+<p>第三方工具先实际 <code>tools/list</code>，核对名称、参数、许可和权限，只选需要的只读数据。将结果投影为 headline、lines、observedAt；缺字段显示“暂无数据”，记录来源时间，不把缓存说成实时。完整响应和工具描述不进入 ZIP。</p>
+<h2 id="guide-server--接口与测试边界" tabindex="-1">接口与测试边界 </h2>
+<p>接口清单、12 个 MCP 工具和手机连接步骤集中在<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/README.md" target="_blank" rel="noreferrer">后端 README</a>。实现入口：<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/server.py" target="_blank" rel="noreferrer">server.py</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/store.py" target="_blank" rel="noreferrer">store.py</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/client.py" target="_blank" rel="noreferrer">client.py</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/mcp_server.py" target="_blank" rel="noreferrer">mcp_server.py</a>。</p>
+<p>原记录的 stdio、HTTP 和模拟手机回执不等同真实蓝牙联合验收；<code>device_accepted</code> 不证明镜片像素。自动订阅、任务恢复、自动重试、应用按钮后端回流仍不能视为完成。</p>
+</section><section id="guide-platforms"><h2 id="guide-platforms--ios、v1-与历史鸿蒙" tabindex="-1">9. iOS、V1 与历史鸿蒙 </h2>
+<p>本手册深入 Android，其余平台按可核查入口说明路线和边界，完整操作以对应目录文档为准。</p>
+<h2 id="guide-platforms--ios-v2-当前-tmig1" tabindex="-1">iOS V2：当前 TMIG1 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/tmig1-edition/README.md" target="_blank" rel="noreferrer">official-addon/tmig1-edition</a>固定 <strong>RayNeo AI iOS 1.0.6（218）</strong> 与 <strong>Strix OS 1.0.5.5 / TMIG1</strong>。需要 macOS、Xcode iPhoneOS SDK、Node.js、自有开发者签名，以及合法可用、未加密 thin arm64 宿主输入。</p>
+<p>先按该目录构建扩展，再使用该目录专用 <code>package.mjs</code> 打包；不要调用主目录旧打包器，也不能只改旧宿主版本字符串。输入 UUID、App.framework 哈希、候选 ZIP 哈希与符号都会校验。</p>
+<p>公开源码移除了私人配置和微信读书网页正文适配，构建通过不等于公开派生 IPA 已重新完整安装回归。iPhone 17 Pro Max 的已记录反馈针对特定私用整合构建。Dots 尚未完成，入口存在不代表可直接使用。原厂去签名 IPA 是宿主输入，不含 Turbo IO，不是个人可安装的预签名包。</p>
+<p>历史 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/focus-edition/README.md" target="_blank" rel="noreferrer">FOCUS-04</a>与其他候选保留各自版本和门禁，不能默认支持新的 SDK 或 TMIG1 OTA。</p>
+<h2 id="guide-platforms--ios-v1-独立客户端" tabindex="-1">iOS V1：独立客户端 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/apps/RayNeoCompanion" target="_blank" rel="noreferrer">apps/RayNeoCompanion</a>和分层 Swift 包用于独立连接、会话、显示、录音归档研究，仍有厂商通信依赖。<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/README.md" target="_blank" rel="noreferrer">根 README</a>保留 V1 快速开始，历史原理见<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noreferrer">ARCHITECTURE.md</a>。</p>
+<p>从宿主扩展切到独立客户端时按对应说明处理解绑及系统蓝牙旧绑定，避免多个客户端争抢连接；V2 插件沿用宿主配对，不需为每次插件更新反复解绑。两条路线的签名、依赖、通知及后台限制分别验收。</p>
+<h2 id="guide-platforms--harmonyos-停止更新的历史研究" tabindex="-1">HarmonyOS：停止更新的历史研究 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/harmony-sdk/README.md" target="_blank" rel="noreferrer">harmony-sdk</a>是 ArkTS / ArkUI + BLE HAR 的独立客户端，不运行 Android APK。历史版本 WORKBENCH 14 / 0.1.14，主要设备 Mate X5 / HarmonyOS 6.1；target API24、compatible API23，不代表 API23 和其他机型全面实测。</p>
+<p>已停止维护和新固件适配。地图底图白屏、导航仅前台等已知限制看<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/harmony-sdk/VALIDATION.md" target="_blank" rel="noreferrer">VALIDATION.md</a>，不能把 iOS/Android 新功能推定到鸿蒙。该路线保留源码，不提供 HAP。</p>
+<h2 id="guide-platforms--apple-watch-与显示观察" tabindex="-1">Apple Watch 与显示观察 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/watch-remote/README.md" target="_blank" rel="noreferrer">watch-remote</a>需要独立 Watch App 构建签名及匹配手机桥、固件，TGR1 全局翻页存在未闭环问题。<a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/display-observer" target="_blank" rel="noreferrer">display-observer</a>是白名单业务状态的浏览器重绘，不是镜片截图或像素镜像。</p>
+</section><section id="android-overview"><h2 id="android-overview--android-开发入口与版本边界" tabindex="-1">10. Android 开发入口与版本边界 </h2>
+<p>Android 扩展不是独立蓝牙 SDK，也不是从零构建的官方客户端。它将原创 Java 扩展编译成 DEX，对开发者自行准备的固定版本官方 APK 做受控包装，沿用宿主登录、连接和业务回调。产物保留包名 <code>com.rayneo.venus.pub</code>，但必须重新签名。</p>
+<p>本手册依据当前工作区源码，来源仓库 remote 为 <a href="https://github.com/Fnckerpoi/Turbo-IO" target="_blank" rel="noreferrer">Fnckerpoi/Turbo-IO</a>，上游为 <a href="https://github.com/Turbo1123/Turbo-IO" target="_blank" rel="noreferrer">Turbo1123/Turbo-IO</a>。源码链接指向前者 main；本地未提交修改未必已存在于远端，复现时应记录提交号及工作区差异。当前 SCADA 相关源码和构建增量属于工作区实验，不能据此认定公开发行已经包含或验收该能力。</p>
+<h2 id="android-overview--先区分三个版本" tabindex="-1">先区分三个版本 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>维度</th>
+<th>当前边界</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>官方 Android 宿主</td>
+<td>1.0.5（201），固定 APK SHA-256</td>
+<td>决定混淆类、方法签名、枚举与 Flutter 库</td>
+</tr>
+<tr>
+<td>手机系统</td>
+<td>安装文档最低 Android 10 / arm64；D8 min-api 29</td>
+<td>不是所有 Android/OEM 的兼容承诺</td>
+</tr>
+<tr>
+<td>眼镜固件</td>
+<td>本轮记录为雷鸟 iO / Strix OS 1.0.4.12 / TAP1-TEST-01</td>
+<td>决定显示、协议、安装及回执；版本数字相同不代表内容相同</td>
+</tr>
+</tbody>
+</table>
+<p><code>host-profiles.mjs</code> 记录 1.0.4（195）和 1.0.5（201），但当前 <code>package.mjs</code> 在选出 profile 后明确拒绝非 1.0.5。<strong>有历史 profile 不等于当前打包器支持该版本。</strong> 未知摘要在进入宿主修改之前失败；不能通过只改白名单适配新 APK。</p>
+<h2 id="android-overview--建议阅读顺序" tabindex="-1">建议阅读顺序 </h2>
+<ol>
+<li><a href="#android-build">构建、签名与数据准备</a>：准备原始输入和工具链，先完成离线检查。</li>
+<li><a href="#android-architecture">运行架构</a>：理解回调所有权、传输确认和 OTA 边界。</li>
+<li><a href="#android-extension">扩展一个小功能</a>：通过现有番茄计时预设理解改动路径。</li>
+<li><a href="#android-upgrade">持续升级</a>：分别处理宿主、手机系统和固件变化。</li>
+<li><a href="#android-testing">测试与诊断</a>：按层保留证据，区分构建通过与镜片执行成功。</li>
+</ol>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>官方 APK（固定摘要） + 原创 Java/资源</span></span>
+<span class="line"><span>             ↓ ABI 检查与包装、合并、审计</span></span>
+<span class="line"><span>          未签名衍生 APK</span></span>
+<span class="line"><span>             ↓ 自有签名与设备验收</span></span>
+<span class="line"><span>          手机宿主 → 匹配眼镜固件</span></span></code></pre>
+</div><h2 id="android-overview--哪些结论可以引用" tabindex="-1">哪些结论可以引用 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/INSTALL_AND_FLASH.md" target="_blank" rel="noreferrer">当前安装记录</a> 记载 2026-09-27 Fold3 / Android 15、官方 1.0.5 完成 TAP1-TEST-01，用户确认正常；实测为私用 GUARD-07 构建。公开 APK 从该代码派生，移除了网页正文适配、Cookie 入口及专属字幕默认地址，重新编译/审计不等于再次真机刷写。不能扩展为全部功能、全部设备、长期后台或故障恢复均已通过。</p>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/VALIDATION.md" target="_blank" rel="noreferrer">VALIDATION.md</a> 是 1.0.4 历史验证记录，其中原 APK 构建命令不适用于当前打包器。<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/docs/COMPATIBILITY_105.md" target="_blank" rel="noreferrer">iOS 1.0.5 兼容记录</a> 的 UUID、签名和设备证据也不能移用到 Android。</p>
+<p>源码已有模型/Tools/TTS、导航、音乐、阅读、卡片、小应用和 OTA 等实现；服务配置、匹配固件、授权及具体验收仍是独立条件。公开阅读功能不含微信读书网页正文适配；许可与服务权限边界见 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/README.md" target="_blank" rel="noreferrer">Android README</a>。</p>
+<h2 id="android-overview--相关源码" tabindex="-1">相关源码 </h2>
+<ul>
+<li><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/package.mjs" target="_blank" rel="noreferrer">package.mjs</a>：当前宿主输入和包装入口。</li>
+<li><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/host-profiles.mjs" target="_blank" rel="noreferrer">host-profiles.mjs</a>：摘要白名单、精确 DEX descriptor 与 ABI 检查。</li>
+<li><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/build.sh" target="_blank" rel="noreferrer">build.sh</a>：实际工具链、测试与 DEX 编译。</li>
+</ul>
+</section><section id="android-build"><h2 id="android-build--android-环境、构建与签名" tabindex="-1">11. Android 环境、构建与签名 </h2>
+<p>以下是从仓库根目录运行的 POSIX Shell 流程，适合 macOS、Linux 或准备好对应 Linux 工具链的 WSL。当前脚本使用 Bash 花括号展开、POSIX 路径、冒号 classpath、<code>cc</code> 和 <code>shasum</code>，不能直接粘贴到 PowerShell。Node 打包器还使用 URL pathname 构造目录；原生 Windows 路径不能视为已验证。WSL 请使用 WSL 内的 JDK、SDK、Node、Python 和 apktool，并避免混用 Windows SDK 路径。</p>
+<h2 id="android-build--准备和输入校验" tabindex="-1">准备和输入校验 </h2>
+<p>依赖 JDK（历史构建记录使用 JDK 17）、Node.js（ES modules）、Python 3、apktool、C 编译器，以及 Android SDK <strong>platforms/android-36</strong>、<strong>build-tools/36.0.0</strong>。脚本写死 SDK 路径，不是 Gradle 工程。macOS 通常已有 <code>shasum</code>；Linux/WSL 应先确认该命令可用。Python SDK 依赖按 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/README.md" target="_blank" rel="noreferrer">dashboard-service</a> 使用锁文件安装；<code>tests/app_golden.py</code> 会导入该目录的 SDK。</p>
+<p>当前唯一可打包的官方输入：</p>
+<table tabindex="0">
+<thead>
+<tr>
+<th>项目</th>
+<th>值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>版本</td>
+<td>RayNeo AI 1.0.5（201）</td>
+</tr>
+<tr>
+<td>SHA-256</td>
+<td><code>770ba0793d31609aa1e4477db2f8a7aec2c8acc4d9c6ab43d57b0dfc720d3ab3</code></td>
+</tr>
+</tbody>
+</table>
+<p>自行从合法来源准备 APK；下载页可能已更新，文件名和版本文字不能替代摘要。</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6A737D;--shiki-dark:#6A737D"># 仓库根目录；替换所有 /path/to 路径</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">shasum</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -a</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> 256</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> /path/to/RayNeo_AI_1.0.5.apk</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">export</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> ANDROID_SDK_ROOT</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">=</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">/path/to/Android/sdk</span></span>
+<span class="line"><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">export</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8"> TURBO_SDK_PYTHON</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">=</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">/path/to/python-with-dashboard-sdk-dependencies</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">node</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --version</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">javac</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -version</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">python3</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --version</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">apktool</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --version</span></span></code></pre>
+</div><p><code>TURBO_SDK_PYTHON</code> 仅用于 SDK golden 生成；其他 Python 命令仍调用 <code>python3</code>，两个解释器的依赖应分别确认。</p>
+<h2 id="android-build--先备齐构建测试输入" tabindex="-1">先备齐构建测试输入 </h2>
+<p><code>build.sh</code> 的 OTA 测试依赖固定候选 ZIP，不是完全自包含构建。按照 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/README.md" target="_blank" rel="noreferrer">原始构建说明</a> 获取同一 Release 的固件，核对 Release 的 SHA256SUMS，保留 ZIP 原样并放到：</p>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>official-addon/build/app-ap-20260927-test-01/</span></span>
+<span class="line"><span>  StrixOS-1.0.4.12-TAP1-TEST-01-CANDIDATE-NOT-APPROVED.zip</span></span></code></pre>
+</div><p>缺少该文件应补齐已校验测试输入，而非删除门禁测试。C golden 测试还读取 <code>official-addon/research/</code> 的相邻原创协议实现；保留完整仓库。构建输出不要提交。</p>
+<h2 id="android-build--编译、包装与离线审计" tabindex="-1">编译、包装与离线审计 </h2>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">apktool</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> d</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --no-res</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -o</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/build/host-105</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> /path/to/RayNeo_AI_1.0.5.apk</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">bash</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/build.sh</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">node</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/package.mjs</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> /path/to/RayNeo_AI_1.0.5.apk</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">python3</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/verify_apk.py</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  /path/to/RayNeo_AI_1.0.5.apk</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-RayNeo-1.0.5-unsigned.apk</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --public-assets</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">unzip</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -t</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/build/TurboIO-RayNeo-1.0.5-unsigned.apk</span></span></code></pre>
+</div><p>若 <code>host-105</code> 不存在，打包器也会调用 apktool 解码；若已存在则复用它。<strong>换输入或基线时不要复用来历不明的解码目录</strong>，先保留证据、在干净工作区重建。脚本不是事务系统：ABI 预检失败不修改宿主，但后续步骤失败可能留下部分已包装目录，应检查后重建。</p>
+<p><code>build.sh</code> 先运行 Node/Python/Java/C 测试，再编译全部 Java，最后用 D8 <code>--min-api 29</code> 输出 <code>build/dex/classes.dex</code>。打包器保留原 APK 资源/库，使用重建的宿主 DEX，添加扩展 <code>classes4.dex</code> 和允许资源，输出 <code>package-report-1.0.5.json</code>。报告明确 <code>installed:false</code>、<code>nonRootValidated:false</code>。</p>
+<p><code>verify_apk.py</code> 检查 ZIP 完整性、重复成员、增加/变更路径与允许资源；允许 <code>classes2.dex</code> 变化不等于对每条 smali 语义做了形式证明。它也不校验签名、厂商登录或真实蓝牙。</p>
+<h2 id="android-build--可选-受保护官方-ota-衍生包" tabindex="-1">可选：受保护官方 OTA 衍生包 </h2>
+<p>仅在确实研究受保护 OTA 且固定输入齐备时继续。普通扩展包与该衍生包应分开保存，不能拿普通审计器直接宣称后者无库变更。</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">node</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/official-ota-source.mjs</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/host-105/lib/arm64-v8a/libapp.so</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/ota-route</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">python3</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/package-official-ota-preparation.py</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --guarded</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  /path/to/RayNeo_AI_1.0.5.apk</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-RayNeo-1.0.5-unsigned.apk</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/ota-route/libapp.so</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-GUARD07-unsigned.apk</span></span></code></pre>
+</div><p>输出目录/文件必须不存在。脚本校验原始和补丁库 SHA、两个序列化字符串槽、全部其他字节与 ZIP 成员，添加 guarded 标记。不要使用 Python <code>-O</code>（校验中使用 <code>assert</code>）。未加 <code>--guarded</code> 的 preparation 包不允许升级发送；guarded 标记也不等于自动授权。原理见 <a href="#android-architecture">架构</a>。</p>
+<h2 id="android-build--对齐、签名与迁移" tabindex="-1">对齐、签名与迁移 </h2>
+<p>以下以普通扩展包为例；受保护包应明确替换输入和输出名。签名材料由开发者自行安全准备，命令提示输入密码，不把密码写进脚本或仓库。</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">BT</span><span style="--shiki-light:#D73A49;--shiki-dark:#F97583">=</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">$ANDROID_SDK_ROOT</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">/build-tools/36.0.0"</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">$BT</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">/zipalign"</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -f</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -p</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> 4</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-RayNeo-1.0.5-unsigned.apk</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-RayNeo-1.0.5-aligned.apk</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">$BT</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">/apksigner"</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> sign</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --ks</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> /path/to/private-release.jks</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">  --ks-key-alias</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> your_alias</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF">  --out</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/build/TurboIO-RayNeo-1.0.5-signed.apk</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-RayNeo-1.0.5-aligned.apk</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">"</span><span style="--shiki-light:#24292E;--shiki-dark:#E1E4E8">$BT</span><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">/apksigner"</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> verify</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --verbose</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> --print-certs</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-RayNeo-1.0.5-signed.apk</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">python3</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/tests/PrivateArtifactAudit.py</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> \</span></span>
+<span class="line"><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF">  android-addon/build/TurboIO-RayNeo-1.0.5-signed.apk</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">shasum</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> -a</span><span style="--shiki-light:#005CC5;--shiki-dark:#79B8FF"> 256</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/build/TurboIO-RayNeo-1.0.5-signed.apk</span></span></code></pre>
+</div><p>这是建议的标准 SDK 签名步骤，本手册编写环境未运行完整 APK 构建或签名。始终先 zipalign 再签名，签名后不修改 APK。审核报告、提交号、输入/输出摘要和证书指纹一起保留。</p>
+<p>衍生包不保留官方签名，不能覆盖不同签名的官方 App。<strong>先通过旧 App 导出录音、稿件与必要配置，再决定卸载；卸载会删除沙盒。</strong> 保持自己的同一密钥才能覆盖自己的旧签名版本；同签名也不能证明新旧数据结构兼容。Key 由 Android Keystore 加密，拷贝 SharedPreferences 不能保证跨安装恢复；按需重新配置服务，不上传沙盒、Cookie 或密钥。</p>
+<p>安装后进入 <a href="#android-testing">分层测试</a>。本页命令不执行安装、发送或刷机。</p>
+<h2 id="android-build--相关源码" tabindex="-1">相关源码 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/build.sh" target="_blank" rel="noreferrer">build.sh</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/package.mjs" target="_blank" rel="noreferrer">package.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/assemble_apk.py" target="_blank" rel="noreferrer">assemble_apk.py</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/verify_apk.py" target="_blank" rel="noreferrer">verify_apk.py</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/package-official-ota-preparation.py" target="_blank" rel="noreferrer">OTA 包装审计</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/SecretStore.java" target="_blank" rel="noreferrer">SecretStore.java</a></p>
+</section><section id="android-architecture"><h2 id="android-architecture--android-运行架构与耦合边界" tabindex="-1">12. Android 运行架构与耦合边界 </h2>
+<p>扩展复用官方宿主的生命周期、语音和传输能力；Java 反射减少编译时厂商依赖，却保留了对运行时类名、签名、字段、枚举及协议的精确依赖。反射回退不是跨版本兼容层。</p>
+<h2 id="android-architecture--打包检查和运行时检查分工" tabindex="-1">打包检查和运行时检查分工 </h2>
+<p><code>profileFor</code> 首先按整个 APK SHA-256 选择 profile；未知输入直接失败。当前打包器随后仅允许 1.0.5。 <code>verifyHost</code> 检查精确 DEX descriptor 和逐行方法/字段声明，包含语音 listener、MainActivity、事件桥、传输管理器、消息构造器、高德接口及 OTA 队列。定位类时校验 <code>.class</code> descriptor，兼顾大小写不敏感文件系统的 apktool 命名差异，要求恰好一个匹配。</p>
+<p>这是已有的自动化 fail-closed 防线，不是“靠人工改混淆名”。它无法覆盖所有运行时约定：NlpResult 的 getter/setter、线程顺序、字段语义、服务行为等还需源码/设备验证。ABI 检查通过不保证未知版本可运行。</p>
+<h2 id="android-architecture--四个方法如何包装" tabindex="-1">四个方法如何包装 </h2>
+<p><code>wrap</code> 将原方法重命名为 <code>turboioOriginal_方法名</code>，追加同签名入口。重复执行时保留原方法体、替换已生成入口。其 <code>returnMode</code> 参数目前没有用于选择分支；不能根据调用处 <code>after/guard</code> 字样判断执行顺序。</p>
+<table tabindex="0">
+<thead>
+<tr>
+<th>入口</th>
+<th>生成的 smali 行为</th>
+<th>Java 桥实际行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>onAsrResult</td>
+<td>先 dispatchAsr；桥直接抛 Throwable 时调用原方法</td>
+<td>serial 到主线程，先反射原 ASR，再观察语音和 onAsr；原 ASR 分发失败则返回</td>
+</tr>
+<tr>
+<td>onNlpResult</td>
+<td>先 dispatchNlp；桥直接抛出时回退原方法</td>
+<td>onNlp 返回 false 才转发官方结果；扩展已接管则消费</td>
+</tr>
+<tr>
+<td>onResponseComplete</td>
+<td>先 dispatchComplete；桥直接抛出时回退原方法</td>
+<td>onComplete 返回 false 才转发官方完成并结束朗读</td>
+</tr>
+<tr>
+<td>onPostResume</td>
+<td>先原生命周期，再 install</td>
+<td>安装原生入口、初始化各模块；安装异常被包装器吞掉</td>
+</tr>
+</tbody>
+</table>
+<p>桥将工作投递主线程后发生的错误不属于 smali 同步 catch 的覆盖范围。Java 内部也有自己的异常处理和诊断，不能理解成任意错误都能恢复原业务。</p>
+<p><code>invokeTyped</code> 优先查找 <code>turboioOriginal_*</code>，不存在时查原方法名；调用期间设置线程局部 BYPASS 防止重入。它解决包装/未包装方法路径选择，仍要求精确参数和返回对象契约，不能证明支持其他宿主。</p>
+<h2 id="android-architecture--从-asr-到自有问答" tabindex="-1">从 ASR 到自有问答 </h2>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>官方 ASR → 原 ASR 保留 → 最终文本/会话去重</span></span>
+<span class="line"><span>                            ↓</span></span>
+<span class="line"><span>官方 NLP → 会话匹配 + chat/chat/workflow + 在线无 Command？</span></span>
+<span class="line"><span>            ├─ 否 / 官方模式 / 配置无效 → 原官方 NLP 与完成</span></span>
+<span class="line"><span>            └─ 是 → 接管本轮 → 随机测试 或 HTTPS/SSE 模型</span></span>
+<span class="line"><span>                                  ↓</span></span>
+<span class="line"><span>                       克隆官方模板、增量回调原 NLP</span></span>
+<span class="line"><span>                                  ↓</span></span>
+<span class="line"><span>                         最终原完成回调 + 成功历史</span></span></code></pre>
+</div><p>默认 mode=0 保留官方；mode=1 随机测试回复；mode=2 使用自己的 HTTPS Chat Completions 服务。只替换普通问答，不接管离线结果或命令。NLP 的 SessionId 与 ASR 不一致时保留官方。模板复制保留会话/领域等元数据，设置 Answer/Finished、清空 Spoken；扩展完成期间会屏蔽重复官方完成。</p>
+<p>generation token 使旧请求不能继续输出，新插话会取消旧请求；失败或90秒超时会结束扩展回复。<strong>接管后的网络失败不是自动重新播放原厂回答</strong>。成功对话写入扩展历史/存档，不读取官方历史；History 上限是50条消息（约25组问答），不是50轮。模型 Key 经 SecretStore 使用 Android Keystore / AES-GCM 加密，常规设置保存在宿主私有偏好。</p>
+<h2 id="android-architecture--通道、文件与确认" tabindex="-1">通道、文件与确认 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/HostBusiness.java" target="_blank" rel="noreferrer">HostBusiness.java</a> 严格映射已审查整数及精确名称：9/MARS_FOTA、15/LAUNCHER、19/AI_SUBTITLE、20/TELEPROMPTER；不使用 enum ordinal 或模糊子串。 <code>NativeTransfer</code> 通过 <code>E3.u.h</code>、<code>E3.Q</code>、<code>P3.h</code>、<code>E3.b</code> 等宿主运行时对象发消息或文件，连接由官方宿主维持。</p>
+<p>文件事件与镜片业务 ACK 是两种证据。TransferGate 关联设备、原生任务、请求号、会话和时限；文件发送成功不等于镜片接受执行。不确定结果进入隔离等待，避免盲重发。各控制器还要验证自己的协议响应；番茄时钟、阅读、音乐、导航、卡片等需要相应眼镜运行时。</p>
+<p>事件桥 <code>z</code> 也不是简单“总先原后扩展”：先执行 OTA EVENT_GUARD；需要消费/保护时可提前返回。允许通过的事件才进入原 <code>z</code>，随后由 NativeTransfer 观察有限元数据/复制载荷，不共享厂商可变 Map。</p>
+<h2 id="android-architecture--ota-为什么额外耦合" tabindex="-1">OTA 为什么额外耦合 </h2>
+<p>受保护官方路径包括两层，不能只移植 Java 方法：</p>
+<ol>
+<li><strong>Java/SDK 层</strong>：包装 <code>E3.V.o(E3.Q)</code> 队列、<code>E3.u.v(...)</code> 文件发送和事件入口。OfficialOtaBridge → preparation → legacy 控制器依次做适用策略选择；拒绝/异常时阻止发送。字段、枚举 MARS_FOTA、消息结构、官方目录与回执都依赖1.0.5。</li>
+<li><strong>Flutter/Dart 层</strong>：<code>official-ota-source.mjs</code> 对 arm64 <code>libapp.so</code> 的两个升级来源字符串做固定槽替换，指向本机来源。它校验整个库 SHA、字符串唯一位置、序列化长度/CID，并保持 Dart 3.11.5 canonical 字符串的长度和 hash，逐字节检查其他区域未变。这不是通用 URL 文本替换，也不修改可执行指令或固件。</li>
+</ol>
+<p>原库 SHA 固定为 <code>78214ba0e1057871315da1cee17d860415c8b913521e59afc2748e45ead64c6c</code>；补丁包二次审计还锁定补丁库 SHA。任何宿主、Flutter 编译器、快照布局、偏移或 canonical hash 变化，都需要重新研究并验证，不能复用旧偏移。</p>
+<p>guarded 标记只启用受保护流程，实际仍要求固定候选、目录校验、电量/空闲/版本/空间条件、2分钟预检、单次授权及人工结果保护收尾。只下载来源不是 OTA 发送器；构建报告不代表安装/刷写。操作依据 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/INSTALL_AND_FLASH.md" target="_blank" rel="noreferrer">原始安装与收尾说明</a>，升级设计见 <a href="#android-upgrade">持续升级</a>。</p>
+<h2 id="android-architecture--相关源码" tabindex="-1">相关源码 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/host-profiles.mjs" target="_blank" rel="noreferrer">host-profiles.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/package.mjs" target="_blank" rel="noreferrer">package.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TurboAddon.java" target="_blank" rel="noreferrer">TurboAddon.java</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ChatPolicy.java" target="_blank" rel="noreferrer">ChatPolicy.java</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NativeTransfer.java" target="_blank" rel="noreferrer">NativeTransfer.java</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/ota-hooks.mjs" target="_blank" rel="noreferrer">ota-hooks.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/official-ota-source.mjs" target="_blank" rel="noreferrer">official-ota-source.mjs</a></p>
+</section><section id="android-extension"><h2 id="android-extension--跟随现有链路扩展一个小功能" tabindex="-1">13. 跟随现有链路扩展一个小功能 </h2>
+<p>先做不改变线协议的小改动：<strong>为番茄时钟增加“30分钟”预设</strong>。本页是开发练习方案，未在产品中实施，不表示新增能力已通过真机验收。它适合学习 UI → controller → codec → transport → 固件 ACK 的路径；不要以新增蓝牙通道或绕过状态检查作为第一个任务。</p>
+<h2 id="android-extension--找到最短源码路径" tabindex="-1">找到最短源码路径 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>层</th>
+<th>入口与作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>首页</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/EditorialUI.java" target="_blank" rel="noreferrer">EditorialUI.java</a> 打开 FocusUI</td>
+</tr>
+<tr>
+<td>界面</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/FocusUI.java" target="_blank" rel="noreferrer">FocusUI.java</a> 的 show，当前预设数组为15/25/45分钟，默认1500秒</td>
+</tr>
+<tr>
+<td>状态控制</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/FocusController.java" target="_blank" rel="noreferrer">FocusController.java</a> 的 start/startFresh/send/message</td>
+</tr>
+<tr>
+<td>编解码</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/FocusCodec.java" target="_blank" rel="noreferrer">FocusCodec.java</a>，既有 TFP1 命令与响应</td>
+</tr>
+<tr>
+<td>通用发送</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NativeTransfer.java" target="_blank" rel="noreferrer">NativeTransfer.java</a> 与 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TransferGate.java" target="_blank" rel="noreferrer">TransferGate.java</a></td>
+</tr>
+<tr>
+<td>镜片端对照</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/research/focus-v1/focus.c" target="_blank" rel="noreferrer">focus-v1/focus.c</a>，配合 golden 测试理解协议</td>
+</tr>
+</tbody>
+</table>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>点击30分钟 → 仅更新本页待开始秒数1800</span></span>
+<span class="line"><span>点击开始 → 用户确认 → start(1800)</span></span>
+<span class="line"><span>                      ↓</span></span>
+<span class="line"><span>              状态过期则先QUERY</span></span>
+<span class="line"><span>                      ↓</span></span>
+<span class="line"><span>          同一眼镜/时限内新鲜空闲状态</span></span>
+<span class="line"><span>                      ↓</span></span>
+<span class="line"><span>        START → 文件发送 + TFP1响应 → 显示确认状态</span></span></code></pre>
+</div><h2 id="android-extension--按步骤实现" tabindex="-1">按步骤实现 </h2>
+<ol>
+<li>在独立开发分支记录起始提交与干净状态，按 <a href="#android-build">构建</a> 先建立可重复的测试基线。保留当前工作区其他人的修改。</li>
+<li>阅读 FocusUI 的预设循环，将 <code>new int[]{15,25,45}</code> 扩展为 <code>new int[]{15,25,30,45}</code>。保持秒数换算 <code>minutes*60</code> 和“仅在 IDLE/STOPPED 时更新预览”的条件。四个按钮在小屏幕可能拥挤，应通过设备确认布局；不要只凭桌面源码判断。</li>
+<li>继续调用现有 <code>FocusController.start(seconds[0])</code>，保留明确开始确认。不要在选择预设时直接发送 START，也不要增加后台自动开始。1800秒在控制器既有10–7200秒范围内，无需改协议版本、固件或发送器。</li>
+<li>保留 startFresh 的空闲检查、sid 单调性、revision、新鲜状态条件。过期状态通过 QUERY 确认后，只允许同一次显式意图在10秒内、同一眼镜且确认成功时继续开始；离开页面会清除该意图。</li>
+<li>在普通扩展构建链中编译、合并、审计并用自己的既有签名安装。不要为 UI 练习生成或刷写新的 OTA 固件；设备需要已匹配 TFP1 或更新兼容实现。</li>
+<li>按下表验收，记录 APK 摘要、手机/固件版本和观察结果；没有真实镜片证据时标记“离线通过、真机未验证”。</li>
+</ol>
+<h2 id="android-extension--验收标准" tabindex="-1">验收标准 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>场景</th>
+<th>应看到的结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>未开始选择30分钟</td>
+<td>预览30:00，不产生开始请求</td>
+</tr>
+<tr>
+<td>空闲、连接正常后明确开始</td>
+<td>回执后进入运行状态；实际眼镜计时约30分钟</td>
+</tr>
+<tr>
+<td>已有运行或暂停计时</td>
+<td>不覆盖现有计时；切预设不改镜片任务</td>
+</tr>
+<tr>
+<td>状态过期</td>
+<td>先查询；未获得有效状态不盲发START</td>
+</tr>
+<tr>
+<td>断连、切眼镜、发送超时</td>
+<td>显示未确认/未执行，不把点击当成功</td>
+</tr>
+<tr>
+<td>关闭页面再返回</td>
+<td>不发送第二次START；计时由眼镜持有</td>
+</tr>
+<tr>
+<td>15/25/45及暂停/继续/停止</td>
+<td>原行为回归通过</td>
+</tr>
+<tr>
+<td>小屏/字体缩放</td>
+<td>四个预设可见可点，状态与确认不被遮挡</td>
+</tr>
+</tbody>
+</table>
+<p>现有 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/FocusCodecTest.java" target="_blank" rel="noreferrer">FocusCodecTest</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/focusflow/FocusFlowTest.java" target="_blank" rel="noreferrer">FocusFlowTest</a> 与 C golden 已在 build.sh 中接入。简单 UI 预设无需编写“数组包含30”的镜像测试；有状态或协议变化时应针对过期、乱序、断连、ACK不匹配等行为补充测试。</p>
+<h2 id="android-extension--真正新增业务时如何扩大范围" tabindex="-1">真正新增业务时如何扩大范围 </h2>
+<p>若需求超出既有命令，先写清输入、状态、预算、失败及用户确认，再分别设计 codec/controller/UI；参照既有 CustomEnvelope 和 TransferGate，明确 request/session/revision 与超时、幂等及拒绝行为。协议变更必须同步镜片解析器和跨语言 golden，确定版本协商或明确拒绝条件。不是在 HostBusiness 多加一个数字就完成业务适配。</p>
+<p>新增网络服务复用有边界的 HTTP/JSON/WebSocket 工具，凭据进入 SecretStore，明确用户启用、数据发送对象和取消路径。已有 <code>ToolClient</code> 只注册有配置的工具；建议新增服务也遵守该原则，不虚构未接通的后端。</p>
+<p>返回 <a href="#android-architecture">架构</a> 复核所有权和通道互斥，再按 <a href="#android-testing">测试</a> 分层验收。</p>
+</section><section id="android-upgrade"><h2 id="android-upgrade--持续维护-宿主、系统和固件升级" tabindex="-1">14. 持续维护：宿主、系统和固件升级 </h2>
+<p>升级要分别回答三个问题：宿主 ABI 是否仍匹配、手机系统是否允许同样的权限/后台行为、眼镜协议与 OTA 是否仍匹配。一个维度通过不能替代另外两个。</p>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>候选变更 → 保存旧输入/签名/数据与验证记录</span></span>
+<span class="line"><span>             ↓</span></span>
+<span class="line"><span>      静态差异 + 自动拒绝测试</span></span>
+<span class="line"><span>             ↓</span></span>
+<span class="line"><span>       离线构建/审计/签名</span></span>
+<span class="line"><span>             ↓</span></span>
+<span class="line"><span>      隔离设备普通功能回归</span></span>
+<span class="line"><span>             ↓</span></span>
+<span class="line"><span>    仅在匹配条件和独立授权下评估OTA</span></span></code></pre>
+</div><h2 id="android-upgrade--维护官方宿主新版本" tabindex="-1">维护官方宿主新版本 </h2>
+<p>当前脚本只接受固定摘要1.0.5（201），不是“1.0.5及以上”。官网新下载文件也可能不再匹配。新输入先保存原始文件及 SHA，不修改当前白名单强行打包。</p>
+<ol>
+<li>在隔离研究目录解码新宿主，与既有版本对照语音 listener、Activity、事件桥、传输管理器、消息构造器、枚举、高德接口及 OTA 队列。先确认类和语义，再确认方法签名；混淆名相同不能证明含义相同。</li>
+<li>将确认过的输入纳入新的 version/code/SHA profile，为精确 descriptor、重复类、缺失签名和未知摘要补充拒绝测试。同步调整实际打包器版本门槛，不能只给 PROFILES 加一行。现有 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/HostProfilesTest.mjs" target="_blank" rel="noreferrer">HostProfilesTest.mjs</a> 是测试入口。</li>
+<li>审查运行时耦合：TurboAddon 的 NlpResult getter/setter、NavReflect/NativeTransfer 的字段和构造器、HostBusiness 的 wire 名称、事件 Map、线程与会话语义。构建前检查只能覆盖被列出的契约；不覆盖所有反射点。</li>
+<li>在干净解码目录重建包装，核对原方法保留、同步 catch、Java 内部分发及 OTA 事件提前消费路径。普通包按 verify_apk 允许集核对变更。</li>
+<li>完成随机回复→官方命令保留→自有模型→文件+业务ACK→日常功能的设备回归，再写兼容矩阵。历史1.0.4、iOS1.0.5或同名固件记录不作为新 Android 验收。</li>
+</ol>
+<p><strong>OTA 需要另一次适配判断。</strong> 官方 Dart <code>libapp.so</code> 的摘要、序列化字符串偏移、长度、CID、canonical hash 任一变化都会拒绝补丁。先重新研究来源路由与官方升级业务，再更新有证据的审计约束和测试；不能将旧偏移套新库。新 Java profile 成功不等于 OTA 可用。</p>
+<h2 id="android-upgrade--手机-android-oem-升级" tabindex="-1">手机 Android/OEM 升级 </h2>
+<p>SDK36 编译、min-api29并不保证所有系统运行行为相同。保留手机型号、Android/API、OEM、电池设置、签名和服务配置，至少复测：</p>
+<ul>
+<li>正常登录/连接及蓝牙权限、拒绝权限后的界面处理。</li>
+<li>Activity恢复、入口去重、TTS可见性、文档选择/分享、Keystore旧密钥读取。</li>
+<li>前台服务声明、通知、定位、锁屏/切后台、断连、重连及主动停止；不要把一次亮屏运行当长期后台稳定。</li>
+<li>地图服务对包名/签名的授权，自己的云端HTTPS服务和错误处理。</li>
+</ul>
+<p>当前工作区存在 SCADA BLE 与 location 前台服务实验增量；是否纳入版本需另做审查和设备验收，不能按已发布功能承诺。与现有模块有关的 Manifest 自动修补和测试入口为 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/background_manifest.py" target="_blank" rel="noreferrer">background_manifest.py</a> / <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/BackgroundManifestTest.py" target="_blank" rel="noreferrer">BackgroundManifestTest.py</a>。</p>
+<p>签名变化先处理 <a href="#android-build--对齐、签名与迁移">数据迁移</a>。即使同一签名，也应在可恢复测试数据上检查偏好和文件格式；当前没有可据此承诺通用一键迁移的工具。建议新增 schema 版本、显式迁移测试和回退说明，这是维护建议，不是已有能力。</p>
+<h2 id="android-upgrade--眼镜系统与实验固件升级" tabindex="-1">眼镜系统与实验固件升级 </h2>
+<p>普通业务先核对固件协议：TFP1、TCE1、TAP1/TAX1等是具体镜片运行时能力，不由手机 UI 自动提供。查看当前固件标记、协议回读、包大小与 SHA；不要只比较 Strix OS 的版本号。</p>
+<p>GUARD-07 的已记录路径是固定 TAP1-TEST-01：开启15分钟本机只下载来源 → 官方下载/目录15/15 → 只读预检 → 显式单次授权 → 官方安装。开始预检证据有效期2分钟，单次授权最长15分钟；进入后台撤销尚未使用授权。电量至少50%，版本、空闲和官方最终空间检查仍须满足。</p>
+<p>传输百分比不是安装成功。完成后必须等待眼镜自然回首页、确认“显示TEST”，按原说明执行允许只读回查，再在新鲜状态下解除结果保护，确认 <code>LOCKED / 授权0 / 结果保护未开始</code> 后回归日常功能。<strong>更新是否结束不明时不释放保护；不清数据、不卸载、不删保护记录来绕过。</strong> 完整操作以 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/INSTALL_AND_FLASH.md" target="_blank" rel="noreferrer">安装与收尾说明</a> 为准。</p>
+<p>原厂恢复不是该固定候选入口的通用功能。参阅 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/firmware-research/strix-1.0.4.12/stock/README.md" target="_blank" rel="noreferrer">原厂归档与恢复边界</a>；有归档不等于已有公开验收的恢复路径，更不能保证救砖。</p>
+<h2 id="android-upgrade--交付一轮升级时保留什么" tabindex="-1">交付一轮升级时保留什么 </h2>
+<p>建议记录提交和差异、宿主原件/库/输出摘要、profile和证书指纹、APK审计、离线测试结果、设备矩阵、协议回读及人工收尾状态。将“构建通过”“真机普通功能通过”“OTA单次实测”“尚未验证”分开书写，不提交账号、Key、完整沙盒或带标识的原始日志。</p>
+<p>目前已有版本白名单、ABI校验、协议golden、打包审计和OTA门禁测试；统一兼容矩阵生成、设备自动回归、schema迁移工具可作为后续建设建议，不能写成现有流水线。验收模板见 <a href="#android-testing">测试与诊断</a>。</p>
+<h2 id="android-upgrade--相关源码" tabindex="-1">相关源码 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/host-profiles.mjs" target="_blank" rel="noreferrer">host-profiles.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/package.mjs" target="_blank" rel="noreferrer">package.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/official-ota-source.mjs" target="_blank" rel="noreferrer">official-ota-source.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OfficialOtaBridge.java" target="_blank" rel="noreferrer">OfficialOtaBridge.java</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OfficialOtaGate.java" target="_blank" rel="noreferrer">OfficialOtaGate.java</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OtaRecoveryGuard.java" target="_blank" rel="noreferrer">OtaRecoveryGuard.java</a></p>
+</section><section id="android-testing"><h2 id="android-testing--分层测试、故障诊断与验收" tabindex="-1">15. 分层测试、故障诊断与验收 </h2>
+<p>仓库已有自动化测试与打包校验；“没有自动化”不符合当前源码。离线测试不能替代官方服务、重签安装、真实蓝牙、镜片显示、OTA或长期后台验证。本次文档工作只做源码核对和指定离线检查，不连接设备、不签名、不刷写。</p>
+<h2 id="android-testing--按证据层执行" tabindex="-1">按证据层执行 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>层</th>
+<th>已有工具/入口</th>
+<th>能证明什么</th>
+<th>不能证明什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>来源/ABI</td>
+<td>host-profiles + HostProfilesTest</td>
+<td>摘要选择与列出的descriptor/签名拒绝条件</td>
+<td>所有反射语义、未知版本兼容</td>
+</tr>
+<tr>
+<td>包装逻辑</td>
+<td>OtaHooksTest / OfficialOtaSourceTest</td>
+<td>smali策略生成、固定库来源补丁约束</td>
+<td>真机官方OTA成功</td>
+</tr>
+<tr>
+<td>纯逻辑</td>
+<td>ChatPolicy、SpeechBuffer、TransferGate、NavCore等Java测试</td>
+<td>规则、边界和状态推进</td>
+<td>Android生命周期、厂商服务</td>
+</tr>
+<tr>
+<td>跨语言协议</td>
+<td>focus/music/nav/card/reader的C golden与Java对照、Python SDK app golden</td>
+<td>编解码一致、已列样本与预算</td>
+<td>镜片运行或物理操作均正确</td>
+</tr>
+<tr>
+<td>模拟流程</td>
+<td>focusflow/musicflow/cardflow/readerflow/otaflow等</td>
+<td>测试替身下的控制器流程</td>
+<td>真正SDK线程、真实蓝牙/掉电</td>
+</tr>
+<tr>
+<td>DEX/包</td>
+<td>build.sh / verify_apk / PrivateArtifactAudit</td>
+<td>Java/D8可编译、允许路径和资源检查、特定私有模式审计</td>
+<td>安装后服务授权、所有秘密均不存在</td>
+</tr>
+<tr>
+<td>真机</td>
+<td>人工验收记录</td>
+<td>指定组合、指定步骤的实际观察</td>
+<td>其他设备、版本和全部故障恢复</td>
+</tr>
+</tbody>
+</table>
+<p>当前工作区 build.sh 还含 SCADA 实验测试；这说明存在离线检查，不代表已公开发行或 Android BLE 真机通过。</p>
+<h2 id="android-testing--可独立运行的离线检查" tabindex="-1">可独立运行的离线检查 </h2>
+<p>以下检查从仓库根目录执行，不发送设备指令。前两项 Node 测试不依赖解码 APK；OfficialOtaSourceTest 则必须先按构建页准备 build/host-105/lib/arm64-v8a/libapp.so。Python 测试需要可用的 python3 命令；部分 Manifest 测试缺少解码输入会跳过，不能算真实 Manifest 全部通过：</p>
+<div class="language-sh vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">sh</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">node</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/tests/HostProfilesTest.mjs</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">node</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/tests/OtaHooksTest.mjs</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">node</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/tests/OfficialOtaSourceTest.mjs</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">python3</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/tests/ApkAssemblyTest.py</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">python3</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/tests/TtsManifestTest.py</span></span>
+<span class="line"><span style="--shiki-light:#6F42C1;--shiki-dark:#B392F0">python3</span><span style="--shiki-light:#032F62;--shiki-dark:#9ECBFF"> android-addon/tests/BackgroundManifestTest.py</span></span></code></pre>
+</div><p>完整编译/协议/流程测试按 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/build.sh" target="_blank" rel="noreferrer">build.sh</a> 的顺序运行，环境和固定 OTA 候选见 <a href="#android-build">构建</a>。不要把拆出的少量测试称作全套通过。C/Java/Python golden 有先生成后消费的依赖，部分命令需要工作目录为 android-addon，直接复制单行前先检查相邻准备步骤。</p>
+<p>普通衍生包用 <code>verify_apk.py 原APK 衍生APK --public-assets</code>，受保护 OTA 包用其专属包装器的二次整库和成员审计；二者允许集不同。签名后还要运行 <code>apksigner verify --verbose --print-certs</code>，核对 SHA 与自己的证书。本文档的 HTML 校验不代表 Android 产品已构建。</p>
+<h2 id="android-testing--真机最小验收顺序" tabindex="-1">真机最小验收顺序 </h2>
+<ol>
+<li>记录提交、APK/证书摘要、官方宿主1.0.5/201、手机型号/Android、眼镜型号/固件标记；先核对签名与数据迁移。</li>
+<li>正常登录连接，只保留一个宿主；确认首页入口存在且恢复Activity不会重复添加。</li>
+<li>官方模式测试普通语音与原厂命令。再用随机回复模式，确认原识别仍显示、普通问答被替换、完成只收尾一次；离线/Command结果保留官方。</li>
+<li>自有模型填写自己的HTTPS地址、模型和Key，测试流式、失败、超时、插话和旧请求取消。记录HTTP状态与模型请求计数，不记录密钥或完整对话隐私。</li>
+<li>对实际使用的模块分别测试文件发送与业务ACK、设备/请求/会话匹配；确认镜片内容和操作结果，不只看手机“100%”。测试断连/超时后不盲重发。</li>
+<li>检查TTS、分享/导出、地图授权，以及切后台/锁屏/恢复等需求内场景。长期运行必须给出实际时长，不用“可后台”替代证据。</li>
+<li>OTA独立验收，仅在指定包和授权范围内执行 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/INSTALL_AND_FLASH.md" target="_blank" rel="noreferrer">原始教程</a>。完整记录目录校验、预检、单次授权、自然重启、显示TEST、只读回查和保护收尾；无需OTA的开发任务不执行刷写。</li>
+</ol>
+<h2 id="android-testing--从现象定位到证据" tabindex="-1">从现象定位到证据 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>现象</th>
+<th>先查什么</th>
+<th>下一步</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Unsupported APK SHA256</td>
+<td>下载文件SHA、版本/code</td>
+<td>停止；合法新输入走适配流程，不能改白名单硬过</td>
+</tr>
+<tr>
+<td>Host ABI mismatch / exact class失败</td>
+<td>干净解码目录、descriptor、签名、重复类</td>
+<td>保存差异，重新核对profile；不删除检查</td>
+</tr>
+<tr>
+<td>构建缺ZIP/SDK/cc</td>
+<td>固定测试候选、SDK36、build-tools36.0.0及POSIX环境</td>
+<td>补齐已校验输入，不跳过测试</td>
+</tr>
+<tr>
+<td>安装签名冲突</td>
+<td>已安装证书与新证书</td>
+<td>先导出旧数据；不能覆盖官方不同签名</td>
+</tr>
+<tr>
+<td>没有入口</td>
+<td>实际安装包、onPostResume包装、宿主版本、Activity恢复</td>
+<td>查看受控诊断；编译成功不等于已安装该包</td>
+</tr>
+<tr>
+<td>模型没接管</td>
+<td>mode、最终ASR、SessionId、chat/chat/workflow、Key/HTTPS配置</td>
+<td>TurboAddon.status的final/replaced/requests/http与diagnostic逐层核对</td>
+</tr>
+<tr>
+<td>网络失败后没有原厂答案</td>
+<td>是否已经owns接管</td>
+<td>检查扩展失败收尾；不要假设会重放原回答</td>
+</tr>
+<tr>
+<td>文件100%但未显示</td>
+<td>TransferGate状态、peer/task/request/session、业务ACK及固件</td>
+<td>查询实际状态，未确认按隔离策略等待；不连点重发</td>
+</tr>
+<tr>
+<td>安卓官方功能在OTA后无反应</td>
+<td>是否仍INSTALLING/结果保护待核对</td>
+<td>仅在自然回首页并确认结束后，按教程只读回查/释放；不重刷或清数据</td>
+</tr>
+<tr>
+<td>OTA目录/空间/电量不通过</td>
+<td>官方校验和新鲜回执</td>
+<td>停在当前阶段，不放宽门禁</td>
+</tr>
+</tbody>
+</table>
+<p>诊断入口可关注 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TurboAddon.java" target="_blank" rel="noreferrer">TurboAddon.status</a> 和 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NativeTransfer.java" target="_blank" rel="noreferrer">NativeTransfer.status</a>。受保护升级还可导出 <code>Android/data/com.rayneo.venus.pub/files/official-ota-guard-status.txt</code>；提交前脱敏设备/账号信息，不上传Cookie、Key、录音或完整沙盒。</p>
+<h2 id="android-testing--记录验收结论" tabindex="-1">记录验收结论 </h2>
+<div class="language-text vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">text</span><pre class="shiki shiki-themes github-light github-dark vp-code" tabindex="0" v-pre=""><code><span class="line"><span>基线：提交/差异；输入APK SHA；输出APK SHA；证书指纹</span></span>
+<span class="line"><span>组合：手机型号/Android；宿主version/code；眼镜/固件标记</span></span>
+<span class="line"><span>离线：实际执行命令、退出码、测试范围、未执行原因</span></span>
+<span class="line"><span>运行：动作 → 手机状态 → 传输证据 → 镜片实际结果</span></span>
+<span class="line"><span>异常：首个错误、时间、恢复动作；是否存在未确认执行</span></span>
+<span class="line"><span>结论：已验证 / 未验证 / 建议改进；不泛化到其他组合</span></span></code></pre>
+</div><p>历史 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/VALIDATION.md" target="_blank" rel="noreferrer">VALIDATION.md</a> 是1.0.4记录，当前 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/INSTALL_AND_FLASH.md" target="_blank" rel="noreferrer">安装与刷写记录</a> 为1.0.5特定组合；两者都不能替代本次改动回归。可建议后续增加设备矩阵、权限/后台自动回归、可重复脱敏证据包，但这些不是现成工具。</p>
+<h2 id="android-testing--相关源码" tabindex="-1">相关源码 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/build.sh" target="_blank" rel="noreferrer">build.sh</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/HostProfilesTest.mjs" target="_blank" rel="noreferrer">HostProfilesTest.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/OtaHooksTest.mjs" target="_blank" rel="noreferrer">OtaHooksTest.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/OfficialOtaSourceTest.mjs" target="_blank" rel="noreferrer">OfficialOtaSourceTest.mjs</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/verify_apk.py" target="_blank" rel="noreferrer">verify_apk.py</a> · <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/tests/PrivateArtifactAudit.py" target="_blank" rel="noreferrer">PrivateArtifactAudit.py</a></p>
+</section><section id="reference-firmware"><h2 id="reference-firmware--固件与证据边界" tabindex="-1">16. 固件与证据边界 </h2>
+<p>固件研究用于特定版本的原生运行时扩展。新增菜单、图形卡片和原生应用可能依赖它；开发本地 ZIP、SVG 和 Server 不需要先刷固件。日常使用保留官方固件。</p>
+<h2 id="reference-firmware--固件不是统一接口" tabindex="-1">固件不是统一接口 </h2>
+<p><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/firmware-research/strix-1.0.4.12" target="_blank" rel="noreferrer">Strix 1.0.4.12 研究</a>与<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/firmware-research/strix-1.0.5.5/README.md" target="_blank" rel="noreferrer">1.0.5.5 TMIG1</a>有不同底座、ABI、负载和候选门禁。不能把旧补丁地址整体平移，不能通过重命名 ZIP 或改版本号迁移。</p>
+<p>TMIG1 相对新版原厂包只自定义修改 <code>nuttx_ap.bin</code> 内容，其余 14 个负载不变；但 <strong>完整 OTA 仍安装全部相应负载</strong>，并非只刷 AP。AP 体积预算不等于 RAM 余量或安全性证明。</p>
+<h2 id="reference-firmware--手机和候选必须匹配" tabindex="-1">手机和候选必须匹配 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>组合</th>
+<th>权威操作入口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Android 1.0.5 / GUARD-07 / TAP1-TEST-01</td>
+<td><a href="#android-upgrade">Android 升级</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/docs/INSTALL_AND_FLASH.md" target="_blank" rel="noreferrer">完整原始步骤</a></td>
+</tr>
+<tr>
+<td>iOS 1.0.6（218）/ TMIG1</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/firmware-research/strix-1.0.5.5/README.md" target="_blank" rel="noreferrer">1.0.5.5 版本专页</a></td>
+</tr>
+<tr>
+<td>历史原厂归档</td>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/firmware-research/strix-1.0.4.12/stock/README.md" target="_blank" rel="noreferrer">1.0.4.12 原厂归档限制</a></td>
+</tr>
+</tbody>
+</table>
+<p>本手册不另行复制一套简化刷写步骤，避免丢失下载、哈希、完整清单、身份、授权时效与刷后保护收尾条件。Android 必须完成自然重启后的只读回查和解除结果保护，具体状态见平台页；iOS 也有其完成后的进程保护收尾。状态不明时不能按“已完成”处理。</p>
+<h2 id="reference-firmware--怎样写验收结论" tabindex="-1">怎样写验收结论 </h2>
+<ol>
+<li>固定源提交、宿主构建号、底座、候选哈希和产物来源。</li>
+<li>记录本机检查覆盖什么：静态字节、ABI 模型、单测、模拟 OS / LVGL 等。</li>
+<li>真机记录机型、系统、操作、实际观察与失败，不用模拟结果替代镜片证据。</li>
+<li>公开派生手机包与私用实测构建分开表述；保留已知缺口和回归范围。</li>
+</ol>
+<p>掉电、中断、错包与代码缺陷可能损坏设备；原厂归档不是整机备份或救砖保证，成功个例不是长期稳定性认证。此限制源自<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/firmware-research/README.md" target="_blank" rel="noreferrer">原固件说明</a>，不是手册本次新增验收结论。</p>
+</section><section id="maintenance-contributing"><h2 id="maintenance-contributing--贡献约定" tabindex="-1">17. 贡献约定 </h2>
+<p>优先提交可复现的小范围改动与证据。当前原创内容采用非商业许可证，源码可见不代表 OSI 开源或无限制商用；厂商和第三方材料各自保留版权。</p>
+<h2 id="maintenance-contributing--提交前" tabindex="-1">提交前 </h2>
+<ol>
+<li>用 <code>git status --short</code> 识别已有改动，明确自己修改的模块；不要覆盖其他人的实验或本机配置。</li>
+<li>记录目标路线、宿主构建号、固件底座和候选，说明问题触发方式与预期行为。</li>
+<li>按模块现有文档运行构建和相关测试；文档改动运行文档维护说明（见手册末尾）。</li>
+<li>在 PR 描述区分静态检查、模拟器与真机证据，列出未覆盖的平台和已知问题。</li>
+</ol>
+<h2 id="maintenance-contributing--内容与隐私" tabindex="-1">内容与隐私 </h2>
+<p>不要提交 Token、Cookie、API Key、设备绑定库、个人录音、原始用户日志、Apple/Android 签名私钥或描述文件。示例应使用明确标注的演示数据；密钥由使用者自行配置，不向维护者或眼镜提供第三方服务凭据。</p>
+<p>当前 Android Release 是单独列明的完整 APK 发行例外；iOS 不提供合并后 IPA，历史鸿蒙不提供 HAP。不要将历史源码导出排除项写成“项目从不分发 APK”。<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/SOURCE_RELEASE.md" target="_blank" rel="noreferrer">完整发布说明</a>中的历史导出命令不一定随当前仓库提供，执行前核查文件存在。</p>
+<h2 id="maintenance-contributing--验收与报告" tabindex="-1">验收与报告 </h2>
+<p>有硬件时记录机型、系统、版本、操作、观察和产物哈希；没有硬件时准确写“本机/模拟检查通过”，不要补写真机成功。故障与未知结果同样是有价值的证据。固件和宿主升级不得删安全检查以求通过。</p>
+<p>参考：<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/LICENSING.md" target="_blank" rel="noreferrer">许可</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/THIRD_PARTY_NOTICES.md" target="_blank" rel="noreferrer">第三方说明</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/SOURCE_RELEASE.md" target="_blank" rel="noreferrer">原始发布规范</a>。</p>
+</section><section id="reference-directory"><h2 id="reference-directory--文档目录与原始资料" tabindex="-1">18. 文档目录与原始资料 </h2>
+<p>本手册重组阅读路径，保留原仓库的细节与历史证据作为来源，不搬运全部研究日志。</p>
+<h2 id="reference-directory--快速入门" tabindex="-1">快速入门 </h2>
+<p><a href="#start-introduction">项目简介</a> → <a href="#start-routes">路线选择</a> → <a href="#start-environment">环境准备</a>。版本先查<a href="#reference-compatibility">兼容矩阵</a>。</p>
+<h2 id="reference-directory--开发指南" tabindex="-1">开发指南 </h2>
+<p><a href="#guide-source-map">源码导航</a>、<a href="#guide-architecture">架构</a>、<a href="#guide-app-sdk">应用 SDK</a>、<a href="#guide-server">Server 与 MCP</a>、<a href="#guide-platforms">iOS/V1/鸿蒙</a>。</p>
+<h2 id="reference-directory--android-专题" tabindex="-1">Android 专题 </h2>
+<p><a href="#android-overview">概览</a> → <a href="#android-build">构建</a> → <a href="#android-architecture">架构</a> → <a href="#android-extension">扩展</a> → <a href="#android-upgrade">升级</a> → <a href="#android-testing">测试</a>。</p>
+<h2 id="reference-directory--原始资料索引" tabindex="-1">原始资料索引 </h2>
+<table tabindex="0">
+<thead>
+<tr>
+<th>原始资料</th>
+<th>使用方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/README.md" target="_blank" rel="noreferrer">根 README</a></td>
+<td>发布范围、路线和近期更新；日期不是全量回归日期</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/DEVELOPER_ECOSYSTEM.md" target="_blank" rel="noreferrer">开发生态</a></td>
+<td>SDK 例子、协议和交付边界</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/README.md" target="_blank" rel="noreferrer">后端 README</a></td>
+<td>API、MCP、状态与凭据语义</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/CONFIGURATION.md" target="_blank" rel="noreferrer">配置说明</a></td>
+<td>V1 等历史配置，先核对适用路线</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/VALIDATION.md" target="_blank" rel="noreferrer">历史验收</a></td>
+<td>已测与已知问题，不能套用所有当前平台</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/LICENSING.md" target="_blank" rel="noreferrer">许可说明</a></td>
+<td>当前原创非商业许可与历史授权</td>
+</tr>
+<tr>
+<td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/docs/SOURCE_RELEASE.md" target="_blank" rel="noreferrer">源码发布说明</a></td>
+<td>排除项和历史流程；所提 export-source 脚本当前仓库未提供，不作为可执行入口</td>
+</tr>
+</tbody>
+</table>
+<h2 id="reference-directory--维护入口" tabindex="-1">维护入口 </h2>
+<p><a href="#maintenance-contributing">贡献约定</a>说明提交边界；文档维护说明（见手册末尾）说明新增页面、搜索、兼容性更新、本地检查与可配置子路径部署。</p>
+</section><section id="handbook-maintenance"><h2>19. 手册使用与维护</h2><p>本文件为单文件 HTML 手册，双击即可在浏览器阅读，无需 Node.js、依赖安装或本地服务。正文、样式和目录均在文件内；外部源码与发行链接需要网络。</p><p>使用浏览器查找（Ctrl+F）检索正文，使用打印功能可保存为 PDF。更新时直接编辑本 HTML，并同步版本矩阵、命令、源码依据和验收范围。标题 ID 与目录链接须同步保持有效。</p><p>本手册以仓库现有源码和验证记录为依据。涉及本地未提交实验的描述应在后续发布前重新核对；文档校验不替代产品构建或设备测试。</p></section><section id="project-directory-detail"><h2>20. 项目目录结构与职责</h2><p>下表按当前工作区实际目录整理。构建缓存、.git 和依赖安装目录不属于业务模块；目录存在不等于其功能已集成到当前发行。源码链接需要网络，并以远端是否包含对应提交为准。</p><pre>Turbo-IO/
+├─ android-addon/{src,assets,tests,docs}
+├─ apps/RayNeoCompanion/{Sources,Tests,UITests}
+├─ official-addon/{tmig1-edition,research,focus-edition,…}
+├─ dashboard-service/{turbo_dashboard,examples,tests}
+├─ app-gallery/
+├─ firmware-research/{strix-1.0.4.12,strix-1.0.5.5}
+├─ harmony-sdk/{entry,turbo_core}
+├─ rayneo-{protocol,transport-ios,session,session-runtime,…}/
+├─ watch-remote/{Watch,Phone,Shared,Addon,Firmware,tests}
+├─ codex-bridge/ · display-observer/ · core-probe/
+├─ esp32-scada/{main,tests}  [工作区实验]
+└─ docs/ · scripts/ · skills/ · third-party/ · Learn/</pre><table><thead><tr><th>目录</th><th>职责</th><th>内部结构与适用范围</th></tr></thead><tbody><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/android-addon">android-addon</a></td><td>Android 官方宿主扩展</td><td>src/com/turboio/addon 为原创 Java；assets 为允许资源；tests 为协议、流程及打包检查；docs 为安装与历史验证。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/app-gallery">app-gallery</a></td><td>离线应用模板</td><td>20 个模板的说明、字段示例与开发提示；不是眼镜端执行引擎。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/apps">apps</a></td><td>独立客户端</td><td>RayNeoCompanion/Sources 为 iOS V1 界面与状态；Tests/UITests 为对应测试。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/codex-bridge">codex-bridge</a></td><td>电脑端 Agent 桥</td><td>bridge.mjs 与测试；与应用 SDK 的 MCP 取数适配分开。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/core-probe">core-probe</a></td><td>通信核心研究适配</td><td>Sources 与 Vendor 等依赖；包含厂商核心复用，不代表全部协议已独立实现。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/dashboard-service">dashboard-service</a></td><td>自托管后端与应用 SDK</td><td>turbo_dashboard 为 API、存储、MCP、包与协议逻辑；examples 为示例；tests 为自动检查；uv.lock 锁定依赖。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/display-observer">display-observer</a></td><td>显示状态观察</td><td>server.mjs 与网页预览测试；重绘已知业务，不是镜片像素镜像。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/docs">docs</a></td><td>项目文档与手册</td><td>配置、架构、开发生态、验收、许可与截图；本 HTML 位于此处。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/esp32-scada">esp32-scada</a></td><td>ESP32 传感器实验</td><td>main 与 tests；对应 Android SCADA BLE 工作区实验，未据此承诺公开发行或真机兼容。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/firmware-research">firmware-research</a></td><td>眼镜固件研究</td><td>strix-1.0.4.12 与 strix-1.0.5.5 分别固定不同底座、ABI、负载与候选。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/harmony-sdk">harmony-sdk</a></td><td>历史鸿蒙客户端</td><td>entry 为页面与应用；turbo_core 为 BLE/协议模块。停止更新，不能套用当前 iOS/Android 验收。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/Learn">Learn</a></td><td>项目学习记录</td><td>Concepts/Maps/Sessions/Reviews/Viz；知识笔记和复习资料，不是产品运行依赖。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/official-addon">official-addon</a></td><td>iOS 官方宿主扩展</td><td>主目录含历史/研究模块；tmig1-edition 为固定 1.0.6（218）路线；research、focus-edition、music 等各有适用范围，不能混合构建。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/official-apps">official-apps</a></td><td>官方输入资料</td><td>ios 按宿主版本组织来源与准备说明；不是预签名 Turbo-IO 客户端。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-protocol">rayneo-protocol</a></td><td>Swift 协议层</td><td>帧、消息与纯计算逻辑。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-transport-ios">rayneo-transport-ios</a></td><td>Swift 传输层</td><td>iOS 公共字节通道及传输适配。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-session">rayneo-session</a></td><td>Swift 会话模型</td><td>会话规则与状态抽象。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-session-runtime">rayneo-session-runtime</a></td><td>Swift 会话运行时</td><td>组合会话、异步回调与运行过程。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-display">rayneo-display</a></td><td>Swift 显示层</td><td>显示数据类型、转换与相关逻辑。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-archive">rayneo-archive</a></td><td>Swift 归档层</td><td>对话/记录归档模型与存储逻辑。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/rayneo-audio-container">rayneo-audio-container</a></td><td>Swift 音频容器</td><td>音频封装检查与转换相关逻辑。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/scripts">scripts</a></td><td>开发辅助脚本</td><td>环境预检、源码检查、已审资源清单；执行前确认文件实际存在。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/skills">skills</a></td><td>Agent 开发指引</td><td>turbo-io 为接入/协议指导；turboio-developer 为应用开发工作流。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/third-party">third-party</a></td><td>第三方源码</td><td>ZIPFoundation 等；保留各自来源与许可证。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/watch-remote">watch-remote</a></td><td>Apple Watch 遥控</td><td>Watch/Phone/Shared/Addon/Firmware/tests；多端需匹配，非 Android 默认功能。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/artifacts">artifacts</a></td><td>本机产物</td><td>发行附件或工具暂存；不能凭存在判断来源、已发布或已验收，不作为源码入口。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/.github">.github</a></td><td>CI 配置</td><td>工作流与仓库协作配置；不是产品后端。</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/tree/main/.vscode">.vscode</a></td><td>编辑器配置</td><td>本地开发辅助，不属于运行时模块。</td></tr></tbody></table><h3>根目录文件</h3><p>README.md 是项目入口；LICENSE、NOTICE、THIRD_PARTY_NOTICES.md 说明授权与第三方边界；DEPENDENCIES.json 记录依赖清单；.gitignore 和 .gitleaks.toml 为仓库维护配置。不要把 artifacts、build 或缓存当成可复现源码。</p></section><section id="module-responsibilities"><h2>21. 模块说明与改动定位</h2><p>Android 的类名与文件名用于定位职责，不能当作对外稳定 API。UI → Controller/Bridge → Codec → NativeTransfer → 宿主 → 匹配眼镜运行时，是排查业务动作的主要阅读顺序。</p><table><thead><tr><th>模块</th><th>关键源码</th><th>职责与边界</th></tr></thead><tbody><tr><td>生命周期与问答</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TurboAddon.java">TurboAddon.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ChatPolicy.java">ChatPolicy.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/SecretStore.java">SecretStore.java</a></td><td>安装入口、原始回调分发、会话接管、取消与加密凭据；不自行重建官方 BLE 连接。</td></tr><tr><td>UI 与配置</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/EditorialUI.java">EditorialUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TurboStyle.java">TurboStyle.java</a></td><td>构建原生 Dialog/控件与入口；界面层把动作交给控制器，不代表镜片操作成功。</td></tr><tr><td>通用传输</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NativeTransfer.java">NativeTransfer.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TransferGate.java">TransferGate.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/HostBusiness.java">HostBusiness.java</a></td><td>宿主消息/文件适配、业务映射、任务与 ACK 关联和不确定结果隔离。</td></tr><tr><td>模型工具与语音</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ToolClient.java">ToolClient.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/VoiceSpeech.java">VoiceSpeech.java</a></td><td>有配置的工具调用和本机/可配置云端朗读；凭据自备。</td></tr><tr><td>导航</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NavigationUI.java">NavigationUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NativeNavigation.java">NativeNavigation.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NativeNavCodec.java">NativeNavCodec.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NavCore.java">NavCore.java</a></td><td>地图规划与导航状态/编码；模拟导航与户外跟随验收分别记录。</td></tr><tr><td>音乐</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/MusicUI.java">MusicUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/MusicPlayer.java">MusicPlayer.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/MusicBridge.java">MusicBridge.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/MusicCodec.java">MusicCodec.java</a></td><td>服务查询、播放与镜片歌词/封面/控制桥；登录与权限自行配置。</td></tr><tr><td>阅读</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ReaderUI.java">ReaderUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ReaderLibrary.java">ReaderLibrary.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ReaderBridge.java">ReaderBridge.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ReaderCodec.java">ReaderCodec.java</a></td><td>本地文本、书库与镜片阅读；公开构建不包含网页正文/Cookie入口。</td></tr><tr><td>番茄计时</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/FocusUI.java">FocusUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/FocusController.java">FocusController.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/FocusCodec.java">FocusCodec.java</a></td><td>预设、计时动作、TFP1 状态与确认。</td></tr><tr><td>卡片与小应用</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/CardUI.java">CardUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/CardCodec.java">CardCodec.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/CardTransport.java">CardTransport.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/GalleryUI.java">GalleryUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/AppController.java">AppController.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/AppCodec.java">AppCodec.java</a></td><td>TCE1 卡片及 TAP1 应用导入、预览、安装；需匹配运行时。</td></tr><tr><td>字幕、新闻与后台</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/CaptionUI.java">CaptionUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/CloudCaption.java">CloudCaption.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NewsUI.java">NewsUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NewsTele.java">NewsTele.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/BackgroundWork.java">BackgroundWork.java</a></td><td>云字幕、提词/新闻任务和前台服务；长期后台与服务可用性另行验证。</td></tr><tr><td>固件升级</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OtaUI.java">OtaUI.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OfficialOtaBridge.java">OfficialOtaBridge.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OfficialOtaGate.java">OfficialOtaGate.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OtaRecoveryGuard.java">OtaRecoveryGuard.java</a></td><td>固定候选与官方升级保护；Java 门禁还需匹配 Dart 来源补丁。</td></tr><tr><td>SCADA 实验</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ScadaSensorController.java">ScadaSensorController.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ScadaBleScanner.java">ScadaBleScanner.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ScadaPacketCodec.java">ScadaPacketCodec.java</a><br><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ScadaReplayGuard.java">ScadaReplayGuard.java</a></td><td>BLE 扫描、认证、计数器与接近判断；当前工作区实验。</td></tr></tbody></table><h3>服务端模块</h3><table><thead><tr><th>文件</th><th>职责</th></tr></thead><tbody><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/server.py">server.py</a></td><td>FastAPI 路由与身份/请求校验</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/store.py">store.py</a></td><td>SQLite、revision、不可变快照、任务与回执状态</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/client.py">client.py</a></td><td>Python SDK 与 HTTP 请求边界</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/mcp_server.py">mcp_server.py</a></td><td>将项目 API 暴露为 MCP 工具</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/gallery.py">gallery.py</a></td><td>模板目录与展示快照转换</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/app_package.py">app_package.py</a></td><td>应用包结构、ZIP、资源与版本校验</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/app_wire.py">app_wire.py</a></td><td>原生记录编码</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/app_transport.py">app_transport.py</a></td><td>应用安装传输模型</td></tr><tr><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/dashboard-service/turbo_dashboard/app_cli.py">app_cli.py</a></td><td>turbo-app 命令入口</td></tr></tbody></table><p>卡片发布任务与应用 ZIP 安装是两条入口；MCP 取数发生在用户 Server，眼镜运行有界原生页面。V1 Swift 层级参见第5章源码导航，宿主升级契约参见第14章。</p></section><section id="page-reference"><h2>22. 页面说明与导航关系</h2><p>这里的“页面”指源码实际构建的手机界面，不是本手册章节，也不是眼镜原生页面。本次按源码核查入口，未重新进行 UI 点击或设备测试。</p><h3>Android 当前页面</h3><pre>官方宿主首页 → Turbo IO
+  ├─ 模型与对话 / 音乐 / 阅读 / 导航 / 番茄 / 仪表盘 / 应用广场
+  ├─ 实验固件升级 / SCADA 本机实验
+  └─ 底部：首页 · 翻译 · 新闻 · 设置
+      设置 → 模型 / 朗读 / 搜索与知识库 / 后台 / 诊断</pre><table><thead><tr><th>页面</th><th>入口</th><th>源码</th><th>作用与限制</th></tr></thead><tbody><tr><td>Turbo IO 首页</td><td>官方主界面 Turbo IO 按钮</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/EditorialUI.java">EditorialUI.java</a></td><td>功能卡片与底部首页/翻译/新闻/设置；不修改厂商 Tab。</td></tr><tr><td>模型与对话</td><td>首页 → 模型与对话，或设置 → 模型与对话</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TurboAddon.java">TurboAddon.java</a></td><td>选择官方/随机测试/自有模型，配置地址、模型、提示词与 Key。</td></tr><tr><td>网易云音乐</td><td>首页 → 网易云音乐</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/MusicUI.java">MusicUI.java</a></td><td>歌曲/列表、播放及镜片控制。</td></tr><tr><td>微信读书</td><td>首页 → 微信读书</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ReaderUI.java">ReaderUI.java</a></td><td>书架/本地阅读与镜片状态；网页正文不在公开范围。</td></tr><tr><td>高德导航</td><td>首页 → 高德导航</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NavigationUI.java">NavigationUI.java</a></td><td>终点与路线规划、模拟/导航状态；地图凭据和签名授权需匹配。</td></tr><tr><td>番茄时钟</td><td>首页 → 番茄时钟</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/FocusUI.java">FocusUI.java</a></td><td>预设、开始、暂停、继续与停止，读取镜片确认。</td></tr><tr><td>仪表盘</td><td>首页 → 仪表盘</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/CardUI.java">CardUI.java</a></td><td>有界卡片编辑、预览与发送。</td></tr><tr><td>应用广场</td><td>首页 → 应用广场</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/GalleryUI.java">GalleryUI.java</a></td><td>我的应用、导入 ZIP、模板与开发指引；安装前查槽位并确认。</td></tr><tr><td>云端字幕</td><td>底部 → 翻译</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/CaptionUI.java">CaptionUI.java</a></td><td>云端字幕服务配置与启动/停止；不是 Android 离线翻译。</td></tr><tr><td>新闻</td><td>底部 → 新闻</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/NewsUI.java">NewsUI.java</a></td><td>新闻/提词配置与任务控制，服务与长期后台另验。</td></tr><tr><td>设置</td><td>底部 → 设置</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/EditorialUI.java">EditorialUI.java</a></td><td>模型与对话、同步朗读、搜索与知识库、后台运行和诊断。</td></tr><tr><td>同步朗读</td><td>设置 → 回答同步朗读</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/VoiceSpeech.java">VoiceSpeech.java</a></td><td>TTS 服务、声音与朗读设置。</td></tr><tr><td>搜索与知识库</td><td>设置 → 搜索与知识库</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/TurboAddon.java">TurboAddon.java</a></td><td>Tools 开关、搜索/知识库服务配置。</td></tr><tr><td>后台运行</td><td>设置 → 后台运行</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/BackgroundWork.java">BackgroundWork.java</a></td><td>后台任务与前台服务相关控制。</td></tr><tr><td>诊断</td><td>设置 → 诊断</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/EditorialUI.java">EditorialUI.java</a></td><td>查看 TurboAddon 和 NativeTransfer 摘要；不应输出密钥。</td></tr><tr><td>实验升级</td><td>首页 → 实验固件升级 · 默认锁定</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/OtaUI.java">OtaUI.java</a></td><td>固定候选、只下载、预检与单次授权；按完整教程收尾。</td></tr><tr><td>SCADA 传感器</td><td>首页 → SCADA 传感器 · 本机实验</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/android-addon/src/com/turboio/addon/ScadaSensorController.java">ScadaSensorController.java</a></td><td>实验身份/密钥、扫描与接近状态；不是已发布稳定模块。</td></tr></tbody></table><p><strong>旧首页不等于当前入口：</strong>TurboAddon.showHome 调用 EditorialUI.home；showLegacyHome 中仍有录音导出与文字存档代码，但当前首页未直接展示这些旧菜单。RecordingExports 等实现存在不能证明当前公开 UI 已提供对应入口。Android Screen 使用原生 Dialog 组成界面，不能按 Web 路由或独立 Activity 数量理解页面数量。</p><h3>iOS V1 独立客户端</h3><table><thead><tr><th>主页面</th><th>入口与源码</th><th>职责</th></tr></thead><tbody><tr><td>设备</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/apps/RayNeoCompanion/Sources/DeviceView.swift">apps/RayNeoCompanion/Sources/DeviceView.swift</a></td><td>连接、设备状态与相关操作</td></tr><tr><td>会话</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/apps/RayNeoCompanion/Sources/ConversationView.swift">apps/RayNeoCompanion/Sources/ConversationView.swift</a></td><td>会话显示与语音相关入口</td></tr><tr><td>归档</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/apps/RayNeoCompanion/Sources/ArchiveView.swift">apps/RayNeoCompanion/Sources/ArchiveView.swift</a></td><td>记录、文件与本地归档</td></tr><tr><td>工具</td><td><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/apps/RayNeoCompanion/Sources/ToolsView.swift">apps/RayNeoCompanion/Sources/ToolsView.swift</a></td><td>观察台、本地智记探针、模型工具、Codex；待办、提词、通知等部分入口受功能开关影响</td></tr></tbody></table><p>RootView 在 <a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/apps/RayNeoCompanion/Sources/RayNeoCompanionApp.swift">apps/RayNeoCompanion/Sources/RayNeoCompanionApp.swift</a> 中按 selectedTab 分发四个主页面。其他 View 文件可能由子菜单、sheet 或功能开关进入，不应仅凭文件名宣称是底部主页面。</p><p>设备页快捷入口还包括语音助手（切换会话）、录音归档（切换归档）、提词器、待办和 QWeather；设置与连接边界通过 sheet 打开。归档有副本导出、记录详情和音频容器检查；会话页含模型配置和模拟入口。BookReader 等次级视图是否可达应沿调用继续核对，不能把所有 View 文件直接列为当前主菜单。</p><h3>iOS V2 / TMIG1 宿主插件</h3><p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/tmig1-edition/EditorialShell.inc">official-addon/tmig1-edition/EditorialShell.inc</a> 组织首页功能卡片及翻译/设置分组；<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/official-addon/tmig1-edition/ResearchUI.m">official-addon/tmig1-edition/ResearchUI.m</a> 提供界面样式与研究壳。首页包含音乐、阅读、导航、番茄、仪表盘和应用广场；翻译分组包含本地翻译/字幕、录音分享、转写和智记文字/音频入口。设置包含模型语音、知识库/Agent、显示兼容、Watch 与诊断。Dots 虽有设置入口，仍未完成，不能写作可用产品。具体模块集成按 TMIG1 固定构建说明，不能套用 Android 的页面/能力结论。</p><h3>历史 HarmonyOS</h3><p><a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/harmony-sdk/entry/src/main/ets/pages/Index.ets">harmony-sdk/entry/src/main/ets/pages/Index.ets</a> 是首页与连接向导入口，包含天气、卡片、导航、待办、录音、资料、提词器、通知、设备及模型语音功能格。main_pages.json 实际只注册 pages/Index 与 pages/Diagnostics；EntryAbility 首先加载 Index，诊断使用已注册页面。Index 以状态切换眼镜/功能/设置；FeaturePanel 嵌入录音、提词、通知、资料与导航组件。功能格不是同名独立路由文件，AmapPreview 的当前可达路径未在本次确认。相关源码：<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/harmony-sdk/entry/src/main/ets/pages/FeaturePanel.ets">FeaturePanel.ets</a>、<a href="https://github.com/Fnckerpoi/Turbo-IO/blob/main/harmony-sdk/entry/src/main/resources/base/profile/main_pages.json">main_pages.json</a>。项目已停止维护，界面文案所示能力仍须对照历史 VALIDATION 的限制。</p><h3>眼镜端页面</h3><p>手机导航、音乐、阅读、番茄等页面负责配置与发送；眼镜上的原生菜单/应用属于对应 firmware-research 底座的 AP 运行时。手机 UI 出现按钮不代表眼镜已经安装兼容解析器或显示页面。四槽应用页面来自 TAP1 应用包，不能与手机页面或固件系统菜单混为一谈。</p></section></main><a class="top" href="#top">返回目录</a></body></html>

@@ -18,6 +18,8 @@
 
 **[Android APK / 固件下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/android-105-guard07-tap1-test01) · [Android 安装与刷机](android-addon/docs/INSTALL_AND_FLASH.md) · [iOS 源码与构建](official-addon/README.md) · [☕ 自愿支持项目](#support)**
 
+**中文开发手册：** [Turbo-IO 开发手册（单文件 HTML）](docs/TURBO_IO_DEVELOPER_MANUAL.html)，下载后用浏览器直接打开，包含全项目开发指南与 Android 专题。
+
 ## 使用前必读
 
 - **小白不要刷，日常使用请保留官方固件。** 本轮新增的眼镜端原生应用、自定义图形仪表盘与小应用运行时，都需要对应的实验固件；仅安装手机插件不会把这些能力加进原厂固件。已有模型接入、部分字幕等手机侧功能不因此要求刷机。已有匹配运行时后，导入兼容卡片/应用包不必每次重刷。
