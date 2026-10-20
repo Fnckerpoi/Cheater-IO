@@ -38,6 +38,20 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 
 [选择平台](#先选开发路线) · [近期更新](#updates) · [功能对比](#各端功能对比) · [AI 帮你接入](#让-claude-code--codex-帮你接入) · [V1 快速开始](#快速开始) · [Web 预览](#web-显示预览与观察台) · [Roadmap](#roadmap) · [许可与隐私](#隐私与许可)
 
+## 分支说明
+
+`main` 仅跟踪原作者的 `upstream/main`，用于接收上游总仓库更新。此 README 介绍上游项目，不承载个人路线开发。
+
+个人路线分别维护自己的 README 和提交：
+
+- [Android 路线](https://github.com/Fnckerpoi/Turbo-IO/tree/android)：Android 宿主扩展与 ESP32 SCADA。
+- [iOS V1 路线](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v1)：独立 SDK 与示例客户端。
+- [iOS V2 路线](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v2)：官方 iOS App 扩展。
+
+在 `main` 同步上游：执行 `git fetch upstream`，再执行 `git merge --ff-only upstream/main`。个人定制请切换至对应路线；不要把路线分支合并回 `main`。各路线 README 独立说明其内容、构建和操作方式。
+
+---
+
 ## 先选开发路线
 
 **先按目标选，不必从 V1 源码开始。** 想使用已打包的 Android 研究功能、自己构建 iOS 插件、开发卡片/小应用，是三种不同入口。普通日常用户请使用官方 App 和原厂固件，不要把实验包当作官方更新。
