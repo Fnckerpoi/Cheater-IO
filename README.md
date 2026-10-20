@@ -1,4 +1,4 @@
-﻿# Turbo-IO · SCADA 事实字幕与环境感知扩展 (Personal Branch)
+# Turbo-IO · SCADA 事实字幕与环境感知扩展 (Personal Branch)
 
 本仓库为基于 [Turbo1123/Turbo-IO (Upstream)](https://github.com/Turbo1123/Turbo-IO) 的个人定制与功能扩展分支。
 
@@ -32,19 +32,57 @@
 
 ## 🛠️ 硬件与环境架构
 
-`	ext
-[ ESP32-C3 + BMP280 传感器 ]
-       │  (每 500ms 刷新加密数据 / 100ms BLE 广播)
-       ▼  [AES-128-GCM 加密广播 (Company ID: 0xFFFF)]
-[ Android 手机 (Turbo-IO 扩展宿主) ]
-       │  1. 验证时间戳与 10s 绝对新鲜度
-       │  2. AES 解密与防重放计数器持久化
-       │  3. RSSI 接近门控 (3包入场 / 滞回离开)
-       │  4. 8秒冷却防抖与专属 SID 轮转
-       ▼  [AI_SUBTITLE 纯文字协议 (业务 ID: 19)]
-[ RayNeo 智能眼镜 (显示镜片) ]
-       └─► 实时呈现: "SCADA / 温度: xx.xx °C / 环境气压: xxxxxx Pa"
-`
+```mermaid
+flowchart TD
+    subgraph SENSOR["📡 硬件端 · ESP32-C3 + BMP280"]
+        A1["BMP280 传感器<br/>(采集环境温度 / 气压)"] --> A2["硬件定时采样<br/>(每 500ms 刷新加密数据)"]
+        A2 --> A3["AES-128-GCM 原生加密<br/>(96位认证标签 + 单调计数器)"]
+        A3 --> A4["低功耗蓝牙广播<br/>(100ms 间隔 / Company ID: 0xFFFF)"]
+    end
+
+    subgraph PHONE["📱 移动端 · Android 手机 (Turbo-IO 扩展宿主)"]
+        B1["BLE 扫描捕获<br/>(提取 ScanResult 纳秒时间戳)"]
+        B2{"数据合法性门控"}
+        B3["1. 检查 10s 绝对新鲜度与时序<br/>2. 校验 AES-GCM 标签并解密<br/>3. 持久化防重放计数器账本"]
+        B4{"物理接近判断 (RSSI)"}
+        B5["未达到进入门限<br/>(保持待命)"]
+        B6["连续 3 包满足近距门限<br/>(判定约 1 米内)"]
+        B7["会话管理器 (NavGlasses)<br/>• 独占句柄隔离 (Owner / Epoch)<br/>• 8 秒离场冷却与专属 SID 轮转"]
+        B8["越过 6dB 滞回退出边界<br/>或传感器断电 10 秒静默"]
+        B9["触发安全退出请求 (Type 3)<br/>眼镜自动退回主菜单首页"]
+
+        B1 --> B2
+        B2 -- "密文/重放异常" --> B5
+        B2 -- "校验通过" --> B3
+        B3 --> B4
+        B4 -- "远距离信号" --> B5
+        B4 -- "接近传感器" --> B6
+        B6 --> B7
+        B7 -- "离开感应区" --> B8
+        B8 --> B9
+        B9 -. "走远冷却 8s 后再次靠近<br/>(自动分配新 SID 恢复显示)" .-> B7
+    end
+
+    subgraph GLASSES["👓 展现端 · RayNeo 智能眼镜 (显示镜片)"]
+        C1["AI_SUBTITLE 事实字幕通道<br/>(业务 ID: 19)"]
+        C2["镜片绿色高亮实时显示<br/>SCADA<br/>温度: 24.36 °C<br/>环境气压: 101325 Pa"]
+        C3["眼镜自动清屏<br/>平滑返回系统主菜单"]
+
+        C1 --> C2
+        C1 -. "退出关闭" .-> C3
+    end
+
+    A4 ==>|BLE 广播空口传输| B1
+    B7 ==>|文字数据推送 (Type 5)| C1
+    B9 ==>|关闭请求 (Type 3)| C1
+
+    classDef sensor fill:#e1f5fe,stroke:#0288d1,stroke-width:1.5px,color:#01579b;
+    classDef phone fill:#f3e5f5,stroke:#7b1fa2,stroke-width:1.5px,color:#4a148c;
+    classDef glasses fill:#e8f5e9,stroke:#388e3c,stroke-width:1.5px,color:#1b5e20;
+    class SENSOR sensor;
+    class PHONE phone;
+    class GLASSES glasses;
+```
 
 ---
 
@@ -88,4 +126,3 @@ scada> provision <32位十六进制AES密钥> <16位十六进制设备前缀>
 
 - 本分支新增的 SCADA 固件、字幕状态机控制器、测试用例及相关文档均沿用原项目协议，仅供学习、研究与非商业交流使用。
 - 本项目不提供任何商业保证，涉及无线电传输及眼镜硬件操作的风险由使用者自行评估。
-
