@@ -1,4 +1,16 @@
-# Turbo IO · 雷鸟 iO / RayNeo iO 非官方 SDK
+# Turbo IO · iOS V2 官方 App 扩展路线
+
+## iOS V2 路线说明
+
+本分支专注于在兼容的官方 iOS App 副本中集成扩展。V2 与独立 SDK/示例客户端 V1 是并行路线；1.0.6、1.0.7 等编号指宿主 App 版本，不是 V1/V2。
+
+- 其它路线：[上游总览](https://github.com/Fnckerpoi/Turbo-IO/tree/main)、[Android](https://github.com/Fnckerpoi/Turbo-IO/tree/android)、[iOS V1](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v1)。
+- 开始定制：`git switch ios-v2`；提交后执行 `git push origin ios-v2`。
+- 吸收作者更新：在 `main` 快进同步 `upstream/main`，切回本分支合并 `main`，验证 V2 改动后推送。
+
+本 README 独立维护；以下上游总览可能涉及其他平台，V2 的具体构建和验证以 `official-addon/README.md` 及路线文档为准。
+
+---
 
 ![Turbo IO · Android 与 iOS 双端源码已公开：仪表盘、原生应用与开发者 SDK](docs/screenshots/android-ios-release-hero-20260927.png)
 
