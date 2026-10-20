@@ -1,4 +1,7 @@
 .DS_Store
+
+# Locally installed Espressif SDK, toolchains and Python environments
+/Espressif/
 **/.venv/
 **/.state/
 **/__pycache__/
