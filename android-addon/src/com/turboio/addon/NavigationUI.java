@@ -14,6 +14,11 @@ import java.util.concurrent.*;
 
 /** Foreground experimental guidance using the host's existing public AMap APIs. */
 public final class NavigationUI {
+    private static final Object captionOwner=new Object(), testCaptionOwner=new Object();
+    private static boolean captionNavigation;
+    private static NavGlasses.Handle captionHandle;
+    private static long captionEpoch;
+
     private static NavigationUI current;
     private final Activity host;private final Handler main=new Handler(Looper.getMainLooper());
     private final ExecutorService network=Executors.newSingleThreadExecutor();
@@ -191,11 +196,11 @@ public final class NavigationUI {
     }};
     private String displayPhase(){return nativeDisplay?NativeNavigation.phase():NavGlasses.phase();}
     private String displayStatus(){return nativeDisplay?NativeNavigation.status():NavGlasses.status();}
-    private void stopDisplay(){BackgroundWork.release("导航");if(nativeDisplay)NativeNavigation.stop();else NavGlasses.stop();}
-    private void confirmDisplayIdle(){if(nativeDisplay)NativeNavigation.confirmIdle();else NavGlasses.confirmIdle();}
+    private void stopDisplay(){BackgroundWork.release("导航");if(nativeDisplay)NativeNavigation.stop();else NavGlasses.stop(captionHandle);}
+    private void confirmDisplayIdle(){if(nativeDisplay)NativeNavigation.confirmIdle();else NavGlasses.confirmIdle(captionHandle);}
     private boolean startDisplay(String text){return startDisplay(text,false);}
-    private boolean startDisplay(String text,boolean navigation){if(!nativeDisplay)return NavGlasses.start(text,navigation);try{boolean ok=NativeNavigation.start(scene(text,navigation));if(ok){BackgroundWork.register("导航",this::stopGuidance);BackgroundWork.acquire("导航",navigation?24:16);}return ok;}catch(RuntimeException e){guidanceMessage("原生导航数据超出预算，未发送");return false;}}
-    private void offerDisplay(String text){if(!nativeDisplay){NavGlasses.offer(text);return;}try{NativeNavigation.offer(scene(text,true));}catch(RuntimeException e){guidanceState.setText("原生导航数据暂不可用，未发送旧位置");}}
+    private boolean startDisplay(String text,boolean navigation){if(!nativeDisplay){if(captionHandle!=null&&captionNavigation==navigation&&NavGlasses.offer(captionHandle,text))return true;NavGlasses.Handle reserved=NavGlasses.reserve(navigation?captionOwner:testCaptionOwner,++captionEpoch);if(reserved==null)return false;captionHandle=reserved;captionNavigation=navigation;return captionHandle!=null&&NavGlasses.begin(captionHandle,text,navigation);}try{boolean ok=NativeNavigation.start(scene(text,navigation));if(ok){BackgroundWork.register("导航",this::stopGuidance);BackgroundWork.acquire("导航",navigation?24:16);}return ok;}catch(RuntimeException e){guidanceMessage("原生导航数据超出预算，未发送");return false;}}
+    private void offerDisplay(String text){if(!nativeDisplay){NavGlasses.offer(captionHandle,text);return;}try{NativeNavigation.offer(scene(text,true));}catch(RuntimeException e){guidanceState.setText("原生导航数据暂不可用，未发送旧位置");}}
     private NativeNavCodec.Scene scene(String text,boolean navigation){
         if(!navigation||steps.isEmpty()){NativeNavCodec.Scene demo=new NativeNavCodec.Scene();demo.road="模拟 · 校验7392";demo.turn="前方右转";demo.icon=3;demo.distance=80;demo.remaining=2048;demo.seconds=420;demo.x=512;demo.y=800;demo.points=new int[][]{{512,800},{512,256},{900,256}};demo.mode=alwaysOn?1:0;return demo;}
         if(text.contains("等待")||text.contains("偏离")||text.contains("重新规划")||text.contains("路线概览")){NativeNavCodec.Scene waiting=new NativeNavCodec.Scene();waiting.mode=alwaysOn?1:0;waiting.road=NativeNavCodec.clip(destinationName,96);waiting.turn=NativeNavCodec.clip(text.contains("模拟")?"模拟 · 等待通道就绪":text.contains("偏离")?"已偏离路线，请重新规划":text.contains("重新规划")?"请重新规划路线":"等待准确定位",48);return waiting;}

@@ -14,7 +14,7 @@ final class OtaSession {
  private int battery=-1,chunks,apCovered;
  private long sent;
  private final TreeMap<Integer,Integer> ranges=new TreeMap<>();
- OtaSession(OtaPackage p){firmware=p;}
+ OtaSession(OtaPackage p){if(p!=null&&p.profile!=OtaProfile.TAP1)throw new IllegalArgumentException("legacy sender only accepts TAP1");firmware=p;}
  State state(){return state;}String error(){return error;}String peer(){return peer;}String version(){return version;}
  int battery(){return battery;}int chunks(){return chunks;}long sent(){return sent;}int covered(){return apCovered;}
  boolean started(){return started;}boolean bootValidated(){return bootValidated;}
