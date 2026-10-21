@@ -3,6 +3,7 @@ import hashlib
 import json
 import sys
 import zipfile
+from dex_slot import addon_dex_slot
 
 source, output = sys.argv[1:3]
 extra = {}
@@ -26,8 +27,11 @@ with zipfile.ZipFile(source) as original, zipfile.ZipFile(output) as derivative:
     changed = sorted(name for name in before & after
                      if hashlib.sha256(original.read(name)).digest()
                      != hashlib.sha256(derivative.read(name)).digest())
+    addon_slot = addon_dex_slot(before)
     unexpected = [name for name in removed if not name.startswith('META-INF/')]
-    unexpected += [name for name in added if name != 'classes4.dex' and name not in extra and not name.startswith('META-INF/')]
+    if addon_slot not in after or not derivative.read(addon_slot).startswith(b'dex\n'):
+        unexpected.append(addon_slot)
+    unexpected += [name for name in added if name != addon_slot and name not in extra and not name.startswith('META-INF/')]
     unexpected += [name for name, path in extra.items() if name not in after or derivative.read(name) != path.read_bytes()]
     expected_manifest = bool(extra) and derivative.read('AndroidManifest.xml') == patch_manifest(original.read('AndroidManifest.xml'))
     unexpected += [name for name in changed if name != 'classes2.dex' and not (name == 'AndroidManifest.xml' and expected_manifest)

@@ -49,7 +49,7 @@ public final class ScadaCaptionController {
         lastCapturedAtMillis = capturedAtMillis;
         near = true;
         expires = capturedAtMillis + ScadaProximity.STALE_AFTER_MILLIS;
-        String text = String.format(Locale.ROOT,"SCADA\n温度：%.2f °C\n环境气压：%d Pa",reading.temperatureCentiC/100.0,reading.pressurePa);
+        String text = String.format(Locale.ROOT,"SCADA\n温度：%.2f °C\n环境气压：%.2f kPa",reading.temperatureCentiC/100.0,reading.pressurePa/1000.0);
         if (displaying) {
             if (NavGlasses.update(owner,epoch,text,expires)) scheduleExpiry(); else stop();
             return;

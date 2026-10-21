@@ -26,26 +26,23 @@ if mode == 'jar':
         for file in files:
             out.write(file, file.relative_to(classes).as_posix())
 elif mode == 'patch':
-    source, base, work = map(pathlib.Path, args)
-    # Load the authoritative constants without executing its CLI.
+    source, base, work = map(pathlib.Path, args[:3])
+    node = args[3] if len(args) == 4 else 'node'
     script = pathlib.Path(__file__).with_name('package-official-ota-preparation.py')
-    constants = {}
-    exec(compile(script.read_text().split('root = pathlib.Path')[0], str(script), 'exec'), constants)
+    api = runpy.run_path(str(script))
+    profile = api['native_profile'](source)
     with zipfile.ZipFile(base) as archive:
-        original = archive.read(constants['NATIVE'])
-    if hashlib.sha256(original).hexdigest() != constants['ORIGINAL']:
-        raise SystemExit('Native library SHA256 mismatch')
-    patched = bytearray(original)
-    for offset, old, replacement in constants['SLOTS']:
-        if len(old) != len(replacement) or original[offset:offset+len(old)] != old:
-            raise SystemExit('Serialized URL slot mismatch')
-        patched[offset:offset+len(old)] = replacement
+        api['check_zip'](archive)
+        original = archive.read(api['NATIVE'])
+    patched = api['patch_native'](original, profile)
     library = work / 'libapp-guarded.so'
-    library.write_bytes(patched)
-    if sha(library) != constants['PATCHED']:
-        raise SystemExit('Patched library SHA256 mismatch')
-    sys.argv = [str(script), '--guarded', str(source), str(base), str(library), str(work/'guarded-unsigned.apk')]
-    runpy.run_path(str(script), run_name='__main__')
+    if library.exists():
+        if library.read_bytes() != patched:
+            raise SystemExit('Refuse to overwrite a different staged native library')
+    else:
+        with library.open('xb') as output:
+            output.write(patched)
+    api['prepare'](source, base, library, work/'guarded-unsigned.apk', True, node)
 elif mode == 'audit-signed':
     unsigned, signed, source, report = map(pathlib.Path, args)
     with zipfile.ZipFile(unsigned) as before, zipfile.ZipFile(signed) as after:

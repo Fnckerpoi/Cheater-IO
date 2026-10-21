@@ -7,6 +7,7 @@ import pathlib
 import re
 import sys
 import zipfile
+from dex_slot import addon_dex_slot
 
 source, assembled, addon, destination = map(pathlib.Path, sys.argv[1:5])
 extra = {}
@@ -22,8 +23,9 @@ temporary = destination.with_suffix('.assembling.apk')
 if temporary.exists():
     raise SystemExit('Temporary output exists; inspect before retrying')
 with zipfile.ZipFile(source) as original, zipfile.ZipFile(assembled) as modified:
-    if 'classes4.dex' in original.namelist():
-        raise SystemExit('Addon DEX collision')
+    addon_slot = addon_dex_slot(original.namelist())
+    if 'classes2.dex' not in original.namelist():
+        raise SystemExit('Missing reviewed hook DEX')
     if len(original.namelist()) != len(set(original.namelist())):
         raise SystemExit('Duplicate original ZIP members')
     if set(extra) & set(original.namelist()):
@@ -38,7 +40,7 @@ with zipfile.ZipFile(source) as original, zipfile.ZipFile(assembled) as modified
             content = patched if info.filename == 'classes2.dex' else original.read(info)
             if extra and info.filename == 'AndroidManifest.xml': content = patch_manifest(content)
             output.writestr(info, content)
-        info = zipfile.ZipInfo('classes4.dex', (2026, 9, 26, 0, 0, 0))
+        info = zipfile.ZipInfo(addon_slot, (2026, 9, 26, 0, 0, 0))
         info.compress_type = zipfile.ZIP_DEFLATED
         info.external_attr = 0o100644 << 16
         output.writestr(info, addon.read_bytes())

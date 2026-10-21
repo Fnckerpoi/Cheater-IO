@@ -29,9 +29,9 @@ public final class NavGlasses {
     public static String status(){return note+(previousOutcome.isEmpty()?"":" · "+previousOutcome)+" · "+phase+" · 文字提交 "+textSubmitted+" / SDK完成 "+textCompleted+" · "+(navigationSession?"路线":"测试");}
     public static String phase(){return phase;}
     public static boolean active(){return !phase.equals("idle");}
-    private static Object manager()throws Exception{return NavReflect.field(NavReflect.type("E3.u"),"h");}
+    private static Object manager()throws Exception{return NavReflect.field(NavReflect.type(HostSymbols.MANAGER_CLASS),"h");}
     private static String connected()throws Exception{
-        List<?> list=(List<?>)NavReflect.call(NavReflect.type("E3.u"),"g");String found="";
+        List<?> list=(List<?>)NavReflect.call(NavReflect.type(HostSymbols.MANAGER_CLASS),"g");String found="";
         for(Object d:list)if(Boolean.TRUE.equals(NavReflect.call(d,"b"))){if(!found.isEmpty())throw new IllegalStateException("multiple");found=(String)NavReflect.field(d,"a");}return found;
     }
     public static String connection(){try{return connected().isEmpty()?"眼镜未连接":"已找到官方连接";}catch(Exception e){return "连接信息不可用";}}
@@ -152,8 +152,8 @@ public final class NavGlasses {
     private static void send(int type,JSONObject json)throws Exception{
         String submittedSid=sid;Object owner=sessionOwner;long epoch=sessionEpoch;long submittedExpiry=latestExpires;
         if(!device.equals(connected()))throw new IllegalStateException("device_changed");
-        Object business=NavReflect.call(NavReflect.type("P3.h"),"valueOf","AI_SUBTITLE"),priority=NavReflect.call(NavReflect.type("E3.b"),"valueOf","NORMAL");
-        Object message=NavReflect.make("E3.Q",NavCore.packet(type,json.toString()),UUID.randomUUID().toString(),device,business,null,priority,false,false,null,null);
+        Object business=NavReflect.call(NavReflect.type(HostSymbols.BIZ_ENUM_CLASS),"valueOf","AI_SUBTITLE"),priority=NavReflect.call(NavReflect.type(HostSymbols.PRIO_ENUM_CLASS),"valueOf","NORMAL");
+        Object message=NavReflect.make(HostSymbols.PACKET_CLASS,NavCore.packet(type,json.toString()),UUID.randomUUID().toString(),device,business,null,priority,false,false,null,null);
         Object sdkManager=manager();
         Object callback=NavReflect.proxy("kotlin.jvm.functions.Function2",(name,args)->MAIN.post(()->{
             if(!sid.equals(submittedSid)||!owns(owner,epoch))return;
@@ -167,7 +167,7 @@ public final class NavGlasses {
             if(!phase.equals("ready"))return;
             if(SystemClock.elapsedRealtime()>=submittedExpiry){requestStop();return;}
         }
-        NavReflect.call(sdkManager,"u",message,callback);
+        NavReflect.call(sdkManager,HostSymbols.METHOD_SEND_PACKET,message,callback);
     }
     private static final Runnable tick=new Runnable(){public void run(){
         long now=SystemClock.elapsedRealtime();

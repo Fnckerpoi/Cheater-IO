@@ -8,8 +8,10 @@ mkdir -p build/classes build/test build/dex
 javac -encoding UTF-8 -d build/test src/com/turboio/addon/HostBusiness.java tests/HostBusinessTest.java
 java -cp build/test com.turboio.addon.HostBusinessTest
 node tests/HostProfilesTest.mjs
+node tests/HostBuildTest.mjs
+node tests/PackageCliTest.mjs
 node tests/OtaHooksTest.mjs
-node tests/OfficialOtaSourceTest.mjs
+TURBO_OFFICIAL_LIBAPP="${TURBO_OFFICIAL_LIBAPP:-}" node tests/OfficialOtaSourceTest.mjs
 python3 tests/ApkAssemblyTest.py
 python3 tests/ReaderDemoTest.py
 python3 tests/TtsManifestTest.py

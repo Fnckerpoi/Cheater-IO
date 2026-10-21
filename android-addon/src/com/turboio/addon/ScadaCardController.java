@@ -117,7 +117,7 @@ public final class ScadaCardController {
     static Map<String,Object> document(ScadaReading reading,boolean isStale){
         if(reading==null)throw new IllegalArgumentException("reading required");
         String temperature=String.format(Locale.ROOT,"温度：%.2f °C",reading.temperatureCentiC/100.0);
-        String pressure="环境气压："+reading.pressurePa+" Pa";
+        String pressure=String.format(Locale.ROOT,"环境气压：%.2f kPa",reading.pressurePa/1000.0);
         String statusText=isStale?"状态：数据已过期":"状态：正常";
         String freshness=isStale?"新鲜度：已过期（10 秒未收到近距离读数）":"新鲜度：新鲜（10 秒内收到近距离读数）";
         List<Object> components=Arrays.asList(

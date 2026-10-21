@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "id": "rayneo-1.0.4-195",
+      "sha256": "ef2e7dd346ca478e13d0f3f1bf31fa61412e44fb9b4ca9cf0d3e864ac608584b",
+      "version": "1.0.4",
+      "code": 195,
+      "directory": "host-104",
+      "status": "revoked",
+      "adapterId": null,
+      "baseline": "static-1.0.5"
+    },
+    {
+      "id": "rayneo-1.0.5-201",
+      "sha256": "770ba0793d31609aa1e4477db2f8a7aec2c8acc4d9c6ab43d57b0dfc720d3ab3",
+      "version": "1.0.5",
+      "code": 201,
+      "directory": "host-105",
+      "status": "approved",
+      "adapterId": "rayneo-1.0.5-201",
+      "baseline": "static-1.0.5"
+    },
+    {
+      "id": "rayneo-1.0.7-230",
+      "sha256": "30239f65d910cf7008cfdf6cfacd5c068c5877068b4a637027786377a9ce4f91",
+      "version": "1.0.7",
+      "code": 230,
+      "directory": "host-107",
+      "status": "approved",
+      "adapterId": "rayneo-1.0.7-230",
+      "baseline": "static-1.0.7"
+    }
+  ]
+}

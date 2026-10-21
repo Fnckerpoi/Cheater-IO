@@ -181,9 +181,9 @@ public final class OfficialOtaBridge {
  }
  private static void sendReadOnly(String peer,int type)throws Exception{
   if(type!=1&&type!=2&&type!=11)throw new IllegalArgumentException("not read only");
-  Object manager=NavReflect.field(NavReflect.type("E3.u"),"h"),biz=NavReflect.call(NavReflect.type("P3.h"),"valueOf","MARS_FOTA"),priority=NavReflect.call(NavReflect.type("E3.b"),"valueOf","NORMAL");
-  Object message=NavReflect.make("E3.Q",OtaFrame.encode(type,null,null),UUID.randomUUID().toString(),peer,biz,null,priority,false,false,null,null);
-  Object callback=NavReflect.proxy("kotlin.jvm.functions.Function2",(name,args)->{});NavReflect.call(manager,"u",message,callback);
+  Object manager=NavReflect.field(NavReflect.type(HostSymbols.MANAGER_CLASS),"h"),biz=NavReflect.call(NavReflect.type(HostSymbols.BIZ_ENUM_CLASS),"valueOf","MARS_FOTA"),priority=NavReflect.call(NavReflect.type(HostSymbols.PRIO_ENUM_CLASS),"valueOf","NORMAL");
+  Object message=NavReflect.make(HostSymbols.PACKET_CLASS,OtaFrame.encode(type,null,null),UUID.randomUUID().toString(),peer,biz,null,priority,false,false,null,null);
+  Object callback=NavReflect.proxy("kotlin.jvm.functions.Function2",(name,args)->{});NavReflect.call(manager,HostSymbols.METHOD_SEND_PACKET,message,callback);
  }
  private static synchronized void release(){
   String peer=NativeTransfer.otaConnection();long now=SystemClock.elapsedRealtime();

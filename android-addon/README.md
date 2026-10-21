@@ -48,17 +48,22 @@ Android 14 及以上要求 location 前台服务类型和对应声明；打包�
 原厂来源：[雷鸟 AI Android 官方下载页](https://rayneo.cn/commonPage/venus/appDownload/index_m.html)。网站可能已更新，摘要不匹配就停止，不能仅改白名单适配新版本。
 
 ```sh
-# 仓库根运行；先下载本Release固件（不要解压），放到下面路径：
+# 仓库根运行；先准备本Release固件和匹配的构建依赖。
 mkdir -p official-addon/build/app-ap-20260927-test-01
 # 将 TurboIO-TAP1-TEST-01.zip 复制并重命名为：
 # official-addon/build/app-ap-20260927-test-01/StrixOS-1.0.4.12-TAP1-TEST-01-CANDIDATE-NOT-APPROVED.zip
 
 export ANDROID_SDK_ROOT=/path/to/Android/sdk
 export TURBO_SDK_PYTHON=/path/to/python-with-dashboard-sdk-dependencies
-apktool d --no-res -o android-addon/build/host-105 /path/to/RayNeo_AI_1.0.5.apk
+# 先在一个新的独立目录解包官方原 APK，供原生来源测试读取；不要复用旧补丁目录。
+apktool d --no-res -o /path/to/new-official-fixture /path/to/RayNeo_AI_1.0.5.apk
+export TURBO_OFFICIAL_LIBAPP=/path/to/new-official-fixture/lib/arm64-v8a/libapp.so
 bash android-addon/build.sh
 node android-addon/package.mjs /path/to/RayNeo_AI_1.0.5.apk
-node android-addon/official-ota-source.mjs android-addon/build/host-105/lib/arm64-v8a/libapp.so android-addon/build/ota-route
+# package 命令输出唯一 work 路径，收据记录输入/输出哈希与工具版本。
+# 如果单独复现既有 native OTA source 实验，从该 work/host 提取库：
+# 如果单独复现原生来源实验，将 <id> 替换成 package 命令输出的 work 目录名。
+node android-addon/official-ota-source.mjs "android-addon/build/turbo-build-<id>/host/lib/arm64-v8a/libapp.so" android-addon/build/ota-route
 python3 android-addon/package-official-ota-preparation.py --guarded \
  /path/to/RayNeo_AI_1.0.5.apk \
  android-addon/build/TurboIO-RayNeo-1.0.5-unsigned.apk \
@@ -67,6 +72,8 @@ python3 android-addon/package-official-ota-preparation.py --guarded \
 ```
 
 之后用 Android SDK 的 `zipalign` 和 `apksigner` 及**自己的签名**签署。保持同一个密钥才能覆盖自己以前签名的版本，密钥不要提交仓库。未加 `--guarded` 的准备包不允许升级，不要和正式实验门禁混淆。
+
+宿主版本外置 profile、审计命令和未审计 APK 准入规则见[Android 宿主维护指南](docs/HOST_UPGRADE_MAINTENANCE.md)与[分阶段执行计划](docs/HOST_UPGRADE_PLAN.md)。
 
 可运行 `python3 android-addon/tests/PrivateArtifactAudit.py /path/to/signed.apk` 检查扩展DEX与允许资源、凭据模式及测试替身；不代替人工审查。私有数据存在手机沙盒，不应从手机导出沙盒重新打包。
 

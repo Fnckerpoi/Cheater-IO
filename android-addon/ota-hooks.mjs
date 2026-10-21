@@ -1,13 +1,35 @@
 // Version-scoped wrapper generators, testable without rewriting a real APK.
-export function wrapExact(text,header,original,body){
- if(text.includes(original+'(')){
-  const start=text.indexOf(header+'\n');if(start<0)throw new Error('Missing OTA wrapper');
-  const end=text.indexOf('.end method',start);if(end<0)throw new Error('Truncated method');
-  text=text.slice(0,start)+text.slice(end+11);
- }else{if(text.split(header).length!==2)throw new Error('OTA ABI mismatch');text=text.replace(header,header.replace(/ ([A-Za-z_][A-Za-z_0-9]*)\(/,' '+original+'('));}
- return text+'\n'+header+'\n'+body+'\n.end method\n';
+export function wrapExact(text, header, original, body) {
+  if (text.includes(original + "(")) {
+    const start = text.indexOf(header + "\n");
+    if (start < 0) throw new Error("Missing OTA wrapper");
+    const end = text.indexOf(".end method", start);
+    if (end < 0) throw new Error("Truncated method");
+    text = text.slice(0, start) + text.slice(end + 11);
+  } else {
+    if (text.split(header).length !== 2) throw new Error("OTA ABI mismatch");
+    text = text.replace(
+      header,
+      header.replace(/ ([A-Za-z_][A-Za-z_0-9]*)\(/, " " + original + "("),
+    );
+  }
+  return text + "\n" + header + "\n" + body + "\n.end method\n";
 }
-export function queueHook(text){return wrapExact(text,'.method public static o(LE3/Q;)V','turboioOriginal_o',`    .locals 1
+
+export function queueHookFor(profile, text) {
+  const is107 = profile?.version === "1.0.7";
+  const header = is107
+    ? ".method public static o(LY3/S;)V"
+    : ".method public static o(LE3/Q;)V";
+  const originalCall = is107
+    ? "invoke-static {p0}, LY3/V;->turboioOriginal_o(LY3/S;)V"
+    : "invoke-static {p0}, LE3/V;->turboioOriginal_o(LE3/Q;)V";
+
+  return wrapExact(
+    text,
+    header,
+    "turboioOriginal_o",
+    `    .locals 1
     :ota_try
     invoke-static {p0}, Lcom/turboio/addon/OfficialOtaBridge;->allowQueue(Ljava/lang/Object;)Ljava/lang/Boolean;
     move-result-object v0
@@ -29,15 +51,32 @@ export function queueHook(text){return wrapExact(text,'.method public static o(L
     move-result v0
     if-eqz v0, :ota_blocked
     :ota_end
-    invoke-static {p0}, LE3/V;->turboioOriginal_o(LE3/Q;)V
+    ${originalCall}
     return-void
     :ota_error
     move-exception v0
     :ota_blocked
     invoke-static {p0}, Lcom/turboio/addon/OtaController;->blocked(Ljava/lang/Object;)V
     return-void
-    .catch Ljava/lang/Throwable; {:ota_try .. :ota_end} :ota_error`);}
-export function fileHook(text){return wrapExact(text,'.method public final v(Ljava/io/File;Ljava/lang/String;LQ3/q;Ljava/lang/String;)Ljava/lang/String;','turboioOriginal_v',`    .locals 1
+    .catch Ljava/lang/Throwable; {:ota_try .. :ota_end} :ota_error`,
+  );
+}
+
+export function fileHookFor(profile, text) {
+  const is107 = profile?.version === "1.0.7";
+  const header = is107
+    ? ".method public final u(Ljava/io/File;Ljava/lang/String;Lk4/q;Ljava/lang/String;)Ljava/lang/String;"
+    : ".method public final v(Ljava/io/File;Ljava/lang/String;LQ3/q;Ljava/lang/String;)Ljava/lang/String;";
+  const originalName = is107 ? "turboioOriginal_u" : "turboioOriginal_v";
+  const originalCall = is107
+    ? "invoke-virtual/range {p0 .. p4}, LY3/u;->turboioOriginal_u(Ljava/io/File;Ljava/lang/String;Lk4/q;Ljava/lang/String;)Ljava/lang/String;"
+    : "invoke-virtual/range {p0 .. p4}, LE3/u;->turboioOriginal_v(Ljava/io/File;Ljava/lang/String;LQ3/q;Ljava/lang/String;)Ljava/lang/String;";
+
+  return wrapExact(
+    text,
+    header,
+    originalName,
+    `    .locals 1
     invoke-static {}, Lcom/turboio/addon/OfficialOtaBridge;->allowFile()Z
     move-result v0
     if-eqz v0, :ota_blocked
@@ -47,14 +86,25 @@ export function fileHook(text){return wrapExact(text,'.method public final v(Lja
     invoke-static {}, Lcom/turboio/addon/OtaController;->allowFile()Z
     move-result v0
     if-eqz v0, :ota_blocked
-    invoke-virtual/range {p0 .. p4}, LE3/u;->turboioOriginal_v(Ljava/io/File;Ljava/lang/String;LQ3/q;Ljava/lang/String;)Ljava/lang/String;
+    ${originalCall}
     move-result-object v0
     return-object v0
     :ota_blocked
     new-instance v0, Ljava/lang/IllegalStateException;
     invoke-direct {v0}, Ljava/lang/IllegalStateException;-><init>()V
-    throw v0`);}
-export const EVENT_GUARD=`    :ota_event_try
+    throw v0`,
+  );
+}
+
+export function queueHook(text) {
+  return queueHookFor({ version: "1.0.5" }, text);
+}
+
+export function fileHook(text) {
+  return fileHookFor({ version: "1.0.5" }, text);
+}
+
+export const EVENT_GUARD = `    :ota_event_try
     invoke-static {}, Lcom/turboio/addon/OfficialOtaBridge;->enabled()Z
     move-result v0
     if-eqz v0, :ota_event_preparation

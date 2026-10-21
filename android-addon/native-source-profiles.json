@@ -1,0 +1,44 @@
+[
+  {
+    "version": "1.0.5",
+    "code": 201,
+    "hostSha256": "770ba0793d31609aa1e4477db2f8a7aec2c8acc4d9c6ab43d57b0dfc720d3ab3",
+    "sha256": "78214ba0e1057871315da1cee17d860415c8b913521e59afc2748e45ead64c6c",
+    "adapterId": "rayneo-1.0.5-201",
+    "slots": [
+      {
+        "offset": 8839669,
+        "pp": "0x2c8b8",
+        "text": "/xrlauncherapi/v1/signApi/gray/upgrade",
+        "replacement": "http://127.0.0.1:18794/g/xxxxxxxA78p2M"
+      },
+      {
+        "offset": 890296,
+        "pp": "0x2c9c0",
+        "text": "/xrlauncherhwapi/v1/signApi/gray/upgrade",
+        "replacement": "http://127.0.0.1:18794/g/xxxxxxxxxxCCXhB"
+      }
+    ]
+  },
+  {
+    "version": "1.0.7",
+    "code": 230,
+    "hostSha256": "30239f65d910cf7008cfdf6cfacd5c068c5877068b4a637027786377a9ce4f91",
+    "sha256": "a35159a82c0916f62ed6c4da271a40217300cc6678b29c54f2591d9fb592a45c",
+    "adapterId": "rayneo-1.0.7-230",
+    "slots": [
+      {
+        "offset": 8933678,
+        "pp": "0x2c8b8",
+        "text": "/xrlauncherapi/v1/signApi/gray/upgrade",
+        "replacement": "http://127.0.0.1:18794/g/xxxxxxxA78p2M"
+      },
+      {
+        "offset": 925256,
+        "pp": "0x2c9c0",
+        "text": "/xrlauncherhwapi/v1/signApi/gray/upgrade",
+        "replacement": "http://127.0.0.1:18794/g/xxxxxxxxxxCCXhB"
+      }
+    ]
+  }
+]
