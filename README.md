@@ -8,11 +8,13 @@
 
 原创代码仅供学习、研究与非商业使用，沿用 [PolyForm Noncommercial 1.0.0](LICENSE)，未经授权不得商用或收费分发。除源码及明确列出的依赖，Release 提供原厂砸壳 IPA 作为 iOS 扩展输入，以及下述 **Android 1.0.5 非官方完整插件 APK / 高风险实验固件**。原厂部分版权仍归各自权利人，不因分发修改包而重新许可。**不提供个人密钥、Cookie、账号、签名私钥，亦不提供合并后的 IPA / HAP**；第三方服务由用户自行配置。
 
-**文档更新：2026-10-19** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
+**文档更新：2026-10-23** · 日期表示文档整理或所注明的实测记录，不代表当天全量回归。
+
+**最新实验更新：[TVP2 / TAR2 · 540×220 原生清晰投屏](#tvp2-tar2-update)** · [固件与校验下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/tvp2-tar2-20261023) · [安装与测试说明](docs/TVP2_TAR2.md)。另一台设备投到iPhone，再传到眼镜；完整画面/局部放大、灰阶可调，用户实测反馈通过。**AirPlay接收模块单独采用GPLv3，见[局部许可说明](official-addon/tar2-airplay/README.md)；其余目录许可不变。** 此功能本轮仅适配iOS，需要TVP2，不提供个人合并IPA，锁屏/后台接收不支持。
 
 **最新手机适配：[iOS 1.0.7（230）· APP107](#ios107-update)** · [源码 / 构建](official-addon/ios107-edition/README.md)。iPhone 17 Pro Max 用户实测正常，**通过 1.0.7 官方升级流程刷入 TMG2 已成功，OTA 通道现已开放**。沿用原样 TMG2，无需因手机升级重复刷写；保留校验和单次授权。[刷机步骤与刷后收尾](official-addon/ios107-edition/OTA.md)。不提供合并或个人签名 IPA。
 
-**最新实验版：[NAVS3 矢量导航 + TMG2 可选排数菜单](#navs3-update)** · [iOS 1.0.6 配套源码](official-addon/navs3-edition/README.md) · [原样固件 / 校验下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/navs3-tmg2-20261019)。选择起终点即可模拟新版小地图；修正路网缓存过早清空与路名锚点。**锁屏导航卡住仍未解决，非稳定版。** 已有 TMG2 只需更新手机插件，不用重刷；不提供合并 IPA。
+**导航实验版：[NAVS3 矢量导航 + TMG2 可选排数菜单](#navs3-update)** · [iOS 1.0.6 配套源码](official-addon/navs3-edition/README.md) · [原样固件 / 校验下载](https://github.com/Turbo1123/Turbo-IO/releases/tag/navs3-tmg2-20261019)。选择起终点即可模拟新版小地图；修正路网缓存过早清空与路名锚点。**锁屏导航卡住仍未解决，非稳定版。** 已有 TMG2 只需更新手机插件，不用重刷；不提供合并 IPA。
 
 **新版本适配预发布：[TMIG1 · Strix OS 1.0.5.5](firmware-research/strix-1.0.5.5/README.md) · [RayNeo AI iOS 1.0.6（218）插件](official-addon/tmig1-edition/README.md) · [原始新版原厂固件](firmware-research/strix-1.0.5.5/stock/README.md)**。**iPhone 17 Pro Max 已由用户刷入、进入并验证这组最新版兼容组合（2026-10-14）。** 保留情境英语；Dots 开发中，尚未完成。不是稳定版、全机型验收或新版 Android APK。
 
@@ -63,6 +65,7 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 
 | 日期 | 更新 | 公开范围 |
 | --- | --- | --- |
+| 2026-10-23 | [TVP2 / TAR2 原生清晰投屏](#tvp2-tar2-update) | 540×220点对点、完整画面/局部放大/灰阶；用户在iPhone 17 Pro Max实测反馈通过；公开原样固件、可复现构建、高清传输代码和独立GPLv3接收SDK，不含个人合并IPA/账号/视频 |
 | 2026-10-19 | [原厂 iOS 1.0.7（230）砸壳 · 去签名输入](official-apps/ios/1.0.7/README.md) | 未合并 Turbo IO；95 个代码签名及商店授权元数据移除；附 SHA-256 与审计，支持最新版 APP107 打包器，自行合并签名 |
 | 2026-10-19 | [iOS 1.0.7（230）APP107 兼容适配与 OTA 开放](#ios107-update) | iPhone 17 Pro Max 功能反馈正常，通过 1.0.7 官方升级流程实刷 TMG2 成功；公开脱敏源码、专用查询适配与打包工具，保留完整校验和单次授权；继承 NAVS3，固件原样沿用 |
 | 2026-10-19 | [NAVS3 矢量导航与 TMG2 可选排数菜单](#navs3-update) | 起终点直达模拟/真实导航、道路与路名稳定性修正、两/三排菜单；iOS源码、离线测试、原样TMG2固件与可复现构建；锁屏问题仍未闭环 |
@@ -81,6 +84,22 @@ MCP 在**用户自己的 Server** 上运行，眼镜不运行 MCP、浏览器或
 | 2026-09-22 | [ANIM60 本地动图](#animation-test) | 动图实验源码与独立固件候选；非通用动图上传 |
 
 > **自定义固件是试验用品，非开发者请勿刷。** AP 改动仍可能导致无法启动或失去 OTA；不要混用不同候选的固件、手机门禁或授权。原厂回滚不是救砖保证。实机成功不等于生产稳定版。
+
+<a id="tvp2-tar2-update"></a>
+
+### 2026-10-23 · 清晰投屏：从“能传画面”到原生540×220
+
+**不再把270×110小图放大2倍。** TVP2按540×220编码并点对点显示，像素数增加4倍；手机支持完整画面、局部放大、拖动选区和2/4/8/16级灰阶。四个分块全部收齐、逐块及整图CRC核对后才切帧，避免半张图和旧帧排队；更高细节也意味着实际帧率受带宽限制，不保证30fps。
+
+**另一台iPhone/iPad/Mac → 同Wi-Fi的iPhone接收器 → 眼镜，不需要额外Mac或服务器。** 手机请求1280×720源画面并在本机解码/缩放，眼镜只接收有界灰度数据；前台、静音、手动开启、PIN配对，不保存画面。接收手机仍是必要中转，不支持本轮未验收的锁屏后台、受保护视频或任意发送端。
+
+用户在 **iPhone 17 Pro Max / 雷鸟App 1.0.7（230）/ TAR2 + TVP2** 测试反馈“没问题”。本机仅回读统计：1280×720源、540×220输出、16灰、3470帧解码零错误、186帧眼镜完整确认、正常关闭；不公开原始日志。独立公开SDK另行编译/链接验证，不将私用集成版的验收冒充公开宿主绑定版已实装。
+
+**双缓冲内存不增加：239424字节；AP为7,435,336字节，仅增加1024字节。** 旧TVP1视频兼容保留，其余14个新版原厂载荷不变；公开源码重建所得AP与ZIP与实测候选逐字节一致。新高清需刷TVP2，不能只装手机插件；完整OTA和恢复风险依旧存在，非开发者请保留原厂固件。
+
+**[原样固件/AP/SHA256/源码包](https://github.com/Turbo1123/Turbo-IO/releases/tag/tvp2-tar2-20261023) · [完整教程与版本差别](docs/TVP2_TAR2.md) · [固件源码与重建](firmware-research/strix-1.0.5.5-tvp2/README.md) · [原创高清模块](official-addon/tar2-display/README.md) · [GPLv3 AirPlay接收SDK](official-addon/tar2-airplay/README.md)**
+
+不发布个人签名/合并IPA、视频素材、配对密钥、Cookie或账号。`tar2-airplay`是经维护者确认的GPLv3局部许可例外，其余目录非商业许可不变；本次未发布Android AirPlay接收器。Mentra OS商店应用完整兼容仍在继续适配，不在本次投屏实测结论内。
 
 <a id="ios107-update"></a>
 
