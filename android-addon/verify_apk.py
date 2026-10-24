@@ -9,7 +9,7 @@ source, output = sys.argv[1:3]
 extra = {}
 if sys.argv[3:] == ['--public-assets']:
     from addon_assets import assets
-    from background_manifest import patch as patch_manifest
+    from dsh_manifest import shared_patch as patch_manifest
     extra = assets()
 elif sys.argv[3:]:
     raise SystemExit('Unknown asset profile')

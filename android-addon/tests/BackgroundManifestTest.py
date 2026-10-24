@@ -39,6 +39,7 @@ def _end(name_index):
 def _base_manifest(existing_services=(), existing_scan_flags=False):
     values = [NS, 'manifest', 'queries', 'intent', 'action', 'name', 'uses-permission',
               'application', 'service', 'exported', 'foregroundServiceType', 'usesPermissionFlags',
+              'usesCleartextTraffic',
               SERVICE, OTA_SERVICE, SCAN_PERMISSION, 'android.permission.ACCESS_FINE_LOCATION']
     ix = {value: index for index, value in enumerate(values)}
     ids = [0] * len(values)
@@ -46,6 +47,7 @@ def _base_manifest(existing_services=(), existing_scan_flags=False):
     ids[ix['exported']] = 0x01010010
     ids[ix['foregroundServiceType']] = 0x010105A3
     ids[ix['usesPermissionFlags']] = 0x01010644
+    ids[ix['usesCleartextTraffic']] = 0x010104ec
     resource_map = struct.pack('<HHI', 0x180, 8, 8 + 4 * len(ids)) + struct.pack('<' + 'I' * len(ids), *ids)
     fine_location = _record(ix[NS], ix['name'], ix['android.permission.ACCESS_FINE_LOCATION'], 3,
                             ix['android.permission.ACCESS_FINE_LOCATION'])
@@ -55,7 +57,7 @@ def _base_manifest(existing_services=(), existing_scan_flags=False):
         scan_flags = _record(ix[NS], ix['usesPermissionFlags'], U, 0x11, 0x00010000)
         permission_nodes.extend([_start(ix['uses-permission'], [scan_name, scan_flags]),
                                  _end(ix['uses-permission'])])
-    app_nodes = [_start(ix['application'])]
+    app_nodes = [_start(ix['application'], [_record(ix[NS], ix['usesCleartextTraffic'], U, 0x12, 0)])]
     for class_name, service_type in existing_services:
         attrs = [
             _record(ix[NS], ix['name'], ix[class_name], 3, ix[class_name]),
@@ -92,12 +94,13 @@ def _read_manifest(data):
         byte_len = pool[pos + 1]
         strings.append(pool[pos + 2:pos + 2 + byte_len].decode('utf-8'))
     permission_attrs = {}
+    application_attrs = {}
     service_nodes = []
     for chunk in chunks:
         if struct.unpack_from('<H', chunk)[0] != 0x102:
             continue
         name = strings[struct.unpack_from('<I', chunk, 20)[0]]
-        if name not in ('uses-permission', 'service'):
+        if name not in ('application', 'uses-permission', 'service'):
             continue
         attr_start = 16 + struct.unpack_from('<H', chunk, 24)[0]
         attr_size = struct.unpack_from('<H', chunk, 26)[0]
@@ -113,18 +116,21 @@ def _read_manifest(data):
             elif value_type == 0x12:
                 value = bool(value)
             attrs[attr_name] = value
-        if name == 'uses-permission':
+        if name == 'application':
+            application_attrs.update(attrs)
+        elif name == 'uses-permission':
             permission_attrs[attrs['name']] = attrs
         else:
             service_nodes.append(attrs)
-    return permission_attrs, service_nodes
+    return permission_attrs, application_attrs, service_nodes
 
 
 def _assert_manifest(test, original, expected_service_types=(154, 16)):
     result = patch(original)
     test.assertEqual(patch(result), result, 'patch must be idempotent')
-    permissions, service_nodes = _read_manifest(result)
+    permissions, application_attrs, service_nodes = _read_manifest(result)
     services = {attrs['name']: attrs for attrs in service_nodes}
+    test.assertTrue(application_attrs['usesCleartextTraffic'])
     for permission, maximum, _flags in PERMISSIONS:
         test.assertIn(permission, permissions)
         attrs = permissions[permission]
@@ -147,7 +153,7 @@ class Test(unittest.TestCase):
     def test_synthetic_manifest_patches_even_when_service_names_are_in_pool(self):
         original = _base_manifest()
         _assert_manifest(self, original)
-        permissions, _ = _read_manifest(patch(original))
+        permissions, _, _ = _read_manifest(patch(original))
         self.assertEqual(permissions['android.permission.ACCESS_FINE_LOCATION'].get('maxSdkVersion'), None)
         self.assertNotIn('maxSdkVersion', permissions['android.permission.ACCESS_COARSE_LOCATION'])
         self.assertEqual(permissions['android.permission.BLUETOOTH']['maxSdkVersion'], 30)
@@ -160,7 +166,7 @@ class Test(unittest.TestCase):
 
     def test_scan_permission_drops_never_for_location(self):
         original = _base_manifest(existing_scan_flags=True)
-        permissions, _ = _read_manifest(patch(original))
+        permissions, _, _ = _read_manifest(patch(original))
         self.assertNotIn('usesPermissionFlags', permissions[SCAN_PERMISSION])
 
     def test_pinned_apk(self):

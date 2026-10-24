@@ -13,7 +13,7 @@ source, assembled, addon, destination = map(pathlib.Path, sys.argv[1:5])
 extra = {}
 if sys.argv[5:] == ['--public-assets']:
     from addon_assets import assets
-    from background_manifest import patch as patch_manifest
+    from dsh_manifest import shared_patch as patch_manifest
     extra = assets()
 elif sys.argv[5:]:
     raise SystemExit('Unknown asset profile')

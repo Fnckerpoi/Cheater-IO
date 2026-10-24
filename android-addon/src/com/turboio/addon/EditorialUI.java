@@ -49,12 +49,31 @@ final class EditorialUI {
     }
     static void notice(Activity a,String message){new AlertDialog.Builder(a).setTitle("Turbo IO").setMessage(message).setPositiveButton("知道了",null).show();}
     static void confirm(Activity a,String title,String message,Runnable action){new AlertDialog.Builder(a).setTitle(title).setMessage(message).setNegativeButton("取消",null).setPositiveButton("确认",(d,w)->action.run()).show();}
+    /** Titles shown inside one option card, so the caller can refresh them when data lands. */
+    static final class CardText {public final TextView title,subtitle;CardText(TextView t,TextView s){title=t;subtitle=s;}}
+    /** Tap-to-pick AA-style option card: opens a radio list of the current choices. */
+    static CardText optionCard(Activity a,LinearLayout parent,String title,Runnable open){
+        LinearLayout c=card(a,parent);
+        c.addView(text(a,title,13,MUTED));
+        TextView current=text(a,"请选择",16,INK);current.setTypeface(null,Typeface.BOLD);current.setMaxLines(2);current.setEllipsize(android.text.TextUtils.TruncateAt.END);c.addView(current);
+        TextView note=text(a,"",12,MUTED);c.addView(note);
+        c.setClickable(true);c.setFocusable(true);c.setOnClickListener(v->open.run());
+        c.setContentDescription(title);
+        return new CardText(current,note);
+    }
+    /** In-place radio picker over the option list; null choice selects the empty placeholder. */
+    static void pickOption(Activity a,String title,java.util.List<DshDirectory.Option> options,DshDirectory.Option current,java.util.function.Consumer<DshDirectory.Option> choose){
+        java.util.List<DshDirectory.Option> rows=new java.util.ArrayList<>();rows.add(new DshDirectory.Option("","请选择"));rows.addAll(options);
+        int checked=0;for(int i=0;i<rows.size();i++)if(current!=null&&rows.get(i).id.equals(current.id))checked=i;
+        String[] names=new String[rows.size()];for(int i=0;i<rows.size();i++){DshDirectory.Option o=rows.get(i);names[i]=o.subtitle.isEmpty()?o.label:o.label+"\n"+o.subtitle;}
+        new AlertDialog.Builder(a).setTitle(title).setSingleChoiceItems(names,checked,(d,w)->{d.dismiss();choose.accept(rows.get(w));}).setNegativeButton("取消",null).show();
+    }
     static void home(Activity a){Screen s=new Screen(a,"turbo io");LinearLayout content=s.body;TextView brand=text(a,"Turbo这个IO",32,INK);brand.setTypeface(null,Typeface.BOLD);content.addView(brand);content.addView(text(a,"声音、阅读与灵感，随你出发。",14,MUTED));EditorialArt hero=new EditorialArt(a,"hero-sequence-v5",true);content.addView(hero,new LinearLayout.LayoutParams(-1,dp(a,190)));
         button(a,content,"模型与对话  ›",false,TurboAddon::showSettings);button(a,content,"SCADA 传感器 · 本机实验",false,()->ScadaSensorController.show(a));
         String[] names={"网易云音乐","微信读书","高德导航","番茄时钟","仪表盘","应用广场"},arts={"music","reading","navigation","focus","dashboard-editor","app-gallery"};
         for(int row=0;row<3;row++){LinearLayout pair=new LinearLayout(a);for(int col=0;col<2;col++){int i=row*2+col;FrameLayout card=new FrameLayout(a);card.setBackground(shape(a,SURFACE,24));card.setClipToOutline(true);EditorialArt art=new EditorialArt(a,arts[i],false);card.addView(art,new FrameLayout.LayoutParams(-1,-1));View shade=new View(a);shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x00000000,0xdd100c12}));card.addView(shade,new FrameLayout.LayoutParams(-1,-1));TextView title=text(a,names[i]+"  ↗",16,INK);title.setTypeface(null,Typeface.BOLD);title.setPadding(dp(a,12),dp(a,10),dp(a,10),dp(a,16));card.addView(title,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,dp(a,164),1);p.topMargin=dp(a,12);if(col==0)p.rightMargin=dp(a,12);pair.addView(card,p);card.setContentDescription(names[i]);card.setFocusable(true);card.setOnClickListener(v->{switch(i){case 0:MusicUI.show(a);break;case 1:ReaderUI.show(a);break;case 2:NavigationUI.show(a);break;case 3:FocusUI.show(a);break;case 4:CardUI.show(a);break;case 5:GalleryUI.show(a);break;default:notice(a,"此模块仍在进行安卓移植，暂不执行眼镜操作。当前可检查仪表盘、番茄时钟、应用广场及原有导航、模型与导出。");}});}content.addView(pair);}
         button(a,content,"实验固件升级 · 默认锁定",false,()->OtaUI.show(a));
         gap(a,content,18);content.addView(text(a,"ANDROID 1.0.5 · INTEGRATION-08 / CALLBACK-01\n安装期禁止立即回查；未知结果保持锁定，不自动重刷。阅读、新闻、云端字幕与后台任务已接入，安卓真实眼镜与服务账号待验收。",12,MUTED));
-        LinearLayout tabs=new LinearLayout(a);tabs.setBackground(shape(a,0xe62a252e,32));String[] labels={"首页","翻译","新闻","设置"};for(int i=0;i<4;i++){final int tab=i;TextView t=text(a,labels[i],14,i==0?LIME:MUTED);t.setGravity(Gravity.CENTER);tabs.addView(t,new LinearLayout.LayoutParams(0,dp(a,58),1));t.setOnClickListener(v->{if(tab==1){CaptionUI.show(a);}else if(tab==2){NewsUI.show(a);}else if(tab==3){Screen settings=new Screen(a,"设置");button(a,settings.body,"模型与对话",false,TurboAddon::showSettings);button(a,settings.body,"回答同步朗读",false,()->VoiceSpeech.show(a));button(a,settings.body,"搜索与知识库",false,TurboAddon::showTools);button(a,settings.body,"后台运行",false,()->BackgroundWork.show(a));button(a,settings.body,"诊断",false,()->notice(a,TurboAddon.status()+"\n"+NativeTransfer.diagnostic()));}});}LinearLayout.LayoutParams t=new LinearLayout.LayoutParams(-1,-2);t.bottomMargin=dp(a,12);s.root.addView(tabs,t);
+        LinearLayout tabs=new LinearLayout(a);tabs.setBackground(shape(a,0xe62a252e,32));String[] labels={"首页","翻译","新闻","设置"};for(int i=0;i<4;i++){final int tab=i;TextView t=text(a,labels[i],14,i==0?LIME:MUTED);t.setGravity(Gravity.CENTER);tabs.addView(t,new LinearLayout.LayoutParams(0,dp(a,58),1));t.setOnClickListener(v->{if(tab==1){CaptionUI.show(a);}else if(tab==2){NewsUI.show(a);}else if(tab==3){Screen settings=new Screen(a,"设置");button(a,settings.body,"模型与对话",false,TurboAddon::showSettings);button(a,settings.body,"回答同步朗读",false,()->VoiceSpeech.show(a));button(a,settings.body,"搜索与知识库",false,TurboAddon::showTools);button(a,settings.body,"电脑端 DSH",false,()->DshSettings.show(a));button(a,settings.body,"后台运行",false,()->BackgroundWork.show(a));button(a,settings.body,"诊断",false,()->notice(a,TurboAddon.status()+"\n"+NativeTransfer.diagnostic()));}});}LinearLayout.LayoutParams t=new LinearLayout.LayoutParams(-1,-2);t.bottomMargin=dp(a,12);s.root.addView(tabs,t);
     }
 }

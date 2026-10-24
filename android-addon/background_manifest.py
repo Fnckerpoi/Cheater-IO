@@ -27,6 +27,7 @@ ATTR_IDS = {
     'name': 0x01010003,
     'exported': 0x01010010,
     'maxSdkVersion': 0x01010271,
+    'usesCleartextTraffic': 0x010104ec,
 }
 
 
@@ -238,6 +239,24 @@ def _rewrite_service(chunk, class_name, service_type, indices, resource_map, str
     return bytes(prefix) + b''.join(ordered) + suffix
 
 
+def _rewrite_application(chunk, indices, resource_map, strings, ns_index):
+    attrs, start, stride = _attributes(chunk)
+    by_name = {}
+    for attribute in attrs:
+        name_index = struct.unpack_from('<I', attribute, 4)[0]
+        if name_index >= len(strings):
+            raise ValueError('application attribute name index')
+        by_name[strings[name_index]] = attribute
+    by_name['usesCleartextTraffic'] = _attr_record(
+        ns_index, indices['usesCleartextTraffic'], U, 0x12, 1)
+    ordered = sorted(by_name.values(), key=lambda item: resource_map[struct.unpack_from('<I', item, 4)[0]])
+    prefix = bytearray(chunk[:start])
+    struct.pack_into('<I', prefix, 4, start + 20 * len(ordered) + len(chunk) - (start + stride * len(attrs)))
+    struct.pack_into('<H', prefix, 28, len(ordered))
+    suffix = chunk[start + stride * len(attrs):]
+    return bytes(prefix) + b''.join(ordered) + suffix
+
+
 def _permission_node(permission, spec, indices, resource_map, ns_index):
     maximum, flags = spec
     attrs = [_attr_record(ns_index, indices['name'], indices[permission], 3, indices[permission])]
@@ -266,10 +285,10 @@ def patch(data):
     wanted = [SERVICE, OTA_SERVICE, 'maxSdkVersion']
     wanted.extend(permission for permission, _, _ in PERMISSIONS)
     wanted.extend(['manifest', 'application', 'service', 'uses-permission', 'name', 'exported',
-                   'foregroundServiceType', NS])
+                   'foregroundServiceType', 'usesCleartextTraffic', NS])
     chunks[pool_index], strings, indices = _append_pool_strings(pool, strings, wanted)
     if any(name not in indices for name in ('manifest', 'application', 'service', 'uses-permission', 'name',
-                                             'exported', 'foregroundServiceType', NS)):
+                                             'exported', 'foregroundServiceType', 'usesCleartextTraffic', NS)):
         raise ValueError('missing host vocabulary')
     resource_map = _attr_resource_map(chunks[map_index])
     if len(resource_map) > len(strings):
@@ -308,6 +327,7 @@ def patch(data):
                 seen_permissions.add(permission)
         elif node_name == 'application' and app_start is None:
             app_start = i
+            chunks[i] = _rewrite_application(chunk, indices, resource_map, strings, ns_index)
     if app_start is None:
         raise ValueError('application node missing')
     missing_nodes = []

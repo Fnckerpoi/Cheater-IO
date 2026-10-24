@@ -9,7 +9,11 @@ public final class ChatPolicyTest {
         check(!ChatPolicy.eligible("chat","chat","workflow",false,true));
         check(!ChatPolicy.eligible("chat","chat","unknown",false,false));
         check(ChatPolicy.endpoint("https://api.example.com/v1/chat/completions"));
-        check(!ChatPolicy.endpoint("http://api.example.com/chat/completions"));
+        check(ChatPolicy.endpoint("http://api.example.com/chat/completions"));
+        check(ChatPolicy.endpoint("http://192.168.1.25:8080/v1/chat/completions"));
+        check(ChatPolicy.endpoint("https://127.0.0.1:9000/v1/chat/completions"));
+        check(ChatPolicy.endpoint("http://[::1]:8080/v1/chat/completions"));
+        check(!ChatPolicy.endpoint("ftp://api.example.com/chat/completions"));
         check(!ChatPolicy.endpoint("https://user:pass@api.example.com/chat/completions"));
         check(!ChatPolicy.endpoint("https://api.example.com/chat/completions?key=x"));
         check(!ChatPolicy.endpoint("https://api.example.com/chat/completions#x"));

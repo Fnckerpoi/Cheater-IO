@@ -13,9 +13,10 @@ public final class ChatPolicy {
     public static boolean endpoint(String value) {
         try {
             URI uri = new URI(value);
-            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null
+            String scheme = uri.getScheme();
+            return ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) && uri.getHost() != null
                 && uri.getRawUserInfo() == null && uri.getRawQuery() == null && uri.getRawFragment() == null
-                && uri.getPath().endsWith("/chat/completions");
+                && uri.getPath() != null && uri.getPath().endsWith("/chat/completions");
         } catch (Exception ignored) { return false; }
     }
     public static String delta(String previous, String current) {
