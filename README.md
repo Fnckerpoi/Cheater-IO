@@ -1,4 +1,4 @@
-# Cheater-IO（原 Turbo-IO）· 我的 RayNeo / 雷鸟 iO 开发项目
+# Cheater-IO· 我的 RayNeo / 雷鸟 iO 开发项目
 
 这是我基于原作者 Turbo-IO 项目持续整理和开发的个人项目仓库，现已更名为 **Cheater-IO**。我把 Android、iOS V1、iOS V2 的个人开发工作放在独立分支中，便于各路线分别迭代。
 
