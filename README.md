@@ -1,6 +1,6 @@
-# Turbo-IO · 我的 RayNeo / 雷鸟 iO 开发项目
+# Cheater-IO（原 Turbo-IO）· 我的 RayNeo / 雷鸟 iO 开发项目
 
-这是我基于原作者 Turbo-IO 项目持续整理和开发的个人项目仓库。我把 Android、iOS V1、iOS V2 的个人开发工作放在独立分支中，便于各路线分别迭代。
+这是我基于原作者 Turbo-IO 项目持续整理和开发的个人项目仓库，现已更名为 **Cheater-IO**。我把 Android、iOS V1、iOS V2 的个人开发工作放在独立分支中，便于各路线分别迭代。
 
 > **原作者与上游来源**：本项目基于 [Turbo1123/Turbo-IO](https://github.com/Turbo1123/Turbo-IO)。上游 `main` 是原作者维护的完整项目主线；本仓库的 `main` 跟踪 `upstream/main`，用于接收上游更新。原项目及第三方内容的权利与许可仍以各自声明为准；本仓库个人改动遵循仓库许可证。
 
@@ -8,10 +8,10 @@
 
 | 分支 | 路线 | 说明 |
 | --- | --- | --- |
-| [`main`](https://github.com/Fnckerpoi/Turbo-IO/tree/main) | 上游同步 | 跟踪原作者 `upstream/main`，保留上游项目内容；不在这里进行个人路线开发。 |
-| [`android`](https://github.com/Fnckerpoi/Turbo-IO/tree/android) | Android | Android 宿主扩展、SCADA 事实字幕及 ESP32 固件。该分支的 README 独立维护。 |
-| [`ios-v1`](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v1) | iOS V1 | 独立 SDK 与示例客户端路线。该分支的 README 独立维护。 |
-| [`ios-v2`](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v2) | iOS V2 | 兼容官方 iOS App 副本中的扩展路线。该分支的 README 独立维护。 |
+| [`main`](https://github.com/Fnckerpoi/Cheater-IO/tree/main) | 上游同步 | 跟踪原作者 `upstream/main`，保留上游项目内容；不在这里进行个人路线开发。 |
+| [`android`](https://github.com/Fnckerpoi/Cheater-IO/tree/android) | Android | Android 宿主扩展、SCADA 事实字幕及 ESP32 固件。该分支的 README 独立维护。 |
+| [`ios-v1`](https://github.com/Fnckerpoi/Cheater-IO/tree/ios-v1) | iOS V1 | 独立 SDK 与示例客户端路线。该分支的 README 独立维护。 |
+| [`ios-v2`](https://github.com/Fnckerpoi/Cheater-IO/tree/ios-v2) | iOS V2 | 兼容官方 iOS App 副本中的扩展路线。该分支的 README 独立维护。 |
 
 V1 与 V2 是不同的技术路线；1.0.6、1.0.7 等数字表示官方宿主 App 版本，不表示 V1/V2。每条路线的功能、依赖、构建和使用说明请查看对应分支 README。
 
