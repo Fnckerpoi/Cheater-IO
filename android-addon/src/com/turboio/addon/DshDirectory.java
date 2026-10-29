@@ -45,6 +45,16 @@ public final class DshDirectory {
         }
         return result;
     }
+    /** UI directory choices intentionally never expose project filesystem paths. */
+    public static List<Option> projectChoices(List<Map<String,Object>> rows,String connector){
+        List<Option> result=new ArrayList<>();for(Map<String,Object> row:rows)if(connector.equals(text(row,"connectorId"))&&!text(row,"id").isEmpty())result.add(new Option(text(row,"id"),projectLabel(text(row,"name")),""));return result;
+    }
+    static String projectLabel(String name){
+        if(name==null||name.trim().isEmpty())return "项目";
+        String value=name.trim();
+        if(value.contains("/")||value.contains("\\")||value.matches("(?i).*[a-z]:.*")||value.startsWith("~")||value.contains("\n")||value.contains("\r"))return "项目";
+        return value;
+    }
     private static String firstNonEmpty(String... values){for(String value:values)if(value!=null&&!value.isEmpty())return value;return "";}
     /** Card selector needs every DSH runtime of the connector; state goes to the subtitle. */
     public static List<Option> runtimeCards(List<Map<String,Object>> rows,String connector){
@@ -61,6 +71,23 @@ public final class DshDirectory {
     public static List<Option> runtimes(List<Map<String,Object>> rows,String connector){
         List<Option> result=new ArrayList<>();
         for(Map<String,Object> row:rows)if(connector.equals(text(row,"connectorId"))&&"dsh".equals(text(row,"runtimeType"))&&"running".equals(text(row,"status"))&&Boolean.TRUE.equals(row.get("available"))&&Boolean.TRUE.equals(row.get("configured"))&&Boolean.TRUE.equals(row.get("active"))&&!text(row,"runtimeId").isEmpty())result.add(new Option(text(row,"runtimeId"),text(row,"displayName").isEmpty()?text(row,"name"):text(row,"displayName")));
+        return result;
+    }
+    public static final String NEW_SESSION="@new-session";
+    public static Option newSession(){return new Option(NEW_SESSION,"新建会话（下次发送时创建）","保存后，下次发送才创建会话");}
+    public static List<Option> sessions(List<Map<String,Object>> rows,String connector,String project,String runtime){
+        List<Option> result=new ArrayList<>();
+        if(connector.isEmpty()||project.isEmpty()||runtime.isEmpty())return result;
+        Set<String> seen=new HashSet<>();
+        for(Map<String,Object> row:rows){
+            String id=text(row,"id"),state=text(row,"status");
+            if(!connector.equals(text(row,"connectorId"))||!project.equals(text(row,"projectId"))||!runtime.equals(text(row,"runtimeId")))continue;
+            if(!"dsh".equals(text(row,row.containsKey("runtimeType")?"runtimeType":"runtime")))continue;
+            if(!Boolean.FALSE.equals(row.get("archived"))||!text(row,"archivedAt").isEmpty()||state.isEmpty()||Arrays.asList("archived","deleted","missing").contains(state.toLowerCase(Locale.ROOT)))continue;
+            try{if(!id.matches("[A-Za-z0-9_-]+")||!id.equals(DshClient.validateSessionId(id))||NEW_SESSION.equals(id))continue;}catch(IllegalArgumentException invalid){continue;}
+            if(!seen.add(id))continue;
+            result.add(new Option(id,firstNonEmpty(text(row,"title"),id),id+" · "+state));
+        }
         return result;
     }
     @SuppressWarnings("unchecked")
@@ -85,4 +112,3 @@ public final class DshDirectory {
         return result;
     }
 }
-

@@ -11,13 +11,21 @@ public final class ChatPolicy {
         return "chat".equals(domain) && "chat".equals(intent) && "workflow".equals(sub) && !offline && !command;
     }
     public static boolean endpoint(String value) {
+        try { completionEndpoint(value); return true; }
+        catch (IllegalArgumentException ignored) { return false; }
+    }
+    public static String completionEndpoint(String value) {
         try {
-            URI uri = new URI(value);
+            String base = value.trim();
+            URI uri = new URI(base);
             String scheme = uri.getScheme();
-            return ("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme)) && uri.getHost() != null
-                && uri.getRawUserInfo() == null && uri.getRawQuery() == null && uri.getRawFragment() == null
-                && uri.getPath() != null && uri.getPath().endsWith("/chat/completions");
-        } catch (Exception ignored) { return false; }
+            if (!("https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme))
+                || uri.getHost() == null || uri.getRawUserInfo() != null
+                || uri.getRawQuery() != null || uri.getRawFragment() != null)
+                throw new IllegalArgumentException("invalid_endpoint");
+            while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+            return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
+        } catch (Exception error) { throw new IllegalArgumentException("invalid_endpoint", error); }
     }
     public static String delta(String previous, String current) {
         return current.startsWith(previous) ? current.substring(previous.length()) : null;

@@ -21,9 +21,22 @@ public final class DshClient {
 
     public static final class HttpStatusException extends IOException {
         public final int status;
+        /** Server-side error body "code" field ("" when absent). */
+        public final String code;
         public HttpStatusException(int status) {
+            this(status, "");
+        }
+        public HttpStatusException(int status, String code) {
             super("HTTP " + status);
             this.status = status;
+            this.code = code == null ? "" : code;
+        }
+        /** True when the server explicitly reported the session as no longer usable. */
+        public boolean sessionUnavailable() {
+            if (status == 404) return true;
+            if (status < 400 || status >= 500) return false;
+            return "session_archived".equals(code) || "session_unavailable".equals(code)
+                || "session_deleted".equals(code) || "session_missing".equals(code);
         }
     }
 
@@ -68,10 +81,26 @@ public final class DshClient {
         boolean unknownDelivery();
         String clientMessageId();
         String targetFingerprint();
-        void savePending(String targetFingerprint, String clientMessageId);
+        /**
+         * Enters the unconfirmed-delivery state.
+         *
+         * @param targetFingerprint current target binding fingerprint.
+         * @param sessionIdAnchor anchor session to keep while unconfirmed; "" for the create path,
+         *                        the continued-session id for the append path.
+         * @param clientMessageId client message id of the pending submission.
+         */
+        void savePending(String targetFingerprint, String sessionIdAnchor, String clientMessageId);
         void clearPending();
         void saveSession(String targetFingerprint, String sessionId, String clientMessageId);
         void clearSession();
+        /**
+         * Atomically drops the whole pending submission and its session anchor in ONE durable write.
+         *
+         * <p>Used by the session-unavailable downgrade: the pending flag and the anchor session id must
+         * never become visible separately, otherwise a concurrent dispatch could observe
+         * "unknownDelivery cleared but sessionId still present" (or the reverse) and pick the wrong path.
+         */
+        void clearSessionAndPending();
     }
 
     public static final class MapStateStore implements StateStore {
@@ -86,8 +115,8 @@ public final class DshClient {
         @Override public String targetFingerprint() { return targetFingerprint; }
 
         @Override
-        public void savePending(String fingerprint, String messageId) {
-            sessionId = "";
+        public void savePending(String fingerprint, String anchor, String messageId) {
+            sessionId = anchor == null ? "" : anchor;
             unknownDelivery = true;
             clientMessageId = messageId == null ? "" : messageId;
             targetFingerprint = fingerprint == null ? "" : fingerprint;
@@ -109,6 +138,15 @@ public final class DshClient {
 
         @Override
         public void clearSession() {
+            sessionId = "";
+            unknownDelivery = false;
+            clientMessageId = "";
+            targetFingerprint = "";
+        }
+
+        /** Single write: the pending flag, the anchor session and the message id disappear together. */
+        @Override
+        public void clearSessionAndPending() {
             sessionId = "";
             unknownDelivery = false;
             clientMessageId = "";
@@ -236,58 +274,88 @@ public final class DshClient {
 
     public Map<String, Object> dispatch(Map<String, Object> arguments, String... extraSecrets) throws Exception {
         if (config == null || !config.ready()) throw new IllegalArgumentException("dsh_disabled");
-        String[] allSecrets = appendSecret(extraSecrets, config.token);
-        String task = validateTask(arguments, allSecrets);
-        String clientMessageId = "msg_" + UUID.randomUUID().toString();
+        String task = validateTask(arguments, appendSecret(extraSecrets, config.token));
+        String messageId = "msg_" + UUID.randomUUID().toString();
         String fingerprint = config.targetFingerprint();
-        Map<String, Object> body = buildCreateAndStartBody(config, task, clientMessageId);
+        final String anchor;
+        final Map<String,Object> body;
         synchronized (LOCK) {
-        if (store.unknownDelivery()) {
-            return mapOf(
-                "status", "unknown_delivery",
-                "message", "上一次 DSH 派发结果尚未确认，为避免重复创建会话，请先调用 dsh_status 查询状态。"
-            );
+            if (store.unknownDelivery()) return mapOf("status","unknown_delivery","message","提交结果尚未确认，禁止重复派发。");
+            if (!trimOrEmpty(store.targetFingerprint()).isEmpty() && !fingerprint.equals(store.targetFingerprint()))
+                return mapOf("status","failed","message","目标已变更，请显式结束旧会话后重新派发。");
+            anchor = trimOrEmpty(store.sessionId());
+            if (!anchor.isEmpty()) {
+                try { validateSessionId(anchor); }
+                catch (IllegalArgumentException invalid) { return mapOf("status","failed","message","会话锚点无效，请显式结束旧会话。"); }
+            }
+            body = anchor.isEmpty() ? buildCreateAndStartBody(config, task, messageId)
+                : mapOf("content",task,"clientMessageId",messageId);
+            store.savePending(fingerprint, anchor, messageId);
+            if (!store.unknownDelivery() || !ownsSubmission(fingerprint, anchor, messageId))
+                throw new IllegalStateException("pending_not_saved");
         }
-
-        store.savePending(fingerprint, clientMessageId);
-        if(!store.unknownDelivery() || !clientMessageId.equals(store.clientMessageId()) || !fingerprint.equals(store.targetFingerprint())) throw new IllegalStateException("pending_not_saved");
-        }
+        String sessionId = anchor;
         try {
-            Map<String, Object> response = transport.send("POST", config.baseUrl + "/api/v2/sessions/create-and-start", config.token, body);
-            String sessionId = validateSessionId(extractSessionId(response));
-            synchronized(LOCK) {
-                if(!clientMessageId.equals(store.clientMessageId()) || !fingerprint.equals(store.targetFingerprint())) return mapOf("status","unknown_delivery","message","配置或请求记录变化，保留旧提交未知状态。");
-                store.saveSession(fingerprint, sessionId, clientMessageId);
+            Map<String,Object> response;
+            String endpoint=config.baseUrl + "/api/v2/sessions/" + (anchor.isEmpty()?"create-and-start":anchor+"/runtime/messages");
+            try { response=transport.send("POST",endpoint,config.token,body); }
+            catch(HttpStatusException rejected) {
+                if(anchor.isEmpty()||rejected.status!=409||!rejected.code.toLowerCase(Locale.ROOT).contains("takeover"))throw rejected;
+                synchronized(LOCK){if(!ownsSubmission(fingerprint,anchor,messageId))return changedSubmission();}
+                transport.send("POST",config.baseUrl+"/api/v2/sessions/"+anchor+"/takeover",config.token,Collections.emptyMap());
+                synchronized(LOCK){if(!ownsSubmission(fingerprint,anchor,messageId))return changedSubmission();}
+                response=transport.send("POST",endpoint,config.token,body);
             }
-            return mapOf(
-                "status", "submitted",
-                "sessionId", sessionId,
-                "clientMessageId", clientMessageId,
-                "untrusted_external_data", Boolean.TRUE
-            );
-        } catch (HttpStatusException httpError) {
-            if (httpError.status == 401 || httpError.status == 403 || httpError.status == 422) {
-                synchronized(LOCK) {
-                    if(clientMessageId.equals(store.clientMessageId()) && fingerprint.equals(store.targetFingerprint())) store.clearPending();
+            if (anchor.isEmpty()) sessionId = validateSessionId(extractSessionId(response));
+            synchronized (LOCK) {
+                if (!ownsSubmission(fingerprint, anchor, messageId)) return changedSubmission();
+                try {
+                    store.saveSession(fingerprint, sessionId, messageId);
+                    if (store.unknownDelivery() || !ownsSubmission(fingerprint, sessionId, messageId))
+                        throw new IllegalStateException("session_not_saved");
+                } catch (Exception storageError) {
+                    // Re-lock only our own record; never overwrite a replacement submission.
+                    if (fingerprint.equals(store.targetFingerprint()) && messageId.equals(store.clientMessageId())
+                        && (anchor.equals(store.sessionId()) || sessionId.equals(store.sessionId()))) {
+                        store.savePending(fingerprint, sessionId, messageId);
+                        if (!store.unknownDelivery() || !ownsSubmission(fingerprint, sessionId, messageId))
+                            throw new IllegalStateException("pending_not_saved");
+                    }
+                    return changedSubmission();
                 }
-                return mapOf(
-                    "status", "failed",
-                    "httpStatus", Integer.valueOf(httpError.status),
-                    "message", "DSH 派发被服务端拒绝（HTTP " + httpError.status + "），未创建任务，请检查目标绑定或权限。"
-                );
             }
-            return mapOf(
-                "status", "unknown_delivery",
-                "clientMessageId", clientMessageId,
-                "message", "DSH 派发响应异常（HTTP " + httpError.status + "），远端可能已创建会话，请勿盲目重发，先用 dsh_status 核查。"
-            );
-        } catch (Exception networkOrParseError) {
-            return mapOf(
-                "status", "unknown_delivery",
-                "clientMessageId", clientMessageId,
-                "message", "DSH 派发网络超时或响应中断，远端可能已接收任务，禁止自动重发，请用 dsh_status 查询。"
-            );
+            return mapOf("status","submitted","mode",anchor.isEmpty()?"created":"continued",
+                "sessionId",sessionId,"clientMessageId",messageId,"untrusted_external_data",Boolean.TRUE);
+        } catch (HttpStatusException error) {
+            synchronized (LOCK) {
+                if (!ownsSubmission(fingerprint, anchor, messageId)) return changedSubmission();
+                if(!anchor.isEmpty()&&error.status==409){
+                    store.clearPending();
+                    if(store.unknownDelivery())return changedSubmission();
+                    String code=error.code.toLowerCase(Locale.ROOT);
+                    String message=code.contains("running")?"目标会话正在执行中，请等待当前回复完成后再发送":code.contains("offline")?"电脑端 Connector 离线":code.contains("takeover")?"会话尚未开启接管":"服务端拒绝提交（409），请稍后重试";
+                    return mapOf("status","failed","httpStatus",409,"code",error.code,"sessionId",anchor,"message",message);
+                }
+                if (error.status==401 || error.status==403 || error.status==422
+                    || (!anchor.isEmpty() && error.sessionUnavailable())) {
+                    store.clearPending();
+                    return mapOf("status","failed","httpStatus",error.status,"code",error.code,
+                        "sessionId",anchor,"message","服务端拒绝提交；保留原会话，请核对或显式结束会话。");
+                }
+            }
+            return mapOf("status","unknown_delivery","clientMessageId",messageId,"message","响应异常，禁止自动重发或新建会话。");
+        } catch (Exception error) {
+            return mapOf("status","unknown_delivery","clientMessageId",messageId,"message","提交或保存结果未确认，禁止自动重发。");
         }
+    }
+
+    private boolean ownsSubmission(String fingerprint, String anchor, String messageId) {
+        return fingerprint.equals(store.targetFingerprint()) && anchor.equals(store.sessionId())
+            && messageId.equals(store.clientMessageId());
+    }
+
+    private static Map<String,Object> changedSubmission() {
+        return mapOf("status","unknown_delivery","message","请求归属变化或保存未确认，不能报告提交成功。");
     }
 
     public Map<String, Object> status(Map<String, Object> arguments) throws Exception {
@@ -316,10 +384,24 @@ public final class DshClient {
             sessionId = validateSessionId(sessionId);
         }
         Map<String, Object> statePayload = transport.send("GET", config.baseUrl + "/api/v2/sessions/" + sessionId + "/runtime/state", config.token, null);
-        Map<String, Object> timelinePayload = transport.send("GET", config.baseUrl + "/api/v2/sessions/" + sessionId + "/timeline?limit=50", config.token, null);
+        if(storedMessage.isEmpty()) {
+            Map<String,Object> selectedState=optMap(unwrapDataObject(statePayload),"state");
+            synchronized(LOCK) {
+                if(!storedTarget.equals(store.targetFingerprint()) || !storedSession.equals(store.sessionId()) || !storedMessage.equals(store.clientMessageId()) || store.unknownDelivery())
+                    return mapOf("status","unknown","message","查询期间任务归属变化，结果不能归因。");
+                if(selectedState==null || !sessionId.equals(optString(selectedState,"sessionId")) || !config.runtimeId.equals(optString(selectedState,"runtimeId"))
+                    || (selectedState.containsKey("runtime") && !"dsh".equals(optString(selectedState,"runtime")))
+                    || (selectedState.containsKey("connectorId") && !config.connectorId.equals(optString(selectedState,"connectorId")))
+                    || (selectedState.containsKey("projectId") && !config.projectId.equals(optString(selectedState,"projectId"))))
+                    return mapOf("status","unknown","message","运行时绑定不匹配。");
+                return mapOf("status","session_selected","runtimeState",optString(selectedState,"status"),"sessionId",sessionId,
+                    "message","已选择会话，尚无本机发送的本轮消息","untrusted_external_data",Boolean.TRUE);
+            }
+        }
+        Map<String, Object> timelinePayload = transport.send("GET", config.baseUrl + "/api/v2/sessions/" + sessionId + "/timeline?mode=latest&limit=200", config.token, null);
         Map<String,Object> actual=optMap(unwrapDataObject(statePayload),"state");
         if(actual==null || (actual.containsKey("runtimeId") && !config.runtimeId.equals(optString(actual,"runtimeId"))) || (actual.containsKey("runtime") && !"dsh".equals(optString(actual,"runtime")))) return mapOf("status","unknown","message","运行时绑定不匹配。");
-        Map<String,Object> result=evaluateSessionStatus(sessionId, storedMessage, statePayload, timelinePayload);
+        Map<String,Object> result=evaluateSessionStatus(sessionId, storedMessage, statePayload, timelinePayload, true);
         synchronized(LOCK) {
             if(!storedTarget.equals(store.targetFingerprint()) || !storedSession.equals(store.sessionId()) || !storedMessage.equals(store.clientMessageId())) return mapOf("status","unknown","message","查询期间任务归属变化，结果不能归因。");
         }
@@ -394,28 +476,63 @@ public final class DshClient {
         return "";
     }
 
+    /**
+     * Evaluates a session timeline against one client message id.
+     *
+     * <p>Conservative default: {@code hasMore=true} blocks the conclusion because the pagination
+     * window is unknown and the current turn may have been cut off.
+     */
     public static Map<String, Object> evaluateSessionStatus(String sessionId, String clientMessageId, Map<String, Object> runtimeStatePayload, Map<String, Object> timelinePayload) {
+        return evaluateSessionStatus(sessionId, clientMessageId, runtimeStatePayload, timelinePayload, false);
+    }
+
+    /**
+     * Evaluates a session timeline against one client message id.
+     *
+     * @param latestWindow true when the timeline was fetched as {@code mode=latest}, where
+     *                     {@code hasMore=true} only means older history was truncated and therefore
+     *                     cannot hide entries of the current turn. When false, {@code hasMore=true}
+     *                     blocks the conclusion entirely.
+     */
+    public static Map<String, Object> evaluateSessionStatus(String sessionId, String clientMessageId, Map<String, Object> runtimeStatePayload, Map<String, Object> timelinePayload, boolean latestWindow) {
         Map<String,Object> actualState = runtimeStatePayload == null ? null : optMap(unwrapDataObject(runtimeStatePayload),"state");
         if(actualState == null || !sessionId.equals(optString(actualState,"sessionId"))) return mapOf("status","unknown","message","运行状态会话绑定不匹配。");
         String runtimeState = extractRuntimeState(runtimeStatePayload);
         Map<String,Object> data = timelinePayload == null ? Collections.emptyMap() : unwrapDataObject(timelinePayload);
         if(!sessionId.equals(optString(data,"sessionId"))) return mapOf("status","unknown","message","时间线会话绑定不匹配。");
-        if (Boolean.TRUE.equals(data.get("hasMore")) || (timelinePayload != null && Boolean.TRUE.equals(timelinePayload.get("hasMore"))))
+        boolean hasMore = Boolean.TRUE.equals(data.get("hasMore")) || (timelinePayload != null && Boolean.TRUE.equals(timelinePayload.get("hasMore")));
+        if (hasMore && !latestWindow)
             return mapOf("status", "unknown", "message", "时间线分页不完整，不能确认完成。");
         List<?> items = extractArray(data, "items", "timeline", "events", "messages", "data");
+        // Locate the user message that carries THIS clientMessageId: that entry is the start of this turn.
+        int turnStart = -1;
+        if (items != null) {
+            for (int i = 0; i < items.size(); i++) {
+                Map<String,Object> item = asMap(items.get(i));
+                if (item == null) continue;
+                Map<String,Object> node = optMap(item,"item"); if(node == null) node=item;
+                if (!"user".equals(optString(node,"role")) || !"message".equals(optString(node,"type"))) continue;
+                if (matchesClientMessageId(node, item, clientMessageId)) { turnStart = i; break; }
+            }
+        }
+        if (turnStart < 0) {
+            return hasMore
+                ? mapOf("status","unknown","message","时间线分页不完整，未找到本次 clientMessageId 对应用户消息。")
+                : mapOf("status","unknown","message","未找到本次 clientMessageId 对应用户消息。");
+        }
+        // Once the turn start is located, only entries AFTER it belong to this turn; a later user message
+        // means a subsequent turn started, so this turn must not be reported as complete.
         List<Object> scoped = new ArrayList<>();
-        boolean found = false;
-        if (items != null) for (Object raw : items) {
+        for (int i = turnStart + 1; i < items.size(); i++) {
+            Object raw = items.get(i);
             Map<String,Object> item = asMap(raw);
             if (item == null) continue;
             Map<String,Object> node = optMap(item,"item"); if(node == null) node=item;
             if ("user".equals(optString(node,"role")) && "message".equals(optString(node,"type"))) {
-                if(found) return mapOf("status","unknown","message","出现后续用户消息，不能归因到本次任务。");
-                Map<String,Object> source = optMap(node,"source");
-                found = clientMessageId != null && !clientMessageId.isEmpty() && clientMessageId.equals(optString(source,"clientMessageId"));
-            } else if(found) scoped.add(item);
+                return mapOf("status","unknown","message","出现后续用户消息，不能归因到本次任务。");
+            }
+            scoped.add(raw);
         }
-        if(!found) return mapOf("status","unknown","message","未找到本次 clientMessageId 对应用户消息。");
         Set<String> turns=new HashSet<>();
         for(Object raw:scoped) {
             Map<String,Object> row=asMap(raw);Map<String,Object> node=optMap(row,"item");if(node==null)node=row;
@@ -519,6 +636,15 @@ public final class DshClient {
         );
     }
 
+    /** True when the timeline entry carries the given client message id in its source block. */
+    private static boolean matchesClientMessageId(Map<String, Object> node, Map<String, Object> item, String clientMessageId) {
+        if (clientMessageId == null || clientMessageId.isEmpty()) return false;
+        Map<String,Object> source = optMap(node,"source");
+        if (source == null) source = optMap(item,"source");
+        if (source == null) return false;
+        return clientMessageId.equals(optString(source,"clientMessageId"));
+    }
+
     public static String extractRuntimeState(Map<String, Object> payload) {
         if (payload == null) return "";
         Map<String, Object> data = unwrapDataObject(payload);
@@ -616,7 +742,7 @@ public final class DshClient {
             }
             int code = connection.getResponseCode();
             if (code != 200 && code != 201 && code != 202) {
-                throw new HttpStatusException(code);
+                throw new HttpStatusException(code, readErrorCode(connection));
             }
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             try (InputStream in = connection.getInputStream()) {
@@ -630,6 +756,54 @@ public final class DshClient {
             return parseJsonObject(out.toString("UTF-8"));
         } finally {
             connection.disconnect();
+        }
+    }
+
+    /**
+     * Reads the server error body (bounded by MAX_RESPONSE_BYTES) and extracts its "code" field.
+     * Returns "" when the body is missing, unparsable, or carries no code.
+     */
+    private static String readErrorCode(HttpURLConnection connection) {
+        InputStream err = null;
+        try {
+            err = connection.getErrorStream();
+            if (err == null) return "";
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            byte[] block = new byte[4096];
+            int n;
+            while ((n = err.read(block)) != -1) {
+                if (buffer.size() + n > MAX_RESPONSE_BYTES) break;
+                buffer.write(block, 0, n);
+            }
+            Map<String, Object> parsed;
+            try {
+                parsed = parseJsonObject(buffer.toString("UTF-8"));
+            } catch (Exception unparsable) {
+                return "";
+            }
+            Object detail=parsed.get("detail");
+            if(detail instanceof Map){
+                Map<String,Object> fields=(Map<String,Object>)detail;
+                String code=optString(fields,"code");if(!code.isEmpty())return code;
+                String message=optString(fields,"message");if(!message.isEmpty())return message;
+            } else if(detail instanceof String&&!((String)detail).trim().isEmpty())return ((String)detail).trim();
+            String direct = optString(parsed, "code");
+            if (!direct.isEmpty()) return direct;
+            Map<String, Object> data = optMap(parsed, "data");
+            if (data != null) {
+                String nested = optString(data, "code");
+                if (!nested.isEmpty()) return nested;
+            }
+            Map<String, Object> error = optMap(parsed, "error");
+            if (error != null) {
+                String nested = optString(error, "code");
+                if (!nested.isEmpty()) return nested;
+            }
+            return "";
+        } catch (Exception ignored) {
+            return "";
+        } finally {
+            if (err != null) try { err.close(); } catch (Exception ignored) { }
         }
     }
 

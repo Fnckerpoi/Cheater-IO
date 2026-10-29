@@ -17,6 +17,14 @@ public final class ChatPolicyTest {
         check(!ChatPolicy.endpoint("https://user:pass@api.example.com/chat/completions"));
         check(!ChatPolicy.endpoint("https://api.example.com/chat/completions?key=x"));
         check(!ChatPolicy.endpoint("https://api.example.com/chat/completions#x"));
+        check("https://domain.name/v1/chat/completions".equals(ChatPolicy.completionEndpoint("https://domain.name/v1/")));
+        check("https://domain.name/v1/chat/completions".equals(ChatPolicy.completionEndpoint(" https://domain.name/v1 ")));
+        check("https://domain.name/v1/chat/completions".equals(ChatPolicy.completionEndpoint("https://domain.name/v1/chat/completions")));
+        check("https://domain.name/chat/completions".equals(ChatPolicy.completionEndpoint("https://domain.name/")));
+        check("http://localhost:8080/proxy/v1/chat/completions".equals(ChatPolicy.completionEndpoint("http://localhost:8080/proxy/v1/")));
+        check(!ChatPolicy.endpoint(null));
+        check(!ChatPolicy.endpoint("https://domain.name/v1/?key=x"));
+        check(!ChatPolicy.endpoint("https://domain.name/v1/#fragment"));
         check("香港".equals(ChatPolicy.delta("介绍", "介绍香港")));
         check(ChatPolicy.delta("介绍香港", "香港") == null);
         check("香港".equals(ChatPolicy.delta("", "香港")));
