@@ -109,6 +109,98 @@ final class DshSettings {
    return "目录加载失败或格式不兼容，请刷新重试。";
   }
  }
+ /**
+  * Draft of one voice alias target: the five ids picked for THIS alias plus the live account-scoped
+  * directory rows each level was picked from, stamped with the account epoch and editor session that
+  * produced them. Pure Java (no Android types, no prefs) so the fail-closed save gate runs on the JVM.
+  * It never reads or writes the global {@code dsh_*} binding: a draft is only ever stored into the one
+  * AliasEntry the user explicitly saves, so two aliases can point at two different runtimes with two
+  * different projects, models and permissions.
+  */
+ static final class AliasTarget {
+  static final String OK="";
+  /** Rows the level was picked from; every one of them came from the live account-scoped directory. */
+  List<DshDirectory.Option> connectors=Collections.<DshDirectory.Option>emptyList();
+  List<DshDirectory.Option> projects=Collections.<DshDirectory.Option>emptyList();
+  List<DshDirectory.Option> runtimes=Collections.<DshDirectory.Option>emptyList();
+  /** Same runtimes narrowed to usable DSH instances: a card can be visible but unusable. */
+  List<DshDirectory.Option> usable=Collections.<DshDirectory.Option>emptyList();
+  List<DshDirectory.Option> models=Collections.<DshDirectory.Option>emptyList();
+  List<DshDirectory.Option> permissions=Collections.<DshDirectory.Option>emptyList();
+  String connector="",project="",runtime="",model="",permission="";
+  /** Account epoch and directory generation that produced the rows this draft currently holds. */
+  long loadedAccount=-1,loadedTicket=-1,catalogAccount=-1,catalogTicket=-1;
+  /** Catalog rows belong to exactly this runtime instance; a runtime change must clear them. */
+  String catalogRuntime="";
+  /** A level counts as verified only while its id is one of the live rows read for this draft. */
+  static boolean verified(List<DshDirectory.Option> rows,String id){return id!=null&&!id.isEmpty()&&Policy.find(rows,id)!=null;}
+  boolean childrenFresh(long accountEpoch,long ticket){return loadedAccount==accountEpoch&&loadedTicket==ticket;}
+  boolean catalogFresh(long accountEpoch,long ticket){return childrenFresh(accountEpoch,ticket)&&catalogAccount==accountEpoch&&catalogTicket==ticket;}
+  /** Refusal reason for an explicit save; {@link #OK} only when every level is verified in the live directory. */
+  String refusal(long accountEpoch,long ticket,String baseUrl){
+   if(DshClient.normalizeBaseUrl(baseUrl)==null)return "FOREIGN_TARGET";
+   if(loadedAccount<0||loadedAccount!=accountEpoch)return "STALE_AUTH";
+   if(loadedTicket!=ticket)return "STALE_DIRECTORY";
+   if(!verified(connectors,connector))return "CONNECTOR_UNVERIFIED";
+   if(!verified(projects,project))return "PROJECT_UNVERIFIED";
+   if(!verified(runtimes,runtime))return "RUNTIME_UNVERIFIED";
+   if(!verified(usable,runtime))return "RUNTIME_UNAVAILABLE";
+   if(!catalogFresh(accountEpoch,ticket)||!runtime.equals(catalogRuntime))return "STALE_CATALOG";
+   if(!verified(models,model))return "MODEL_UNVERIFIED";
+   if(!verified(permissions,permission))return "PERMISSION_UNVERIFIED";
+   if(!DshClient.validBinding(baseUrl,connector,project,runtime,model,permission))return "IDENTITY_REQUIRED";
+   return OK;
+  }
+  /** A parent change drops descendant rows, so a stale descendant id can never stay "verified". */
+  void dropProjectAndRuntimes(){
+   projects=Collections.<DshDirectory.Option>emptyList();runtimes=projects;usable=projects;
+   project=runtime="";dropCatalog();
+  }
+  void dropCatalog(){
+   models=Collections.<DshDirectory.Option>emptyList();permissions=models;model=permission="";
+   catalogAccount=-1;catalogTicket=-1;catalogRuntime="";
+  }
+  void clear(){
+   connectors=Collections.<DshDirectory.Option>emptyList();dropProjectAndRuntimes();
+   connector="";loadedAccount=-1;loadedTicket=-1;
+  }
+  /** Order: connector, project, runtime, model, permission. Snapshotted before the live re-check. */
+  List<String> ids(){return Arrays.asList(connector,project,runtime,model,permission);}
+  /** Alias identity of the stored entry for one runtime instance; routing keeps one alias per instance. */
+  static DshAliasRegistry.AliasEntry snapshotOf(DshAliasRegistry table,String runtimeId){
+   if(table==null)return null;
+   for(DshAliasRegistry.AliasEntry entry:table.listSnapshot())if(entry.runtimeId.equals(runtimeId))return entry;
+   return null;
+  }
+  /**
+   * Two DIFFERENT aliases must never share one runtime instance: upsert would silently drop the other
+   * mapping, which is easy to hit now that every alias picks its own target. Renaming the entry that
+   * already owns the instance (same alias key, or the very entry being edited) stays allowed.
+   */
+  static String ownerConflict(DshAliasRegistry table,String alias,String runtimeId,String editingKey){
+   String key=DshAliasRegistry.normalizeAlias(alias);
+   if(key.isEmpty())return "";
+   DshAliasRegistry.AliasEntry owner=snapshotOf(table,runtimeId);
+   if(owner==null||key.equals(owner.aliasKey)||owner.aliasKey.equals(editingKey))return "";
+   return owner.alias;
+  }
+  /** Why the live directory does not yet verify this alias's own target. The target is never borrowed from the binding. */
+  static String message(String reason){
+   if(OK.equals(reason))return "已核验";
+   if("FOREIGN_TARGET".equals(reason))return "服务地址未核验";
+   if("STALE_AUTH".equals(reason))return "账户已变化，请重新登录并刷新目录";
+   if("STALE_DIRECTORY".equals(reason))return "目录已变化，请点击重新读取目录";
+   if("STALE_CATALOG".equals(reason))return "该运行时的模型与权限目录尚未核验";
+   if("CONNECTOR_UNVERIFIED".equals(reason))return "未为本别名选择在线目录中的电脑";
+   if("PROJECT_UNVERIFIED".equals(reason))return "未为本别名选择在线目录中的项目";
+   if("RUNTIME_UNVERIFIED".equals(reason))return "未为本别名选择在线目录中的 DSH 运行时";
+   if("RUNTIME_UNAVAILABLE".equals(reason))return "本别名所选运行时当前不是可用的 dsh 运行时";
+   if("MODEL_UNVERIFIED".equals(reason))return "未为本别名选择该运行时目录中的模型";
+   if("PERMISSION_UNVERIFIED".equals(reason))return "未为本别名选择该运行时目录中的执行权限";
+   if("IDENTITY_REQUIRED".equals(reason))return "本别名目标身份或模型权限快照不完整";
+   return "本别名目标未核验";
+  }
+ }
  static final class Screen {
   final Activity activity;final Context app;final EditorialUI.Screen ui;final TextView status;
   final Map<String,EditorialUI.CardText> cards=new LinkedHashMap<>();
@@ -145,10 +237,12 @@ final class DshSettings {
    syncCard.addView(EditorialUI.text(a,"结束会话：停止在最近一次 DSH 会话中继续追加消息，下次派发将新建会话；只影响本机跟踪，远端会话不受影响。",12,EditorialUI.MUTED));
    endSessionButton=EditorialUI.button(activity,syncCard,"结束当前会话（下次新建）",false,this::endSession);
    syncCard.addView(EditorialUI.text(a,"未确认提交处置：仅在派发结果未知且无法核对时使用强制放弃，放弃不会取消远端任务。",12,EditorialUI.MUTED));
-   EditorialUI.button(activity,syncCard,"查询并核对",false,this::queryAndReconcile);
-   EditorialUI.button(activity,syncCard,"强制放弃本地追踪",false,()->forceRelease());
-   ui.body.addView(EditorialUI.text(a,"电脑、项目、运行时、会话、模型与权限请在 AA 首页展开配置。",13,EditorialUI.MUTED));
-   refreshSyncCard();
+  EditorialUI.button(activity,syncCard,"查询并核对",false,this::queryAndReconcile);
+  EditorialUI.button(activity,syncCard,"强制放弃本地追踪",false,()->forceRelease());
+  ui.body.addView(EditorialUI.text(a,"电脑、项目、运行时、会话、模型与权限请在 AA 首页展开配置。",13,EditorialUI.MUTED));
+  // Small voice alias entry: maps a spoken name to the runtime instance this account already verified.
+  voiceAliasCard();
+  refreshSyncCard();
    ui.dialog.setOnDismissListener(d->notifyClosed());
   }
   void close(){closed=true;options.clear();chosen.clear();directory.reset();notifyClosed();}
@@ -357,6 +451,369 @@ final class DshSettings {
    if(lockedState)syncNote.setText("提示：存在未确认提交，保留会话跟踪；结束会话已禁用。"+(note.isEmpty()?"":"\n"+note));
   }
   private long syncStamp;
+  // ===== Voice alias routing: one alias -> its own verified connector+runtime+project+model+permission =====
+  private TextView aliasTitle,aliasNote;
+  /** Independent picks of the alias being edited: the global dsh_* binding is never read or written here. */
+  private final AliasTarget aliasDraft=new AliasTarget();
+  /** Saved ids of the alias being edited; a seeded id only counts once the live directory offers it again. */
+  private final Map<String,String> aliasRestore=new LinkedHashMap<>();
+  private final Map<String,EditorialUI.CardText> aliasCards=new LinkedHashMap<>();
+  private TextView aliasEditorNote;
+  /** Alias key of the entry whose dialog is open; empty for a new alias. It only gates renames. */
+  private String aliasDraftKey="";
+  /** One editor session per opened dialog; every async directory row is bound to it. */
+  private long aliasRequest;
+  private static final String A_CONNECTORS="alias_connectors",A_PROJECTS="alias_projects",A_RUNTIMES="alias_runtimes",A_MODELS="alias_models",A_PERMISSIONS="alias_permissions";
+  /** The saved service address, accepted only when it is the AA origin whose directory the editor verifies against. */
+  String aliasBaseUrl(){
+   String url=app.getSharedPreferences("turboio_settings",0).getString("dsh_url","");
+   return ORIGIN.equals(url)?url:"";
+  }
+  void voiceAliasCard(){
+   LinearLayout card=EditorialUI.card(activity,ui.body);
+   card.addView(EditorialUI.text(activity,"语音别名（仅本机映射）",15,EditorialUI.INK));
+   aliasTitle=EditorialUI.text(activity,"",13,EditorialUI.MUTED);aliasNote=EditorialUI.text(activity,"",12,EditorialUI.MUTED);
+   card.addView(aliasTitle);card.addView(aliasNote);
+   EditorialUI.button(activity,card,"新建语音别名",false,()->openVoiceAliasEditor(""));
+   EditorialUI.button(activity,card,"编辑已有别名",false,this::editExistingVoiceAlias);
+   EditorialUI.button(activity,card,"清空某个别名",false,this::clearVoiceAlias);
+   card.addView(EditorialUI.text(activity,"每个别名自己选择电脑、项目、DSH 运行时、模型与执行权限，保存前逐项对该账户的在线目录重新核验；任一项未核验即拒绝保存，不会借用已保存绑定，也不会改动已保存绑定。别名不改动 AA 服务端配置：本机把口语名称精确解析为该别名指向的运行时实例，配置两个及以上别名时 dsh_dispatch 必须携带 target，缺失即本地拒绝。",12,EditorialUI.MUTED));
+   refreshVoiceAlias();
+  }
+  void refreshVoiceAlias(){
+   if(closed||aliasTitle==null)return;
+   DshAliasRegistry table=voiceAliasTable();
+   if(table==null){aliasTitle.setText("别名不可用：账户或服务地址未核验。");aliasNote.setText("别名只在已登录且服务地址核验后可用；切换账户不会复用旧映射。");return;}
+   List<DshAliasRegistry.AliasEntry> entries=table.listSnapshot();
+   aliasTitle.setText(entries.isEmpty()?"当前没有语音别名；未点名时沿用已保存绑定。":"已配置 "+entries.size()+" 个别名："+join(table.aliasValuesSnapshot()));
+   // Each alias keeps its own target: show it so a per-alias pick can never be mistaken for the saved binding.
+   StringBuilder detail=new StringBuilder();
+   for(DshAliasRegistry.AliasEntry entry:entries){
+    if(detail.length()>0)detail.append("\n");
+    detail.append(entry.alias).append("：电脑 ").append(entry.connectorId).append(" · 项目 ").append(entry.projectId)
+     .append(" · 运行时 ").append(entry.runtimeId).append(" · 模型 ").append(DshClient.truncate(entry.model,40))
+     .append(" · 权限 ").append(entry.permission);
+   }
+   String current=app.getSharedPreferences("turboio_settings",0).getString(ToolClient.ALIAS_COLUMN,"");
+   aliasNote.setText((current.isEmpty()?"当前语音目标：未标记。":"当前语音目标："+current+"（模型口径不作归属证据）。")
+    +(detail.length()==0?"":"\n"+detail));
+  }
+  static String join(List<String> values){StringBuilder out=new StringBuilder();for(String value:values){if(out.length()>0)out.append("、");out.append(value);}return out.toString();}
+  /** Alias table of the currently authenticated account; foreign or damaged documents fail closed. */
+  DshAliasRegistry voiceAliasTable(){
+   SharedPreferences settings=app.getSharedPreferences("turboio_settings",0);
+   return voiceAliasTableFor(settings.getString("dsh_user_id",""),settings.getString("dsh_url",""),
+    app.getSharedPreferences(ToolClient.ALIAS_FILE,0).getString(ToolClient.ALIAS_DOC,""));
+  }
+  static DshAliasRegistry voiceAliasTableFor(String user,String url,String document){
+   if(user==null||user.isEmpty()||DshClient.normalizeBaseUrl(url)==null)return null;
+   if(document==null||document.isEmpty())return new DshAliasRegistry(user,url);
+   try{return DshAliasRegistry.deserializeSnapshot(document,user,url);}catch(RuntimeException damaged){return null;}
+  }
+  /** Lists the configured aliases so the user can pick which independent target to edit. */
+  void editExistingVoiceAlias(){
+   if(selectionLocked())return;
+   DshAliasRegistry table=voiceAliasTable();
+   if(table==null){status.setText("账户或服务地址未核验，别名未保存。");return;}
+   List<DshAliasRegistry.AliasEntry> entries=table.listSnapshot();
+   if(entries.isEmpty()){status.setText("当前没有语音别名；请先新建语音别名。");return;}
+   String[] names=new String[entries.size()];
+   for(int i=0;i<entries.size();i++)names[i]=entries.get(i).alias+"\n"+aliasDetail(entries.get(i));
+   new android.app.AlertDialog.Builder(activity).setTitle("选择要编辑的别名")
+    .setItems(names,(d,w)->openVoiceAliasEditor(entries.get(w).aliasKey)).setNegativeButton("取消",null).show();
+  }
+  void clearVoiceAlias(){
+   if(selectionLocked())return;
+   DshAliasRegistry table=voiceAliasTable();
+   if(table==null){status.setText("账户或服务地址未核验，别名未改动。");return;}
+   List<DshAliasRegistry.AliasEntry> entries=table.listSnapshot();
+   if(entries.isEmpty()){status.setText("当前没有语音别名可清空。");return;}
+   String[] names=new String[entries.size()];
+   for(int i=0;i<entries.size();i++)names[i]=entries.get(i).alias+"\n"+aliasDetail(entries.get(i));
+   new android.app.AlertDialog.Builder(activity).setTitle("选择要清空的别名")
+    .setItems(names,(d,w)->{
+     final DshAliasRegistry.AliasEntry chosen=entries.get(w);
+     EditorialUI.confirm(activity,"清空该别名","只移除本机对该别名及其运行时实例的映射；本地会话跟踪与远端会话都不会因此改动，也不会影响其他别名。",()->deleteVoiceAlias(chosen.aliasKey));
+    }).setNegativeButton("取消",null).show();
+  }
+  /** The per-alias target as stored: shown so an independent pick is never mistaken for the saved binding. */
+  static String aliasDetail(DshAliasRegistry.AliasEntry entry){
+   return "运行时 "+entry.runtimeId+" · 项目 "+entry.projectId+" · 权限 "+entry.permission;
+  }
+  /** Opens the per-alias target editor. A stored entry only seeds the pickers; nothing is reused at save time. */
+  void openVoiceAliasEditor(String aliasKey){
+   if(selectionLocked())return;
+   DshAliasRegistry table=voiceAliasTable();
+   if(table==null){status.setText("账户或服务地址未核验，别名未保存。");return;}
+   // Every row this editor can verify comes from the ORIGIN directory, so only that address may be stamped.
+   if(aliasBaseUrl().isEmpty()){status.setText("服务地址与 AA 目录不一致，别名编辑器未打开。");return;}
+   SharedPreferences prefs=app.getSharedPreferences("turboio_settings",0);
+   if(prefs.getString("dsh_user_id","").isEmpty()){status.setText("尚未登录，别名编辑器未打开。");return;}
+   try{if(SecretStore.get(app,"dsh_key").isEmpty()){status.setText("尚未登录，别名编辑器未打开。");return;}}catch(Exception unavailable){status.setText("凭据不可用，别名编辑器未打开。");return;}
+   DshAliasRegistry.AliasEntry existing=aliasKey.isEmpty()?null:table.getSnapshot(aliasKey);
+   if(!aliasKey.isEmpty()&&existing==null){status.setText("该别名已不存在，未打开编辑器。");refreshVoiceAlias();return;}
+   // A fresh draft per dialog: the stored target becomes a seed, and every level must verify against the live directory again.
+   aliasRequest++;aliasDraftKey=aliasKey;aliasDraft.clear();aliasRestore.clear();aliasCards.clear();
+   if(existing!=null){
+    aliasRestore.put(A_CONNECTORS,existing.connectorId);aliasRestore.put(A_PROJECTS,existing.projectId);
+    aliasRestore.put(A_RUNTIMES,existing.runtimeId);aliasRestore.put(A_MODELS,existing.model);aliasRestore.put(A_PERMISSIONS,existing.permission);
+   }
+   LinearLayout box=EditorialUI.column(activity);
+   box.setPadding(EditorialUI.dp(activity,20),EditorialUI.dp(activity,12),EditorialUI.dp(activity,20),EditorialUI.dp(activity,4));
+   box.addView(EditorialUI.text(activity,"别名（口语名称）",13,EditorialUI.MUTED));
+   final EditText input=new EditText(activity);
+   input.setSingleLine();
+   input.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+   input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(DshAliasRegistry.MAX_ALIAS_CODE_POINTS)});
+   input.setHint("例如：办公室电脑");
+   if(existing!=null)input.setText(existing.alias);
+   input.setSelection(input.getText().length());
+   box.addView(input);
+   box.addView(EditorialUI.text(activity,"本别名的目标（与已保存绑定互不影响）",13,EditorialUI.MUTED));
+   aliasOptionCard(box,A_CONNECTORS,"电脑");
+   aliasOptionCard(box,A_PROJECTS,"项目");
+   aliasOptionCard(box,A_RUNTIMES,"DSH 运行时");
+   aliasOptionCard(box,A_MODELS,"模型与推理选项");
+   aliasOptionCard(box,A_PERMISSIONS,"执行权限");
+   aliasEditorNote=EditorialUI.text(activity,"正在读取该账户的电脑目录…",12,EditorialUI.MUTED);
+   box.addView(aliasEditorNote);
+   EditorialUI.button(activity,box,"重新读取目录",false,()->loadAliasDirectory());
+   box.addView(EditorialUI.text(activity,"同一账户内别名唯一，一个运行时实例最多一个别名；保存只写入本别名，不改动已保存绑定，也不改动 AA 服务端配置。",12,EditorialUI.MUTED));
+   ScrollView scroll=new ScrollView(activity);
+   scroll.addView(box,new LinearLayout.LayoutParams(-1,-2));
+   final String editingKey=aliasKey;
+   android.app.AlertDialog.Builder builder=new android.app.AlertDialog.Builder(activity);
+   builder.setTitle(editingKey.isEmpty()?"新建语音别名":"编辑语音别名").setView(scroll)
+    .setOnDismissListener(d->closeVoiceAliasEditor())
+    .setPositiveButton("保存",null)
+    .setNegativeButton("取消",null);
+   if(!editingKey.isEmpty())builder.setNeutralButton("清空该别名",(d,w)->deleteVoiceAlias(editingKey));
+   final android.app.AlertDialog dialog=builder.show();
+   // Own the 保存 click so a refused save keeps the dialog open and the draft intact (fail-closed, retry in place).
+   dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener(v->{if(saveVoiceAlias(input.getText().toString()))dialog.dismiss();});
+   loadAliasDirectory();
+  }
+  /** The draft and its card handles only belong to the open dialog; dropping them also drops in-flight rows. */
+  void closeVoiceAliasEditor(){
+   aliasRequest++;aliasDraftKey="";aliasDraft.clear();aliasRestore.clear();aliasCards.clear();aliasEditorNote=null;
+  }
+  void aliasOptionCard(LinearLayout parent,String key,String title){
+   aliasCards.put(key,EditorialUI.optionCard(activity,parent,title,()->pickAliasOption(key)));
+  }
+  List<DshDirectory.Option> aliasRows(String key){
+   if(A_CONNECTORS.equals(key))return aliasDraft.connectors;
+   if(A_PROJECTS.equals(key))return aliasDraft.projects;
+   if(A_RUNTIMES.equals(key))return aliasDraft.runtimes;
+   if(A_MODELS.equals(key))return aliasDraft.models;
+   return aliasDraft.permissions;
+  }
+  String aliasIdOf(String key){
+   if(A_CONNECTORS.equals(key))return aliasDraft.connector;
+   if(A_PROJECTS.equals(key))return aliasDraft.project;
+   if(A_RUNTIMES.equals(key))return aliasDraft.runtime;
+   if(A_MODELS.equals(key))return aliasDraft.model;
+   return aliasDraft.permission;
+  }
+  void aliasSetId(String key,String id){
+   if(A_CONNECTORS.equals(key))aliasDraft.connector=id;
+   else if(A_PROJECTS.equals(key))aliasDraft.project=id;
+   else if(A_RUNTIMES.equals(key))aliasDraft.runtime=id;
+   else if(A_MODELS.equals(key))aliasDraft.model=id;
+   else aliasDraft.permission=id;
+   if(id==null||id.isEmpty())aliasRestore.remove(key);else aliasRestore.put(key,id);
+  }
+  static String aliasLevelTitle(String key){
+   if(A_CONNECTORS.equals(key))return "电脑";
+   if(A_PROJECTS.equals(key))return "项目";
+   if(A_RUNTIMES.equals(key))return "DSH 运行时";
+   if(A_MODELS.equals(key))return "模型与推理选项";
+   return "执行权限";
+  }
+  /** A seed counts only when the live rows still contain it; otherwise the level stays unselected. */
+  DshDirectory.Option aliasSeed(String key,List<DshDirectory.Option> rows){
+   DshDirectory.Option found=Policy.find(rows,aliasRestore.get(key));
+   if(found==null)return null;
+   aliasSetId(key,found.id);
+   return found;
+  }
+  void setAliasNote(String text){if(aliasEditorNote!=null)aliasEditorNote.setText(text);}
+  void drawAlias(String key){
+   EditorialUI.CardText card=aliasCards.get(key);if(card==null)return;
+   List<DshDirectory.Option> rows=aliasRows(key);
+   DshDirectory.Option current=Policy.find(rows,aliasIdOf(key));
+   if(current==null){card.title.setText(rows.isEmpty()?"暂无可选项":"请选择");card.subtitle.setText(rows.isEmpty()?"点击查看可用选项":""+rows.size()+" 个可选项");return;}
+   card.title.setText(current.label);
+   card.subtitle.setText((current.subtitle.isEmpty()?"":current.subtitle+" · ")+"本别名已选");
+  }
+  void drawAllAlias(){for(String key:Arrays.asList(A_CONNECTORS,A_PROJECTS,A_RUNTIMES,A_MODELS,A_PERMISSIONS))drawAlias(key);}
+  /** Mirrors the save gate into the dialog so the user sees what is still missing before pressing 保存. */
+  void drawAliasVerification(){
+   String reason=aliasDraft.refusal(accountEpoch,directory.generation(),aliasBaseUrl());
+   if(AliasTarget.OK.equals(reason)){setAliasNote("本别名的电脑、项目、运行时、模型与权限均已在该账户在线目录中核验，可保存。");return;}
+   setAliasNote("尚不能保存："+AliasTarget.message(reason)+"。任一项未核验都不会保存，也不会借用已保存绑定的取值。");
+  }
+  void pickAliasOption(String key){
+   if(selectionLocked())return;
+   final long epoch=accountEpoch;
+   EditorialUI.pickOption(activity,aliasLevelTitle(key),aliasRows(key),Policy.find(aliasRows(key),aliasIdOf(key)),choice->{
+    if(closed||epoch!=accountEpoch)return;
+    if(A_CONNECTORS.equals(key))pickAliasConnector(choice);
+    else if(A_RUNTIMES.equals(key))pickAliasRuntime(choice);
+    else if(A_MODELS.equals(key)||A_PERMISSIONS.equals(key)){if(choice==null||choice.id.isEmpty())return;aliasSetId(key,choice.id);drawAlias(key);drawAliasVerification();}
+    else{aliasSetId(key,choice==null?"":choice.id);drawAlias(key);drawAliasVerification();}
+   });
+  }
+  void pickAliasConnector(DshDirectory.Option choice){
+   String picked=choice==null?"":choice.id;
+   // Only a real computer change drops the descendant seeds; re-picking the same one keeps this alias's target.
+   if(!picked.equals(aliasDraft.connector)){aliasRestore.remove(A_PROJECTS);aliasRestore.remove(A_RUNTIMES);dropAliasCatalogSeed();}
+   aliasSetId(A_CONNECTORS,picked);
+   aliasDraft.dropProjectAndRuntimes();
+   drawAllAlias();
+   if(choice==null||choice.id.isEmpty()){setAliasNote("已清空本别名的电脑选择，项目、运行时、模型与权限同步清空。");return;}
+   loadAliasChildren(choice.id);
+  }
+  void pickAliasRuntime(DshDirectory.Option choice){
+   String picked=choice==null?"":choice.id;
+   if(!picked.equals(aliasDraft.runtime))dropAliasCatalogSeed();
+   aliasSetId(A_RUNTIMES,picked);
+   aliasDraft.dropCatalog();
+   drawAllAlias();
+   if(choice==null||choice.id.isEmpty()){setAliasNote("已清空本别名的运行时选择，模型与权限同步清空。");return;}
+   loadAliasCatalog(choice.id);
+  }
+  /** A parent change must not re-seed descendants from the previous target of this alias. */
+  void dropAliasCatalogSeed(){aliasRestore.remove(A_MODELS);aliasRestore.remove(A_PERMISSIONS);}
+  void loadAliasDirectory(){
+   if(selectionLocked())return;
+   long epoch=accountEpoch,ticket=directory.generation(),screen=screenEpoch,request=++aliasRequest;
+   aliasDraft.loadedAccount=-1;aliasDraft.loadedTicket=-1;aliasDraft.connectors=Collections.<DshDirectory.Option>emptyList();
+   setAliasNote("正在读取该账户的电脑目录…");
+   aliasFetch(epoch,ticket,screen,request,token->{
+    Map<String,Object> response=DshClient.httpTransport("GET",ORIGIN+"/api/v2/connectors",token,null);
+    List<DshDirectory.Option> values=new ArrayList<>();
+    for(Map<String,Object> row:DshDirectory.rows(response,"connectors")){String id=DshDirectory.text(row,"id");if(!id.isEmpty())values.add(new DshDirectory.Option(id,DshDirectory.text(row,"name"),runtimeNote(row)));}
+    MAIN.post(()->{
+     if(!valid(epoch,ticket,screen)||request!=aliasRequest)return;
+    aliasDraft.connectors=values;drawAlias(A_CONNECTORS);
+    // An empty live listing still counts as fresh evidence: the level simply has nothing verifiable to pick.
+    aliasDraft.loadedAccount=epoch;aliasDraft.loadedTicket=ticket;
+    if(values.isEmpty()){setAliasNote("该账户当前没有电脑可选，别名无法保存。");return;}
+    DshDirectory.Option choice=aliasSeed(A_CONNECTORS,values);
+     if(choice==null){setAliasNote("请为本别名选择电脑；项目、运行时、模型与权限会在选择后读取。");drawAliasVerification();return;}
+     loadAliasChildren(choice.id);
+    });
+   });
+  }
+  /** Children come from the drafted connector only: the same account-scoped evidence the UI save() gate uses. */
+  void loadAliasChildren(String connector){
+   long epoch=accountEpoch,ticket=directory.generation(),screen=screenEpoch,request=++aliasRequest;
+   setAliasNote("正在读取本别名目标的项目与 DSH 运行时目录…");
+   aliasFetch(epoch,ticket,screen,request,token->{
+    Map<String,Object> ps=DshClient.httpTransport("GET",ORIGIN+"/api/v2/projects",token,null);
+    Map<String,Object> rs=DshClient.httpTransport("GET",ORIGIN+"/api/v2/connectors/"+encode(connector)+"/runtimes",token,null);
+     if(!connector.equals(DshDirectory.text(rs,"connectorId")))throw new IllegalArgumentException("runtime_connector_mismatch");
+     List<DshDirectory.Option> p=DshDirectory.projects(DshDirectory.rows(ps,"projects"),connector);
+    List<Map<String,Object>> runtimeRows=DshDirectory.rows(rs,"runtimes");
+    for(Map<String,Object> row:runtimeRows){String bound=DshDirectory.text(row,"connectorId");if(!bound.isEmpty()&&!connector.equals(bound))throw new IllegalArgumentException("runtime_connector_mismatch");row.put("connectorId",connector);}
+    final List<DshDirectory.Option> cards=DshDirectory.runtimeCards(runtimeRows,connector),usable=DshDirectory.runtimes(runtimeRows,connector);
+    MAIN.post(()->{
+     if(!valid(epoch,ticket,screen)||request!=aliasRequest)return;
+     aliasDraft.projects=p;aliasDraft.runtimes=cards;aliasDraft.usable=usable;
+     aliasDraft.loadedAccount=epoch;aliasDraft.loadedTicket=ticket;aliasDraft.dropCatalog();
+     aliasSeed(A_PROJECTS,p);
+     DshDirectory.Option runtime=aliasSeed(A_RUNTIMES,cards);
+     drawAlias(A_PROJECTS);drawAlias(A_RUNTIMES);
+     if(runtime==null){setAliasNote("请为本别名选择 DSH 运行时；只有可用的 dsh 运行时可保存。模型与权限会在选择后读取。");drawAliasVerification();return;}
+     loadAliasCatalog(runtime.id);
+   });});
+  }
+  /** Catalog rows belong to the drafted runtime instance; a mismatched or missing selection is refused. */
+  void loadAliasCatalog(String runtime){
+   String connector=aliasDraft.connector;
+   long epoch=accountEpoch,ticket=directory.generation(),screen=screenEpoch,request=++aliasRequest;
+   setAliasNote("正在读取本别名运行时的模型与执行权限目录…");
+   aliasFetch(epoch,ticket,screen,request,token->{
+    String path=ORIGIN+"/api/v2/connectors/"+encode(connector)+"/runtimes/"+encode(runtime)+"/catalogs/";
+    final List<DshDirectory.Option> ms=DshDirectory.catalog(DshClient.httpTransport("GET",path+"model",token,null),true);
+    final List<DshDirectory.Option> ps=DshDirectory.catalog(DshClient.httpTransport("GET",path+"permission",token,null),false);
+    MAIN.post(()->{
+     if(!valid(epoch,ticket,screen)||request!=aliasRequest)return;
+     aliasDraft.models=ms;aliasDraft.permissions=ps;
+     aliasDraft.catalogAccount=epoch;aliasDraft.catalogTicket=ticket;aliasDraft.catalogRuntime=runtime;
+     aliasSeed(A_MODELS,ms);aliasSeed(A_PERMISSIONS,ps);
+     drawAlias(A_MODELS);drawAlias(A_PERMISSIONS);drawAliasVerification();
+    });
+   });
+  }
+  /** Same authenticated runner as the rest of the screen; a directory failure also shows inside the dialog. */
+  void aliasFetch(long epoch,long ticket,long screen,long request,Fetch work){
+   fetch(token->{try{work.run(token);}catch(Exception failure){final String message=Policy.directoryError(failure);MAIN.post(()->{if(valid(epoch,ticket,screen)&&request==aliasRequest)setAliasNote(message+" 未核验的目标不会被保存。");});throw failure;}});
+  }
+  /** Explicit commit: the table changes only here, and only while every level of THIS alias is still verified. */
+  boolean saveVoiceAlias(String alias){
+   if(closed||activity.isFinishing())return false;
+   if(selectionLocked())return false;
+   DshAliasRegistry table=voiceAliasTable();
+   if(table==null){status.setText("账户或服务地址已变化，别名未保存。");return false;}
+   String baseUrl=aliasBaseUrl();
+   String reason=aliasDraft.refusal(accountEpoch,directory.generation(),baseUrl);
+   if(!AliasTarget.OK.equals(reason)){status.setText("别名未保存："+AliasTarget.message(reason)+"。电脑、项目、运行时、模型与权限必须全部核验。");drawAllAlias();drawAliasVerification();return false;}
+   List<String> picked=aliasDraft.ids();
+   String owner=AliasTarget.ownerConflict(table,alias,picked.get(2),aliasDraftKey);
+   if(!owner.isEmpty()){status.setText("别名未保存：该运行时实例已指向别名「"+owner+"」，请先清空该别名；不会静默顶替其他别名。");return false;}
+   try{table.upsertSnapshot(alias,baseUrl,picked.get(0),picked.get(2),picked.get(1),picked.get(3),picked.get(4));}
+   catch(RuntimeException invalid){status.setText("别名未保存："+aliasError(invalid));refreshVoiceAlias();return false;}
+   if(!persistVoiceAliasTable(table)){status.setText("别名保存失败，原有别名配置保持有效。");return false;}
+   status.setText("已保存该别名自己选择的电脑、项目、运行时、模型与权限；已保存绑定未被改动，只有点名该别名时才路由到该运行时实例。");
+   refreshVoiceAlias();
+   return true;
+  }
+  void deleteVoiceAlias(String aliasKey){
+   if(selectionLocked())return;
+   DshAliasRegistry table=voiceAliasTable();
+   if(table==null){status.setText("账户或服务地址已变化，别名未改动。");return;}
+   DshAliasRegistry.AliasEntry existing=table.getSnapshot(aliasKey);
+   if(existing==null){status.setText("该别名已不存在。");refreshVoiceAlias();return;}
+   try{table.deleteSnapshot(existing.aliasKey);}catch(RuntimeException invalid){status.setText("别名未改动。");return;}
+   if(!persistVoiceAliasTable(table)){status.setText("别名清空失败，原有别名配置保持有效。");return;}
+   // The audit label may stay when a submission is unconfirmed; the alias mapping itself is already gone.
+   if(clearVoiceAliasLabel(existing.runtimeId))status.setText("存在未确认提交，别名映射已移除但会话跟踪标签保留；请先在网页核对。");
+   else status.setText("已清空该运行时实例的语音别名；本地会话跟踪与远端会话均未改动。");
+   refreshVoiceAlias();
+  }
+  /** One durable write of the whole table; a failure keeps the previous document and never locks DSH dispatch. */
+  boolean persistVoiceAliasTable(DshAliasRegistry table){
+   if(table==null||!table.usable())return false;
+   String document=DshAliasRegistry.serializeSnapshot(table);
+   SharedPreferences aliases=app.getSharedPreferences(ToolClient.ALIAS_FILE,0);
+   synchronized(DshClient.LOCK){
+    if(locked(app))return false;
+    if(!aliases.edit().putString(ToolClient.ALIAS_DOC,document).commit())return false;
+   }
+   return document.equals(aliases.getString(ToolClient.ALIAS_DOC,""));
+  }
+  /** Clears the audit label when the deleted alias owns the current binding. Locked state keeps everything. */
+  boolean clearVoiceAliasLabel(String runtimeId){
+   SharedPreferences prefs=app.getSharedPreferences("turboio_settings",0);
+   if(!runtimeId.equals(prefs.getString("dsh_runtime",""))||prefs.getString(ToolClient.ALIAS_COLUMN,"").isEmpty())return false;
+   synchronized(DshClient.LOCK){
+    if(locked(app))return true;
+    return !prefs.edit().putString(ToolClient.ALIAS_COLUMN,"").commit();
+   }
+  }
+  static String aliasError(RuntimeException invalid){
+   String code=invalid.getMessage()==null?"ALIAS_INVALID":invalid.getMessage();
+   if("ALIAS_EMPTY".equals(code))return "别名不能为空";
+   if("ALIAS_CONTROL".equals(code))return "别名含控制或不可见字符";
+   if("ALIAS_LENGTH".equals(code))return "别名长度需为 1-32 个码点";
+   if("ALIAS_NOT_NORMALIZED".equals(code))return "别名规范化后为空或等价";
+   if("ALIAS_TAKEN".equals(code))return "该别名已指向其他运行时实例，请先清空旧别名";
+   if("ALIAS_LIMIT".equals(code))return "别名数量已达上限";
+   if("IDENTITY_REQUIRED".equals(code)||"SELECTION_REQUIRED".equals(code))return "目标身份或模型权限快照不完整";
+   if("FOREIGN_TARGET".equals(code))return "别名不属于当前账户或服务地址";
+   return "别名格式不被接受";
+  }
   private String lastReply="";
   private String lastState="",lastNote="";
   private String lastSessionId="",lastMessageId="";
