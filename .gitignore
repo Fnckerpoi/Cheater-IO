@@ -36,4 +36,5 @@
 **/oh_modules/
 **/.idea/
 **/local.properties
+/Agents-Anywhere/
 /harmony-sdk/build-profile.json5
