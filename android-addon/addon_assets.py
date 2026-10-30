@@ -21,7 +21,7 @@ def assets():
         result[f'assets/turboio/art/{name}.png'] = HOME / f'{name}.png'
     result['assets/turboio/gallery/catalog.json'] = GALLERY / 'catalog.json'
     result['assets/turboio/card.schema.json'] = ROOT / 'android-addon/assets/card.schema.json'
-    catalog = json.loads((GALLERY / 'catalog.json').read_text())
+    catalog = json.loads((GALLERY / 'catalog.json').read_text(encoding='utf-8'))
     import hashlib
     if len(catalog['entries']) != 20:
         raise ValueError('Expected reviewed 20-template catalog')
