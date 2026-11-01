@@ -557,6 +557,7 @@ final class ToolClient {
             if(refused!=null) return new JSONObject(refused);
             Map<String,Object> parsedArgs=DshClient.parseJsonObject(dispatchTaskOnly(arguments).toString());
             Map<String,Object> out=dshClient(guard).dispatch(parsedArgs, modelSecret, SecretStore.get(app,"search_key"));
+            notifyWorkbench(out);
             return new JSONObject(DshClient.stringifyJson(withVoiceAlias(out)));
         }
         if(name.equals("dsh_status")) {
@@ -566,6 +567,7 @@ final class ToolClient {
             if(refused!=null) return new JSONObject(refused);
             Map<String,Object> parsedArgs=DshClient.parseJsonObject("{}");
             Map<String,Object> out=dshClient(guard,true).status(parsedArgs);
+            notifyWorkbench(out);
             return new JSONObject(DshClient.stringifyJson(withVoiceAlias(out)));
         }
         String query=arguments.optString("query","").trim();
@@ -586,6 +588,26 @@ final class ToolClient {
     }
     private static String truncate(String value,int count) {return value.substring(0,Math.min(value.length(),count));}
     /** Keeps only the task argument so a {@code target} can never reach the remote request body. */
+    private static void notifyWorkbench(Map<String,Object> out){
+        if(out==null)return;
+        try{
+            String state=String.valueOf(out.get("status")==null?"":out.get("status"));
+            String label;
+            if("submitted".equals(state)||"running".equals(state)) label="正在执行";
+            else if("waiting_approval".equals(state)) label="等待权限审批";
+            else if("session_selected".equals(state)) label="已选择会话，尚无本轮消息";
+            else if("completed".equals(state)||"ended".equals(state)) label="已完成";
+            else if("failed".equals(state)) label="失败";
+            else if("unknown_delivery".equals(state)) label="未确认提交（锁定）";
+            else if("idle_no_reply".equals(state)) label="空闲，暂无新回复";
+            else if("unknown".equals(state)||"no_session".equals(state)||state.isEmpty()) label="状态待确认";
+            else if("released".equals(state)) label="已解除本机跟踪";
+            else label="状态待确认";
+            String sessionId=String.valueOf(out.get("sessionId")==null?"":out.get("sessionId"));
+            String answer=String.valueOf(out.get("answer")==null?"":out.get("answer"));
+            DshWorkbenchCardSync.aa(label,sessionId,answer);
+        }catch(Throwable ignored){}
+    }
     private static JSONObject dispatchTaskOnly(JSONObject arguments) throws JSONException {
         Object task=arguments.get("task");
         if(!(task instanceof String)) throw new IllegalArgumentException("invalid_task_type");

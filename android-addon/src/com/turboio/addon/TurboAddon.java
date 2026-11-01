@@ -72,6 +72,11 @@ public final class TurboAddon {
         OfficialOtaBridge.init(app);
         BackgroundWork.init(app);ScadaSensorController.init(app);MusicPlayer.init(app);ReaderLibrary.init(app);CloudCaption.init(app);BackgroundWork.register("新闻",NewsTele::stop);
         NativeTransfer.init(app);FocusController.init(app);AppController.init(app);CardTransport.init();NativeNavigation.init(app);
+        DshSettings.onCardState=(state,session,answer)->DshWorkbenchCardSync.aa(state,session,answer);
+        boolean pending=prefs.getBoolean("dsh_unknown_delivery",false);
+        String savedSession=prefs.getString("dsh_session_id","");
+        DshWorkbenchCardSync.aa(pending?"未确认提交（锁定）":(savedSession.isEmpty()?"待命":"就绪"),savedSession,"");
+        DshWorkbenchCardSync.setEnabled(prefs.getBoolean("dsh_workbench_card_enabled",true));
         ViewGroup root = host.findViewById(android.R.id.content);
         if (root.findViewWithTag("turboio-entry") != null) return;
         TextView button = new TextView(host);
@@ -121,6 +126,7 @@ public final class TurboAddon {
         serial(() -> {
             try { invokeTyped(source,"onAsrResult",new Class<?>[]{String.class,boolean.class,String.class},new Object[]{text,finished,session}); }
             catch(Exception ignored) { diagnostic="官方 ASR 分发失败";return; }
+            DshWorkbenchCardSync.asr(text,finished);
             if(text!=null&&!text.isEmpty())VoiceSpeech.asr(source,session,finished);
             onAsr(source,text,finished,session);
         });
@@ -452,6 +458,7 @@ public final class TurboAddon {
         Activity host=host();if(host==null)return;
         LinearLayout box=panel(host);ScrollView scroll=new ScrollView(host);scroll.addView(box);
         Switch search=new Switch(host);search.setText("允许模型使用 TinyFish 搜索");search.setChecked(prefs.getBoolean("search",false));box.addView(search);
+        Switch workbench=new Switch(host);workbench.setText("眼镜主页常驻 AA 工作台与实时字幕卡片");workbench.setChecked(prefs.getBoolean("dsh_workbench_card_enabled",true));box.addView(workbench);
         EditText searchKey=input(host,box,"TinyFish Key（留空保留）","",true);
         action(host,box,"电脑端 DSH · 网页授权与目标选择",()->DshSettings.show(host));
         label(host,box,"实际注册的 Tools 仅包含已启用且有完整凭据与目标绑定的能力。\nweb_search：公开资料搜索\ndsh_dispatch / dsh_status：经 Agents-Anywhere（/api/v2）向绑定电脑端 DSH 派发任务与查询状态（非只读，按所配权限在目标电脑执行）\n不把未接通的 Agent 冒充为已就绪，不自动上传录音。\n打开开关后，对应请求会发送到你配置的服务、目标与模型。");
@@ -462,8 +469,10 @@ public final class TurboAddon {
             if(searchKey.length()>0)SecretStore.put(app,"search_key",searchKey.getText().toString().trim());
             if(search.isChecked()&&SecretStore.get(app,"search_key").isEmpty())throw new IllegalArgumentException();
             SharedPreferences.Editor editor=prefs.edit()
-                .putBoolean("search",search.isChecked());
+                .putBoolean("search",search.isChecked())
+                .putBoolean("dsh_workbench_card_enabled",workbench.isChecked());
             if(!editor.commit())throw new IllegalStateException("storage_failed");
+            DshWorkbenchCardSync.setEnabled(workbench.isChecked());
             cancel();
             }
             dialog.dismiss();showHome();

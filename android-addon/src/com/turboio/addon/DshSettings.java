@@ -60,6 +60,8 @@ final class DshSettings {
  }
  static void show(Activity activity){ToolClient.init(activity.getApplicationContext());if(current!=null)current.close();current=new Screen(activity);}
  static Runnable onClosed;
+ interface CardStateListener { void update(String state,String session,String answer); }
+ static CardStateListener onCardState;
  static void notifyClosed(){Runnable r=onClosed;onClosed=null;if(r!=null)try{r.run();}catch(Exception ignored){}}
  static void callback(Context app,String uri){
   final DshAuth.Grant grant;
@@ -442,6 +444,7 @@ final class DshSettings {
    syncState.setText("状态："+(pending?"未确认提交（锁定）":(lastState.isEmpty()?"就绪":lastState)));
    syncSession.setText(sessionDisplay(sessionId,messageId));
    syncReply.setText(lastReply.isEmpty()?"最新回复：暂无":"最新回复："+DshClient.truncate(lastReply,300));
+   if(onCardState!=null)onCardState.update(pending?"未确认提交（锁定）":(lastState.isEmpty()?"就绪":lastState),sessionId,lastReply);
    String note=lastNote.isEmpty()?stringOf(snapshot,"message"):lastNote;
    syncNote.setText(note.isEmpty()?"":"提示："+note);
    syncTime.setText("最近同步："+(syncStamp==0?"尚未同步":new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale.ROOT).format(new java.util.Date(syncStamp))));
