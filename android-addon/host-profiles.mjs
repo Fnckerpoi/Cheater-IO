@@ -17,6 +17,13 @@ export const ADAPTERS = Object.freeze({
     baselineSha256:
       "a2961c06a9109a982386921044551cc982afa935fc67299f1216991dd1a2675c",
   }),
+  "rayneo-1.0.10-258": Object.freeze({
+    sha256: "951dabcb8a0a954dd90b901dab9a6b53c48c406545879f4900949c8b41e26e22",
+    version: "1.0.10",
+    code: 258,
+    baselineSha256:
+      "c600ba6e60c0212cf511cc371b2f5f910fa1f938985daf6b890ad4764553081a",
+  }),
 });
 
 const contractSha = (baseline) =>
@@ -82,7 +89,7 @@ export function validateProfileDocument(doc) {
       !/^[a-z0-9-]+$/.test(p.directory) ||
       !["draft", "approved", "revoked"].includes(p.status) ||
       !(p.adapterId === null || typeof p.adapterId === "string") ||
-      (p.baseline !== "static-1.0.5" && p.baseline !== "static-1.0.7")
+      (p.baseline !== "static-1.0.5" && p.baseline !== "static-1.0.7" && p.baseline !== "static-1.0.10")
     )
       throw new Error("Invalid profile schema");
     if (ids.has(p.id) || shas.has(p.sha256))
@@ -153,6 +160,7 @@ export function assertBuildProfile(profile) {
   const allowedVersions = [
     { version: "1.0.5", code: 201 },
     { version: "1.0.7", code: 230 },
+    { version: "1.0.10", code: 258 },
   ];
   if (!allowedVersions.some(v => v.version === profile.version && v.code === profile.code))
     throw new Error("Historical host profiles are not buildable");
@@ -240,6 +248,17 @@ export function verifyHost(root, profile) {
     if (!f || f.length !== 1) throw new Error("Missing or ambiguous exact class: " + d);
     return f[0];
   };
+
+  if (profile.version === "1.0.10") {
+    return {
+      listener: file("Lm9/c$c;"),
+      activity: file("Lcom/rayneo/venus/MainActivity;"),
+      event: file("Lcom/rayneo/rayneo_venus_sdk_plugin/k;"),
+      ota: { queue: file("LO4/Y;"), sender: file("LO4/v;") },
+      version: profile.version,
+      code: profile.code,
+    };
+  }
 
   if (profile.version === "1.0.7") {
     return {

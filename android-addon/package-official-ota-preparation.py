@@ -78,7 +78,7 @@ def audit_prepared(base, prepared, new, marker, value):
                 raise ValueError('Non-native payload changed: '+name)
 
 
-def prepare(original, base, patched_lib, out, guarded=False, node='node'):
+def prepare(original, base, patched_lib, out, guarded=False, node='node', verify_args=None):
     import os
     import tempfile
     receipt = out.with_suffix('.audit.json')
@@ -90,7 +90,8 @@ def prepare(original, base, patched_lib, out, guarded=False, node='node'):
     profile = native_profile(original)
     if any(admitted[k] != profile[k] for k in ('version', 'code', 'adapterId')) or admitted['sha256'] != profile['hostSha256']:
         raise ValueError('Host admission/native contract mismatch')
-    subprocess.run([sys.executable, str(root/'verify_apk.py'), str(original), str(base), '--public-assets'], check=True, env={**os.environ, 'PYTHONUTF8':'1'})
+    verify_cmd = [sys.executable, str(root/'verify_apk.py'), str(original), str(base), '--public-assets'] + (list(verify_args) if verify_args else [])
+    subprocess.run(verify_cmd, check=True, env={**os.environ, 'PYTHONUTF8':'1'})
     new = patched_lib.read_bytes()
     marker = 'assets/turboio/official-ota-'+('guarded.txt' if guarded else 'preparation.txt')
     value = ('ANDROID-'+profile['version'].replace('.', '')+'-OFFICIAL-OTA-'+('GUARD-02' if guarded else 'PREPARE-01')+'\n').encode('ascii')
@@ -135,7 +136,26 @@ if __name__ == '__main__':
     guarded = bool(arguments and arguments[0] == '--guarded')
     if guarded:
         arguments = arguments[1:]
-    if len(arguments) not in (4, 5):
-        raise SystemExit('Expected [--guarded] source base patched-lib output [node]')
-    original, base, library, out = map(pathlib.Path, arguments[:4])
-    print(json.dumps(prepare(original, base, library, out, guarded, arguments[4] if len(arguments) == 5 else 'node'), indent=2))
+    verify_flags = []
+    positional = []
+    i = 0
+    node_bin = 'node'
+    while i < len(arguments):
+        arg = arguments[i]
+        if arg in ('--cheater-io',):
+            verify_flags.append(arg)
+        elif arg in ('--payload-apk', '--payload-sidecar', '--hook-dex'):
+            verify_flags.extend([arg, arguments[i+1]])
+            i += 1
+        elif arg == '--node':
+            node_bin = arguments[i+1]
+            i += 1
+        else:
+            positional.append(arg)
+        i += 1
+    if len(positional) not in (4, 5):
+        raise SystemExit('Expected [--guarded] source base patched-lib output [node] [--verify-options...]')
+    original, base, library, out = map(pathlib.Path, positional[:4])
+    if len(positional) == 5:
+        node_bin = positional[4]
+    print(json.dumps(prepare(original, base, library, out, guarded, node_bin, verify_flags), indent=2))

@@ -14,6 +14,9 @@ public final class DshClient {
     private static final int MAX_MODEL_LENGTH = 160;
     private static final int MAX_PERMISSION_LENGTH = 64;
     private static final int MAX_RESPONSE_BYTES = 1048576;
+    // Latest 200 timeline entries include full answers in long sessions; status remains bounded at 16MiB.
+    private static final int STATUS_MAX_RESPONSE_BYTES = 16 * 1048576;
+    private static final ThreadLocal<String> STATUS_QUERY_URL = new ThreadLocal<>();
 
     public interface Transport {
         Map<String, Object> send(String method, String url, String bearerToken, Map<String, Object> body) throws Exception;
@@ -37,6 +40,55 @@ public final class DshClient {
             if (status < 400 || status >= 500) return false;
             return "session_archived".equals(code) || "session_unavailable".equals(code)
                 || "session_deleted".equals(code) || "session_missing".equals(code);
+        }
+    }
+
+    /** Safe diagnostics only: never retain the transport exception, URL, token or response. */
+    public static final class StatusQueryException extends IOException {
+        public enum Stage { RUNTIME_STATE("runtime_state"), TIMELINE("timeline");
+            final String code; Stage(String code) { this.code=code; } }
+        public enum Reason { HTTP, TIMEOUT, CONNECT, RESPONSE_LIMIT, JSON_INVALID, EMPTY_BODY, UNKNOWN }
+        public final Stage stage;
+        public final Reason reason;
+        public final int httpStatus;
+        private StatusQueryException(Stage stage, Reason reason, int httpStatus) {
+            super(summary(stage,reason,httpStatus));
+            this.stage=stage; this.reason=reason; this.httpStatus=httpStatus;
+        }
+        private static String summary(Stage stage, Reason reason, int httpStatus) {
+            return stage.code+"/"+(reason==Reason.HTTP?"http_"+httpStatus:reason.name().toLowerCase(Locale.ROOT));
+        }
+        public String safeSummary() { return summary(stage,reason,httpStatus); }
+    }
+    private static final class ResponseLimitException extends IOException {
+        ResponseLimitException() { super("response_limit"); }
+    }
+    private static final class InvalidJsonResponseException extends IOException {
+        InvalidJsonResponseException() { super("json_invalid"); }
+    }
+    private static final class EmptyResponseBodyException extends IOException {
+        EmptyResponseBodyException() { super("empty_body"); }
+    }
+
+    private Map<String,Object> queryStatus(StatusQueryException.Stage stage, String path) throws StatusQueryException {
+        String previous = STATUS_QUERY_URL.get();
+        STATUS_QUERY_URL.set(config.baseUrl+path);
+        try { return transport.send("GET",config.baseUrl+path,config.token,null); }
+        catch (Exception error) {
+            StatusQueryException.Reason reason=StatusQueryException.Reason.UNKNOWN;
+            int status=0;
+            if(error instanceof HttpStatusException) {
+                int raw=((HttpStatusException)error).status;
+                if(raw>=100&&raw<=599) { reason=StatusQueryException.Reason.HTTP; status=raw; }
+            } else if(error instanceof SocketTimeoutException) reason=StatusQueryException.Reason.TIMEOUT;
+            else if(error instanceof ConnectException || error instanceof UnknownHostException || error instanceof NoRouteToHostException)
+                reason=StatusQueryException.Reason.CONNECT;
+            else if(error instanceof ResponseLimitException) reason=StatusQueryException.Reason.RESPONSE_LIMIT;
+            else if(error instanceof InvalidJsonResponseException) reason=StatusQueryException.Reason.JSON_INVALID;
+            else if(error instanceof EmptyResponseBodyException) reason=StatusQueryException.Reason.EMPTY_BODY;
+            throw new StatusQueryException(stage,reason,status);
+        } finally {
+            if(previous==null) STATUS_QUERY_URL.remove(); else STATUS_QUERY_URL.set(previous);
         }
     }
 
@@ -361,9 +413,31 @@ public final class DshClient {
     public Map<String, Object> status(Map<String, Object> arguments) throws Exception {
         if (config == null || !config.ready()) throw new IllegalArgumentException("dsh_disabled");
         if (arguments != null && !arguments.isEmpty()) throw new IllegalArgumentException("invalid_status_arguments");
+        // Null: the evaluated turn is the locally stored record, read again under LOCK below.
+        return statusInternal(null);
+    }
+
+    /**
+     * Same guarded status read, but the turn to locate is the one we were TOLD about instead of the
+     * locally recorded submission. Used only for session-round adoption: a task submitted from the
+     * desktop has no local submission record, yet it is still this bound session's newest turn.
+     *
+     * <p>Attribution is not weakened. The final guard keeps session and target ownership, and
+     * {@code evaluateSessionStatus} still refuses with "出现后续用户消息，不能归因到本次任务。" whenever a
+     * later user message exists after the located turn — which is exactly the single-slot rule.
+     */
+    public Map<String, Object> statusForMessage(String clientMessageId) throws Exception {
+        if (config == null || !config.ready()) throw new IllegalArgumentException("dsh_disabled");
+        return statusInternal(clientMessageId);
+    }
+
+    private Map<String, Object> statusInternal(String requestedMessageId) throws Exception {
         final String currentTarget = config.targetFingerprint();
         final String storedTarget, storedSession, storedMessage;
         synchronized(LOCK) { storedTarget=store.targetFingerprint(); storedSession=store.sessionId(); storedMessage=store.clientMessageId(); }
+        // The adoption query deliberately asks about a turn other than the locally stored one, so only
+        // an empty local record may reuse the stored message id; a real record keeps status() semantics.
+        final String evaluatedMessage = requestedMessageId == null || requestedMessageId.isEmpty() ? storedMessage : requestedMessageId;
         if (!storedTarget.isEmpty() && !storedTarget.equals(currentTarget)) {
 
             return mapOf(
@@ -383,8 +457,10 @@ public final class DshClient {
         } else {
             sessionId = validateSessionId(sessionId);
         }
-        Map<String, Object> statePayload = transport.send("GET", config.baseUrl + "/api/v2/sessions/" + sessionId + "/runtime/state", config.token, null);
-        if(storedMessage.isEmpty()) {
+        Map<String, Object> statePayload = queryStatus(StatusQueryException.Stage.RUNTIME_STATE, "/api/v2/sessions/" + sessionId + "/runtime/state");
+        // Only a status() read of a session without any local turn selects the session; an adoption read
+        // already named a discovered turn, so it goes straight to the timeline evaluator.
+        if(evaluatedMessage.isEmpty()) {
             Map<String,Object> selectedState=optMap(unwrapDataObject(statePayload),"state");
             synchronized(LOCK) {
                 if(!storedTarget.equals(store.targetFingerprint()) || !storedSession.equals(store.sessionId()) || !storedMessage.equals(store.clientMessageId()) || store.unknownDelivery())
@@ -398,14 +474,58 @@ public final class DshClient {
                     "message","已选择会话，尚无本机发送的本轮消息","untrusted_external_data",Boolean.TRUE);
             }
         }
-        Map<String, Object> timelinePayload = transport.send("GET", config.baseUrl + "/api/v2/sessions/" + sessionId + "/timeline?mode=latest&limit=200", config.token, null);
+        Map<String, Object> timelinePayload = queryStatus(StatusQueryException.Stage.TIMELINE, "/api/v2/sessions/" + sessionId + "/timeline?mode=latest&limit=200");
         Map<String,Object> actual=optMap(unwrapDataObject(statePayload),"state");
         if(actual==null || (actual.containsKey("runtimeId") && !config.runtimeId.equals(optString(actual,"runtimeId"))) || (actual.containsKey("runtime") && !"dsh".equals(optString(actual,"runtime")))) return mapOf("status","unknown","message","运行时绑定不匹配。");
-        Map<String,Object> result=evaluateSessionStatus(sessionId, storedMessage, statePayload, timelinePayload, true);
+        Map<String,Object> result=evaluateSessionStatus(sessionId, evaluatedMessage, statePayload, timelinePayload, true);
         synchronized(LOCK) {
-            if(!storedTarget.equals(store.targetFingerprint()) || !storedSession.equals(store.sessionId()) || !storedMessage.equals(store.clientMessageId())) return mapOf("status","unknown","message","查询期间任务归属变化，结果不能归因。");
+            // An adopted turn is not the locally stored message id, so status() keeps its own id guard and
+            // the adoption read guards session+target only; the later-user rule above blocks misattribution.
+            boolean sameStoredMessage = evaluatedMessage.equals(storedMessage);
+            if(!storedTarget.equals(store.targetFingerprint()) || !storedSession.equals(store.sessionId())
+                || (sameStoredMessage && !storedMessage.equals(store.clientMessageId())))
+                return mapOf("status","unknown","message","查询期间任务归属变化，结果不能归因。");
         }
         return result;
+    }
+
+    /**
+     * Discovery primitive for session-round adoption: the user turns of the bound session in
+     * newest-first order. Only a timeline that is still bound to the session we track yields ids, so a
+     * rebound device can never adopt another session's history. {@code mode=latest} means a truncated
+     * page only hides OLDER history, so the newest turn is always inside the window we read.
+     */
+    public List<String> timelineUserMessageIds(String sessionId) throws Exception {
+        if (config == null || !config.ready()) throw new IllegalArgumentException("dsh_disabled");
+        final String storedTarget, storedSession;
+        synchronized (LOCK) { storedTarget = store.targetFingerprint(); storedSession = store.sessionId(); }
+        if (!storedTarget.isEmpty() && !storedTarget.equals(config.targetFingerprint())) return Collections.emptyList();
+        if (sessionId == null || sessionId.isEmpty() || !sessionId.equals(storedSession)) return Collections.emptyList();
+        String validated;
+        try { validated = validateSessionId(sessionId); } catch (IllegalArgumentException invalid) { return Collections.emptyList(); }
+        Map<String, Object> payload = queryStatus(StatusQueryException.Stage.TIMELINE,
+            "/api/v2/sessions/" + validated + "/timeline?mode=latest&limit=200");
+        Map<String, Object> data = unwrapDataObject(payload);
+        if (!validated.equals(optString(data, "sessionId"))) return Collections.emptyList();
+        List<?> items = extractArray(data, "items", "timeline", "events", "messages", "data");
+        List<String> ids = new ArrayList<>();
+        if (items == null) return ids;
+        for (int i = items.size() - 1; i >= 0; i--) { // newest first
+            Map<String, Object> item = asMap(items.get(i));
+            if (item == null) continue;
+            Map<String, Object> node = optMap(item, "item");
+            if (node == null) node = item;
+            if (!"user".equals(optString(node, "role")) || !"message".equals(optString(node, "type"))) continue;
+            String id = "";
+            Map<String, Object> source = optMap(node, "source");
+            if (source != null) id = optString(source, "clientMessageId");
+            if (id.isEmpty()) {
+                source = optMap(item, "source");
+                if (source != null) id = optString(source, "clientMessageId");
+            }
+            if (!id.isEmpty()) ids.add(id);
+        }
+        return ids;
     }
 
     /** Read-only snapshot of the local unconfirmed-dispatch state; never performs network I/O. */
@@ -746,14 +866,16 @@ public final class DshClient {
             }
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             try (InputStream in = connection.getInputStream()) {
+                if(in == null) throw new EmptyResponseBodyException();
                 byte[] block = new byte[8192];
                 int n;
                 while ((n = in.read(block)) != -1) {
-                    if (out.size() + n > MAX_RESPONSE_BYTES) throw new IOException("limit");
+                    if (out.size() + n > (("GET".equals(method) && body==null && url.equals(STATUS_QUERY_URL.get())) ? STATUS_MAX_RESPONSE_BYTES : MAX_RESPONSE_BYTES)) throw new ResponseLimitException();
                     out.write(block, 0, n);
                 }
             }
-            return parseJsonObject(out.toString("UTF-8"));
+            try { return parseJsonObject(out.toString("UTF-8")); }
+            catch (IllegalArgumentException invalid) { throw new InvalidJsonResponseException(); }
         } finally {
             connection.disconnect();
         }

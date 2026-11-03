@@ -11,6 +11,7 @@ final class DshSelectionDraft {
     interface Authority {
         Map<String,Object> current() throws Exception;
         List<Candidate> query(String level,Map<String,String> parents) throws Exception;
+        default void checkTarget(String target,String connector,String runtime) throws Exception {}
         Map<String,Object> save(Map<String,String> selected) throws Exception;
     }
     static final class Candidate {
@@ -75,12 +76,15 @@ final class DshSelectionDraft {
         if("runtimes".equals(level))clear("sessions","models","permissions");
         revision++;Map<String,Object> out=snapshot();out.put("requestDraftRevision",expected);return out;
     }}
-    Map<String,Object> save(String draft,long expected)throws Exception {
+    Map<String,Object> save(String draft,long expected)throws Exception {return save(draft,expected,"");}
+    Map<String,Object> save(String draft,long expected,String target)throws Exception {
         final Map<String,String> parent;final Map<String,String> choices=new LinkedHashMap<>();
         final Set<String> need=new LinkedHashSet<>();final boolean sessionVerified;
         final Map<String,Long> tickets=new HashMap<>();
         synchronized(DshClient.LOCK){
             check(draft,expected);parent=parents();
+            authority.checkTarget(target,parent.get("connectorId"),parent.get("runtimeId"));
+            choices.put("target",target);
             for(String level:HOME_LEVELS){Candidate c=find(options.get(level),value(level));if(c==null||!c.available)throw new Failure("INVALID_TARGET");choices.put(level,c.id);}
             for(String level:Arrays.asList("models","permissions")){
                 choices.put(level,value(level));Candidate c=find(options.get(level),value(level));
@@ -102,6 +106,7 @@ final class DshSelectionDraft {
                 if(best==null||!best.available){best=null;for(Candidate row:rows)if(row.available&&!row.id.isEmpty()){best=row;break;}}
                 if(best==null)throw new Failure("INVALID_TARGET");choices.put(level,best.id);
             }
+            authority.checkTarget(target,parent.get("connectorId"),parent.get("runtimeId"));
             Map<String,Object> saved=authority.save(Collections.unmodifiableMap(choices));
             Map<String,Object> state=authority.current();unlocked(state);if(number(state,"authGeneration")!=auth)throw new Failure("STALE_AUTH");
             for(String level:need){List<Candidate> rows=fetched.get(level);options.put(level,Collections.unmodifiableList(new ArrayList<>(rows)));selected.put(level,find(rows,choices.get(level)));}

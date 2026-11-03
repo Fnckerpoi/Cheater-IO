@@ -30,6 +30,13 @@ function runner(bin,args,options){
  throw new Error('Unexpected runner invocation');
 }
 const options={source,dex,workParent:path.join(tmp,'work'),runner};
+function assertHookDex(result,expected){
+ assert.deepEqual(result.report.hookDex,expected);
+ for(const script of ['assemble_apk.py','verify_apk.py']){
+   const [,args]=calls.filter(([,args])=>path.basename(args[0])===script).at(-1);
+   assert.deepEqual(args.flatMap((arg,index)=>arg==='--hook-dex'?[args[index+1]]:[]),expected,script+' hook declarations');
+ }
+}
 try {
  for(const entry of [()=>packageApk(source,{options:{runner}}),()=>packageWindows([source,tmp,dex,'java','apktool.jar','python'],{options:{runner}})]){assert.throws(entry,/Unsupported/);assert.equal(calls.length,0);}
  assert.equal(fs.existsSync(options.workParent),false);
@@ -49,13 +56,14 @@ try {
  assert.equal(calls.some(([,a])=>a[0]==='b'),false);
  fixtures=fixture();calls=[];
  const first=build(options,api);
+ assertHookDex(first,['classes2.dex']);
  const listener=fs.readFileSync(path.join(first.work,'host/smali_classes2/H7/c$c.smali'),'utf8');
  for(const name of ['onAsrResult','onNlpResult','onResponseComplete'])assert.match(listener,new RegExp('turboioOriginal_'+name));
  const defaultEntry=packageApk(source,{outputDirectory:path.join(tmp,'default-entry'),options:{dex,runner},hostApi:api});
  const windowsEntry=packageWindows([source,path.join(tmp,'windows-entry'),dex,'java','apktool.jar','python'],{options:{runner},hostApi:api});
  const defaultReport=JSON.parse(fs.readFileSync(defaultEntry.receipt));
  const windowsReport=JSON.parse(fs.readFileSync(windowsEntry.receipt));
- for(const field of ['inputSha256','outputSha256','profileSha256','adapter','checks'])assert.deepEqual(defaultReport[field],windowsReport[field]);
+ for(const field of ['inputSha256','outputSha256','profileSha256','adapter','checks','hookDex'])assert.deepEqual(defaultReport[field],windowsReport[field]);
  assert.equal(fs.existsSync(defaultEntry.output),true);assert.equal(fs.existsSync(windowsEntry.output),true);
  const second=build({...options,java:'java',apktool:'apktool.jar',python:'python'},api);
  assert.notEqual(first.work,second.work);
@@ -112,12 +120,77 @@ try {
  calls = [];
  const api107 = { profileFor: () => profile107, assertBuildProfile, verifyHost };
  const build107 = build(options, api107);
+ assertHookDex(build107, ['classes2.dex']);
  const listener107 = fs.readFileSync(path.join(build107.work, 'host/smali_classes2/q8/c$c.smali'), 'utf8');
  for (const name of ['onAsrResult', 'onNlpResult', 'onResponseComplete']) assert.match(listener107, new RegExp('turboioOriginal_' + name));
  const queue107 = fs.readFileSync(path.join(build107.work, 'host/smali_classes2/Y3/V.smali'), 'utf8');
  assert.match(queue107, /LY3\/V;->turboioOriginal_o\(LY3\/S;\)V/);
  const file107 = fs.readFileSync(path.join(build107.work, 'host/smali_classes2/Y3/u.smali'), 'utf8');
  assert.match(file107, /LY3\/u;->turboioOriginal_u\(Ljava\/io\/File;Ljava\/lang\/String;Lk4\/q;Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+
+ // Exercise 1.0.10 build pipeline in fixture runner
+ const profile110 = profileFor('951dabcb8a0a954dd90b901dab9a6b53c48c406545879f4900949c8b41e26e22');
+ const fixture110 = () => {
+   const files = {};
+   for (const [descriptor, line] of profile110.baseline) {
+     const prefix = ['Lm9/c$c;', 'Lcom/rayneo/venus/MainActivity;', 'Lcom/rayneo/rayneo_venus_sdk_plugin/k;'].includes(descriptor) ? '../smali_classes3/' : '';
+     const f = prefix + (descriptor === 'LO4/v;' ? 'O4/v.1' : descriptor.slice(1, -1)) + '.smali';
+     files[f] = (files[f] || '.class public ' + descriptor + '\n') + (line.startsWith('"') ? 'const-string v0, ' + line : line) + '\n' + (line.startsWith('.method') ? '    .locals 0\n    return-void\n.end method\n' : '');
+   }
+   return files;
+ };
+ fixtures = fixture110();
+ calls = [];
+ const api110 = { profileFor: () => profile110, assertBuildProfile, verifyHost };
+ const build110 = build(options, api110);
+ assertHookDex(build110, ['classes2.dex', 'classes3.dex']);
+ const listener110 = fs.readFileSync(path.join(build110.work, 'host/smali_classes3/m9/c$c.smali'), 'utf8');
+ for (const name of ['onAsrResult', 'onNlpResult', 'onResponseComplete']) assert.match(listener110, new RegExp('turboioOriginal_' + name));
+ const queue110 = fs.readFileSync(path.join(build110.work, 'host/smali_classes2/O4/Y.smali'), 'utf8');
+ assert.match(queue110, /LO4\/Y;->turboioOriginal_s\(LO4\/V;\)V/);
+ const file110 = fs.readFileSync(path.join(build110.work, 'host/smali_classes2/O4/v.1.smali'), 'utf8');
+ assert.match(file110, /LO4\/v;->turboioOriginal_u\(Ljava\/io\/File;Ljava\/lang\/String;Lb5\/q;Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+ const event110 = fs.readFileSync(path.join(build110.work, 'host/smali_classes3/com/rayneo/rayneo_venus_sdk_plugin/k.smali'), 'utf8');
+ assert.match(event110, /Lcom\/rayneo\/rayneo_venus_sdk_plugin\/k;->turboioOriginal_z\(Ljava\/lang\/String;Ljava\/util\/Map;\)V/);
+
+ const payloadApk = path.join(tmp, 'aa-payload.apk'), payloadSidecar = path.join(tmp, 'payload.json');
+ fs.writeFileSync(payloadApk, 'fixture embedded AA payload');
+ fs.writeFileSync(payloadSidecar, '{"fixture":"embedded AA metadata"}\n');
+ for (const unpaired of [{payloadApk}, {payloadSidecar}]) {
+   calls = [];
+   assert.throws(() => build({...options, ...unpaired}, api110), /payload/i);
+   assert.equal(calls.length, 0, 'Reject an unpaired payload before invoking build tools');
+ }
+ for (const result of [first, build107]) {
+   assert.equal(result.report.embeddedAa, false);
+   assert.equal(result.report.applicationLabel, null);
+ }
+ assert.equal(build110.report.embeddedAa, false);
+ assert.equal(build110.report.applicationLabel, 'Cheater-IO');
+ calls = [];
+ const embedded110 = build({...options, payloadApk, payloadSidecar}, api110);
+ assertHookDex(embedded110, ['classes2.dex', 'classes3.dex']);
+ assert.equal(embedded110.report.embeddedAa, true);
+ assert.equal(embedded110.report.applicationLabel, 'Cheater-IO');
+ const copiedApk = path.join(embedded110.work, 'aa-embedded-payload.apk');
+ const copiedSidecar = path.join(embedded110.work, 'payload.json');
+ assert.deepEqual(fs.readFileSync(copiedApk), fs.readFileSync(payloadApk));
+ assert.deepEqual(fs.readFileSync(copiedSidecar), fs.readFileSync(payloadSidecar));
+ for (const script of ['assemble_apk.py', 'verify_apk.py']) {
+   const [,args] = calls.filter(([,args]) => path.basename(args[0]) === script).at(-1);
+   assert.equal(args[args.indexOf('--payload-apk') + 1], copiedApk, script + ' uses payload snapshot');
+   assert.equal(args[args.indexOf('--payload-sidecar') + 1], copiedSidecar, script + ' uses sidecar snapshot');
+   assert.equal(args.includes('--cheater-io'), true);
+ }
+ const packaged110 = packageApk(source, {outputDirectory: path.join(tmp, '110-entry'), options: {dex, runner, payloadApk, payloadSidecar}, hostApi: api110});
+ assert.equal(path.basename(packaged110.output), 'Cheater-IO-RayNeo-1.0.10-unsigned.apk');
+ fixtures = fixture107();
+ calls = [];
+ build(options, api107);
+ for (const script of ['assemble_apk.py', 'verify_apk.py']) {
+   const [,args] = calls.filter(([,args]) => path.basename(args[0]) === script).at(-1);
+   for (const flag of ['--payload-apk', '--payload-sidecar', '--cheater-io']) assert.equal(args.includes(flag), false, 'Legacy build omits ' + flag);
+ }
 
  console.log('Host build fixtures passed: admission, all-or-nothing hook planning, shared entry gates, isolated directories, audit failure, receipt binding and overwrite refusal. No real APK build was performed.');
 } finally {fs.rmSync(tmp,{recursive:true,force:true});}

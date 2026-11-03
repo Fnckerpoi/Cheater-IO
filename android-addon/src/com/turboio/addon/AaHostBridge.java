@@ -14,11 +14,44 @@ public final class AaHostBridge {
     AaHostBridge(Activity a){activity=a;ToolClient.init(a.getApplicationContext());draft=new DshSelectionDraft(new DraftAuthority());}
     private SharedPreferences prefs(){return activity.getSharedPreferences("turboio_settings",0);}
     private static Bundle result(boolean ok,String code){Bundle b=new Bundle();b.putBoolean("ok",ok);b.putString("errorCode",code);b.putString("code",code);b.putString("status",ok?"ok":"failed");return b;}
+    static Map<String,Object> toolArguments(String tool,Map<String,Object> input){
+        Map<String,Object> out=new LinkedHashMap<>();
+        if("dsh_dispatch".equals(tool))out.put("task",input.get("task"));
+        if(input.containsKey("target"))out.put("target",input.get("target"));
+        return out;
+    }
+    static String selectionRevision(String fields){return fields+":"+ToolClient.selectionGeneration();}
+    static boolean commitSelection(SharedPreferences.Editor editor){
+        if(!Thread.holdsLock(DshClient.LOCK))throw new IllegalStateException("save_without_lock");
+        boolean saved=editor.commit();ToolClient.selectionChanged();return saved;
+    }
+    private boolean saveSelection(SharedPreferences.Editor editor,String connector,String project,String runtime,String model,String permission){
+        if(!Thread.holdsLock(DshClient.LOCK))throw new IllegalStateException("save_without_lock");
+        SharedPreferences settings=prefs(),aliases=activity.getSharedPreferences(ToolClient.ALIAS_FILE,0);
+        String old=ToolClient.aliasDocument(settings,aliases);
+        String document=DshAliasRegistry.selectionDocument(settings.getString("dsh_user_id",""),DshSettings.ORIGIN,old,connector,project,runtime,model,permission);
+        return persistSelection(editor,aliases,ToolClient.aliasDocumentKey(settings),old.equals(document)?null:document,DshSettings::lockStorage);
+    }
+    static boolean persistSelection(SharedPreferences.Editor editor,SharedPreferences aliases,String key,String document,Runnable lock){
+        if(!Thread.holdsLock(DshClient.LOCK))throw new IllegalStateException("save_without_lock");
+        try{
+            if(!commitSelection(editor)){lock.run();return false;}
+            if(document!=null&&(!aliases.edit().putString(key,document).commit()||!document.equals(aliases.getString(key,"")))){lock.run();return false;}
+            return true;
+        }catch(RuntimeException uncertain){lock.run();throw uncertain;}
+    }
     private String revision()throws Exception {
         SharedPreferences p=prefs();StringBuilder s=new StringBuilder();
         for(String k:new String[]{"user_id","url","connector","project","runtime","model","permission","session_id","client_message_id","target_fingerprint"}){String v=p.getString("dsh_"+k,"");s.append(v.length()).append(':').append(v);}
+        String aliases=ToolClient.aliasDocument(p,activity.getSharedPreferences(ToolClient.ALIAS_FILE,0));
+        s.append(aliases.length()).append(':').append(aliases);
         s.append(p.getBoolean("dsh",false)).append(p.getBoolean("dsh_unknown_delivery",false)).append(DshSettings.authGeneration());
-        byte[] hash=MessageDigest.getInstance("SHA-256").digest(s.toString().getBytes("UTF-8"));StringBuilder out=new StringBuilder();for(byte b:hash)out.append(String.format(Locale.ROOT,"%02x",b&255));return out.toString();
+        byte[] hash=MessageDigest.getInstance("SHA-256").digest(selectionRevision(s.toString()).getBytes("UTF-8"));StringBuilder out=new StringBuilder();for(byte b:hash)out.append(String.format(Locale.ROOT,"%02x",b&255));return out.toString();
+    }
+    private void checkTarget(Bundle args,String connector,String runtime){
+        String error=DshAliasRegistry.checkWorkbenchTarget(prefs().getString("dsh_user_id",""),DshSettings.ORIGIN,
+            ToolClient.aliasDocument(prefs(),activity.getSharedPreferences(ToolClient.ALIAS_FILE,0)),args.getString("target",""),connector,runtime);
+        if(!error.isEmpty())throw new BridgeFailure(error);
     }
     private String storedSession(){return prefs().getString("dsh_session_id","");}
     public Bundle call(String operation,Bundle input){
@@ -36,16 +69,27 @@ public final class AaHostBridge {
             if("selection.commit".equals(operation))return commit(args);
             String tool="dsh.dispatch".equals(operation)?"dsh_dispatch":"dsh.status".equals(operation)?"dsh_status":"dsh.end_session".equals(operation)?"dsh_end_session":null;
             if(tool==null)return result(false,"UNSUPPORTED_OPERATION");
-            JSONObject parameters=new JSONObject();if("dsh_dispatch".equals(tool))parameters.put("task",args.getString("task",""));
+            JSONObject parameters=new JSONObject(toolArguments(tool,plain(args)));
             final long requestAuth=args.getLong("expectedAuthGeneration",-1);
             final String requestRevision=args.getString("expectedRevision","");
             final String requestSession=args.getString("expectedSessionId","");
-            Runnable guard=()->{try{String error="dsh_dispatch".equals(tool)?AaBridgePolicy.checkDispatch(requestAuth,DshSettings.authGeneration(),requestRevision,revision(),requestSession,storedSession(),args.getBoolean("newSession",false)):AaBridgePolicy.check(requestAuth,DshSettings.authGeneration(),requestRevision,revision(),requestSession,storedSession());if(!error.isEmpty())throw new BridgeFailure(error);}catch(BridgeFailure e){throw e;}catch(Exception e){throw new BridgeFailure("REQUEST_FAILED");}};
-            JSONObject response=new ToolClient(activity.getApplicationContext()).call(tool,parameters,SecretStore.get(activity.getApplicationContext()),guard);
+            Runnable guard=()->{try{String error="dsh_dispatch".equals(tool)?AaBridgePolicy.checkDispatch(requestAuth,DshSettings.authGeneration(),requestRevision,revision(),requestSession,storedSession(),args.getBoolean("newSession",false)):AaBridgePolicy.check(requestAuth,DshSettings.authGeneration(),requestRevision,revision(),requestSession,storedSession());if(!error.isEmpty())throw new BridgeFailure(error);checkTarget(args,prefs().getString("dsh_connector",""),prefs().getString("dsh_runtime",""));}catch(BridgeFailure e){throw e;}catch(Exception e){throw new BridgeFailure("REQUEST_FAILED");}};
+            final ToolClient client=new ToolClient(activity.getApplicationContext());
+            final AaBridgePolicy.ResultIdentity identity;
+            synchronized(DshClient.LOCK){guard.run();identity=new AaBridgePolicy.ResultIdentity(requestAuth,client.cardIdentity(),revision());}
+            Runnable fresh=()->{synchronized(DshClient.LOCK){try{if(requestAuth!=DshSettings.authGeneration())throw new BridgeFailure("STALE_AUTH");String error=identity.check(DshSettings.authGeneration(),client.cardIdentity(),revision());if(!error.isEmpty())throw new BridgeFailure(error);}catch(BridgeFailure e){throw e;}catch(Exception e){throw new BridgeFailure("STALE_SELECTION");}}};
+            Runnable committed=()->{if(!Thread.holdsLock(DshClient.LOCK))throw new BridgeFailure("REQUEST_FAILED");try{identity.committed(client.cardIdentity(),revision());}catch(Exception e){throw new BridgeFailure("REQUEST_FAILED");}};
+            final JSONObject response;
+            final FailureStage[] failureStage={FailureStage.MODEL_SECRET};
+            try{response=AaBridgePolicy.callFresh(()->{
+                String modelSecret=SecretStore.get(activity.getApplicationContext());
+                failureStage[0]=FailureStage.TOOL_CALL;
+                return client.call(tool,parameters,modelSecret,fresh,committed);
+            },fresh);}
+            catch(Exception failure){synchronized(DshClient.LOCK){fresh.run();return failure instanceof BridgeFailure?result(false,((BridgeFailure)failure).code):diagnosticFailure(failureStage[0],failure);}}
             synchronized(DshClient.LOCK){
-                if(requestAuth!=DshSettings.authGeneration())return result(false,"STALE_AUTH");
+                fresh.run();
                 String status=response.optString("status","");
-                if("dsh_status".equals(tool)&&(!requestRevision.equals(revision())||!AaBridgePolicy.sessionMatches(requestSession,storedSession())))return result(false,"STALE_SELECTION");
                 if("submitted".equals(status)&&(!response.optString("sessionId","").equals(storedSession())||!response.optString("clientMessageId","").equals(prefs().getString("dsh_client_message_id",""))))return result(false,"STALE_SELECTION");
                 if("ended".equals(status)&&!storedSession().isEmpty())return result(false,"STALE_SELECTION");
                 boolean unknown=AaBridgePolicy.unknownDelivery(status);
@@ -72,6 +116,20 @@ public final class AaHostBridge {
         if(operation!=null&&operation.startsWith("selection.draft."))return bundle(draft.error(code,args.getString("draftId",""),args.getLong("expectedDraftRevision",-1),args.getString("level",""),args.getLong("requestId",-1)));
         return result(false,code);
     }
+    private enum FailureStage { MODEL_SECRET("model_secret"), TOOL_CALL("tool_call");
+        final String code;FailureStage(String code){this.code=code;} }
+    /** Called only after the captured result identity passed fresh(); never use raw exception text. */
+    private static Bundle diagnosticFailure(FailureStage boundary,Exception failure){
+        String stage=boundary.code,reason=failure instanceof java.security.GeneralSecurityException?"local_secret":"unknown";
+        if(failure instanceof DshClient.StatusQueryException){
+            DshClient.StatusQueryException query=(DshClient.StatusQueryException)failure;
+            stage=query.stage.code;
+            reason=query.reason==DshClient.StatusQueryException.Reason.HTTP?"http_"+query.httpStatus:query.reason.name().toLowerCase(Locale.ROOT);
+        }
+        String diagnostic=stage+"/"+reason;Bundle out=result(false,"REQUEST_FAILED");
+        out.putString("diagnosticStage",stage);out.putString("diagnosticReason",reason);out.putString("diagnosticCode",diagnostic);
+        out.putString("message","宿主请求失败 ["+diagnostic+"]。");return out;
+    }
     private static final class BridgeFailure extends RuntimeException {final String code;BridgeFailure(String c){super(c);code=c;}}
     private Bundle snapshot(boolean auth)throws Exception {
         synchronized(DshClient.LOCK){
@@ -81,6 +139,12 @@ public final class AaHostBridge {
             String[] external={"connectorId","projectId","runtimeId","model","permission","sessionId","clientMessageId"};String[] local={"connector","project","runtime","model","permission","session_id","client_message_id"};
             for(int i=0;i<local.length;i++)b.putString(external[i],p.getString("dsh_"+local[i],""));
             b.putBoolean("unknownDelivery",DshSettings.locked(activity));b.putBoolean("enabled",p.getBoolean("dsh",false));
+            b.putBoolean("targetProtocol",true);
+            if(!user.isEmpty())try{
+                ArrayList<Bundle> targets=new ArrayList<>();
+                for(Map<String,Object> row:DshAliasRegistry.workbenchTargets(user,DshSettings.ORIGIN,ToolClient.aliasDocument(p,activity.getSharedPreferences(ToolClient.ALIAS_FILE,0))))targets.add(bundle(row));
+                b.putParcelableArrayList("targets",targets);
+            }catch(IllegalArgumentException invalid){b.putString("targetError",invalid.getMessage());}
             if(auth){String token=user.isEmpty()?"":SecretStore.get(activity,"dsh_key");boolean ready=!user.isEmpty()&&!token.isEmpty();b.putBoolean("authenticated",ready);b.putBoolean("ok",ready);if(!ready)b.putString("errorCode","AUTH_REQUIRED");b.putString("token",token);b.putString("accessToken",token);}
             return b;
         }
@@ -97,6 +161,11 @@ public final class AaHostBridge {
         }
         String c=args.getString("connectorId",""),p=args.getString("projectId",""),r=args.getString("runtimeId",""),s=args.getString("sessionId",""),m=args.getString("model",""),permission=args.getString("permission","");
         if(!"dsh".equals(args.getString("runtimeType","dsh"))||!DshClient.validBinding(DshSettings.ORIGIN,c,p,r,m,permission))return result(false,"INVALID_TARGET");
+        synchronized(DshClient.LOCK){
+            if(generation!=DshSettings.authGeneration()||!user.equals(prefs().getString("dsh_user_id",""))||!token.equals(SecretStore.get(activity,"dsh_key")))return result(false,"STALE_AUTH");
+            if(!bindMatches(force,expected,revision(),requestSession,storedSession(),args.containsKey("expectedSessionId")))return result(false,"STALE_SELECTION");
+            checkTarget(args,c,r);
+        }
         if(DshSettings.Policy.find(DshDirectory.projects(DshDirectory.rows(get("/projects",token),"projects"),c),p)==null)return result(false,"INVALID_TARGET");
         Map<String,Object> response=get("/connectors/"+DshSettings.encode(c)+"/runtimes",token);
         if(!c.equals(DshDirectory.text(response,"connectorId")))return result(false,"INVALID_TARGET");
@@ -112,17 +181,23 @@ public final class AaHostBridge {
         }
         // Network work precedes final validation: takeover is repeatable, and PATCH tolerates running 409.
         // A later identity/lock failure may still leave a remote change; local state is never written on that failure.
+        synchronized(DshClient.LOCK){
+            if(generation!=DshSettings.authGeneration()||!bindMatches(force,expected,revision(),requestSession,storedSession(),args.containsKey("expectedSessionId")))return result(false,"STALE_SELECTION");
+            checkTarget(args,c,r);
+            DshAliasRegistry.selectionDocument(user,DshSettings.ORIGIN,ToolClient.aliasDocument(prefs(),activity.getSharedPreferences(ToolClient.ALIAS_FILE,0)),c,p,r,m,permission);
+        }
         if(!s.isEmpty())takeoverSelections(DshClient::httpTransport,DshSettings.ORIGIN,token,s,m,permission);
         synchronized(DshClient.LOCK){
             if(DshSettings.locked(activity))return result(false,"DELIVERY_UNKNOWN");
             if(generation!=DshSettings.authGeneration()||!user.equals(prefs().getString("dsh_user_id",""))||!token.equals(SecretStore.get(activity,"dsh_key")))return result(false,"STALE_AUTH");
             if(!bindMatches(force,expected,revision(),requestSession,storedSession(),args.containsKey("expectedSessionId")))return result(false,"STALE_SELECTION");
+            checkTarget(args,c,r);
             SharedPreferences pref=prefs();String fingerprint=s.isEmpty()?"":new DshClient.Config(true,DshSettings.ORIGIN,token,c,p,r,m,permission).targetFingerprint();
             boolean changed=!DshClient.sameTarget(pref.getString("dsh_url",""),pref.getString("dsh_connector",""),pref.getString("dsh_project",""),pref.getString("dsh_runtime",""),DshSettings.ORIGIN,c,p,r)||!m.equals(pref.getString("dsh_model",""))||!permission.equals(pref.getString("dsh_permission",""));
             String message=DshSettings.Policy.savedMessage(changed,s,pref.getString("dsh_session_id",""),fingerprint,pref.getString("dsh_target_fingerprint",""),pref.getString("dsh_client_message_id",""));
             String[] keys={"url","connector","project","runtime","model","permission","session_id","client_message_id","target_fingerprint"};String[] values={DshSettings.ORIGIN,c,p,r,m,permission,s,message,fingerprint};
             SharedPreferences.Editor editor=pref.edit().putBoolean("dsh",true);for(int i=0;i<keys.length;i++)editor.putString("dsh_"+keys[i],values[i]);
-            if(!editor.commit()){DshSettings.lockStorage();throw new IllegalStateException("storage_failed");}
+            if(!saveSelection(editor,c,p,r,m,permission)){DshSettings.lockStorage();throw new IllegalStateException("storage_failed");}
             for(int i=0;i<keys.length;i++)if(!values[i].equals(pref.getString("dsh_"+keys[i],""))){DshSettings.lockStorage();throw new IllegalStateException("storage_failed");}
             if(!pref.getBoolean("dsh",false)||pref.getBoolean("dsh_unknown_delivery",false)){DshSettings.lockStorage();throw new IllegalStateException("storage_failed");}
             Bundle b=snapshot(false);
@@ -199,7 +274,7 @@ public final class AaHostBridge {
                 case "selection.draft.open":out=draft.open();break;
                 case "selection.draft.list":out=draft.list(id,rev,level,request);break;
                 case "selection.draft.choose":out=draft.choose(id,rev,level,args.getString("id",""));break;
-                case "selection.draft.save":out=draft.save(id,rev);break;
+                case "selection.draft.save":out=draft.save(id,rev,args.getString("target",""));break;
                 case "selection.draft.close":out=draft.close(id);break;
                 default:throw new DshSelectionDraft.Failure("UNSUPPORTED_OPERATION");
             }
@@ -236,10 +311,15 @@ public final class AaHostBridge {
             if("models".equals(level)||"permissions".equals(level))return catalogOptions(DshClient::httpTransport,DshSettings.ORIGIN,token,c,r,level);
             throw new IllegalArgumentException("invalid_level");
         }
+        public void checkTarget(String target,String connector,String runtime)throws Exception {
+            Bundle args=new Bundle();args.putString("target",target);
+            try{AaHostBridge.this.checkTarget(args,connector,runtime);}catch(BridgeFailure failure){throw new DshSelectionDraft.Failure(failure.code);}
+        }
         public Map<String,Object> save(Map<String,String> selected)throws Exception {
             if(!Thread.holdsLock(DshClient.LOCK))throw new IllegalStateException("save_without_lock");
             if(DshSettings.locked(activity))throw new DshSelectionDraft.Failure("DELIVERY_UNKNOWN");
             SharedPreferences pref=prefs();String c=selected.get("connectors"),p=selected.get("projects"),r=selected.get("runtimes"),m=selected.get("models"),permission=selected.get("permissions"),session=selected.get("sessions");
+            checkTarget(selected.get("target"),c,r);
             String s=DshDirectory.NEW_SESSION.equals(session)?"":DshClient.validateSessionId(session);
             if(!DshClient.validBinding(DshSettings.ORIGIN,c,p,r,m,permission))throw new DshSelectionDraft.Failure("INVALID_TARGET");
             String token=SecretStore.get(activity,"dsh_key");
@@ -248,7 +328,7 @@ public final class AaHostBridge {
             String msg=DshSettings.Policy.savedMessage(changed,s,pref.getString("dsh_session_id",""),fp,pref.getString("dsh_target_fingerprint",""),pref.getString("dsh_client_message_id",""));
             String[] keys={"url","connector","project","runtime","session_id","model","permission","client_message_id","target_fingerprint"};String[] values={DshSettings.ORIGIN,c,p,r,s,m,permission,msg,fp};
             SharedPreferences.Editor editor=pref.edit().putBoolean("dsh",true);for(int i=0;i<keys.length;i++)editor.putString("dsh_"+keys[i],values[i]);
-            if(!editor.commit()){DshSettings.lockStorage();throw new DshSelectionDraft.Failure("STORAGE_FAILED");}
+            if(!saveSelection(editor,c,p,r,m,permission)){DshSettings.lockStorage();throw new DshSelectionDraft.Failure("STORAGE_FAILED");}
             for(int i=0;i<keys.length;i++)if(!values[i].equals(pref.getString("dsh_"+keys[i],""))){DshSettings.lockStorage();throw new DshSelectionDraft.Failure("STORAGE_FAILED");}
             if(!pref.getBoolean("dsh",false)||pref.getBoolean("dsh_unknown_delivery",false)){DshSettings.lockStorage();throw new DshSelectionDraft.Failure("STORAGE_FAILED");}
             return plain(snapshot(false));

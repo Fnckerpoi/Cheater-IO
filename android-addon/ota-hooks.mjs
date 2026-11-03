@@ -17,18 +17,24 @@ export function wrapExact(text, header, original, body) {
 }
 
 export function queueHookFor(profile, text) {
+  const is110 = profile?.version === "1.0.10";
   const is107 = profile?.version === "1.0.7";
-  const header = is107
+  const header = is110
+    ? ".method public static s(LO4/V;)V"
+    : is107
     ? ".method public static o(LY3/S;)V"
     : ".method public static o(LE3/Q;)V";
-  const originalCall = is107
+  const originalName = is110 ? "turboioOriginal_s" : "turboioOriginal_o";
+  const originalCall = is110
+    ? "invoke-static {p0}, LO4/Y;->turboioOriginal_s(LO4/V;)V"
+    : is107
     ? "invoke-static {p0}, LY3/V;->turboioOriginal_o(LY3/S;)V"
     : "invoke-static {p0}, LE3/V;->turboioOriginal_o(LE3/Q;)V";
 
   return wrapExact(
     text,
     header,
-    "turboioOriginal_o",
+    originalName,
     `    .locals 1
     :ota_try
     invoke-static {p0}, Lcom/turboio/addon/OfficialOtaBridge;->allowQueue(Ljava/lang/Object;)Ljava/lang/Boolean;
@@ -63,12 +69,17 @@ export function queueHookFor(profile, text) {
 }
 
 export function fileHookFor(profile, text) {
+  const is110 = profile?.version === "1.0.10";
   const is107 = profile?.version === "1.0.7";
-  const header = is107
+  const header = is110
+    ? ".method public final u(Ljava/io/File;Ljava/lang/String;Lb5/q;Ljava/lang/String;)Ljava/lang/String;"
+    : is107
     ? ".method public final u(Ljava/io/File;Ljava/lang/String;Lk4/q;Ljava/lang/String;)Ljava/lang/String;"
     : ".method public final v(Ljava/io/File;Ljava/lang/String;LQ3/q;Ljava/lang/String;)Ljava/lang/String;";
-  const originalName = is107 ? "turboioOriginal_u" : "turboioOriginal_v";
-  const originalCall = is107
+  const originalName = (is110 || is107) ? "turboioOriginal_u" : "turboioOriginal_v";
+  const originalCall = is110
+    ? "invoke-virtual/range {p0 .. p4}, LO4/v;->turboioOriginal_u(Ljava/io/File;Ljava/lang/String;Lb5/q;Ljava/lang/String;)Ljava/lang/String;"
+    : is107
     ? "invoke-virtual/range {p0 .. p4}, LY3/u;->turboioOriginal_u(Ljava/io/File;Ljava/lang/String;Lk4/q;Ljava/lang/String;)Ljava/lang/String;"
     : "invoke-virtual/range {p0 .. p4}, LE3/u;->turboioOriginal_v(Ljava/io/File;Ljava/lang/String;LQ3/q;Ljava/lang/String;)Ljava/lang/String;";
 

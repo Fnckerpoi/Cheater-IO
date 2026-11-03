@@ -30,6 +30,16 @@
       "status": "approved",
       "adapterId": "rayneo-1.0.7-230",
       "baseline": "static-1.0.7"
+    },
+    {
+      "id": "rayneo-1.0.10-258",
+      "sha256": "951dabcb8a0a954dd90b901dab9a6b53c48c406545879f4900949c8b41e26e22",
+      "version": "1.0.10",
+      "code": 258,
+      "directory": "host-110",
+      "status": "approved",
+      "adapterId": "rayneo-1.0.10-258",
+      "baseline": "static-1.0.10"
     }
   ]
 }

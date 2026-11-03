@@ -19,6 +19,16 @@ public final class NavGlasses {
     private static final Map<Object,Long> epochs=new IdentityHashMap<>();
     private static Object sessionOwner=LEGACY_OWNER;
     private static long sessionEpoch;
+    public interface ProducerAction { void run() throws Exception; }
+    /** A producer can hold its identity lock across the decision and the actual SDK submission. */
+    public interface ProducerGuard {
+        boolean allowed();
+        default boolean run(ProducerAction action)throws Exception{
+            if(!allowed())return false;
+            action.run();return true;
+        }
+    }
+    private static ProducerGuard sessionGuard;
     private static boolean reopenEligible, closeSubmitted, closeSucceeded;
     private static long closeAt;
     private static String previousOutcome="";
@@ -31,7 +41,7 @@ public final class NavGlasses {
     public static boolean active(){return !phase.equals("idle");}
     private static Object manager()throws Exception{return NavReflect.field(NavReflect.type(HostSymbols.MANAGER_CLASS),"h");}
     private static String connected()throws Exception{
-        List<?> list=(List<?>)NavReflect.call(NavReflect.type(HostSymbols.MANAGER_CLASS),"g");String found="";
+        List<?> list=(List<?>)NavReflect.call(NavReflect.type(HostSymbols.MANAGER_CLASS),HostSymbols.METHOD_GET_DEVICES);String found="";
         for(Object d:list)if(Boolean.TRUE.equals(NavReflect.call(d,"b"))){if(!found.isEmpty())throw new IllegalStateException("multiple");found=(String)NavReflect.field(d,"a");}return found;
     }
     public static String connection(){try{return connected().isEmpty()?"眼镜未连接":"已找到官方连接";}catch(Exception e){return "连接信息不可用";}}
@@ -44,18 +54,42 @@ public final class NavGlasses {
         Long previous=epochs.get(owner);if(previous!=null&&epoch<=previous)return null;
         if(NativeNavigation.active()||ReaderBridge.active()||MusicBridge.active()||NativeTransfer.busy())return null;
         epochs.put(owner,epoch);sessionOwner=owner;sessionEpoch=epoch;sid=UUID.randomUUID().toString().replace("-","");
-        clearState=null;clearListener=null;latest="";latestExpires=Long.MAX_VALUE;
+        clearState=null;clearListener=null;sessionGuard=null;latest="";latestExpires=Long.MAX_VALUE;
         mark("preparing","显示通道已预留");return new Handle(owner,epoch,sid);
     }
     private static boolean valid(Handle h){return h!=null&&owns(h.owner,h.epoch)&&sid.equals(h.sid);}
-    public static boolean begin(Handle h,String text,boolean navigation){
+    public static boolean begin(Handle h,String text,boolean navigation){return begin(h,text,navigation,null);}
+    /** The guard binds for the lifetime of this lease; a denied guard never opens a vendor session. */
+    public static boolean begin(Handle h,String text,boolean navigation,ProducerGuard guard){
         if(!valid(h)||!phase.equals("preparing"))return false;
+        if(guard!=null)sessionGuard=guard;
+        if(!guardAllows()){finishDeniedOpen(h.owner,h.epoch);return false;}
         lifetime=navigation?240000:3600000;interval=navigation?3000:700;
-        boolean ok=open(text,navigation);if(!ok)requestStop();return ok;
+        boolean ok=open(text,navigation);if(!ok&&owns(h.owner,h.epoch))requestStop();return ok;
+    }
+    /** Only the exact owning epoch can bind a guard; there is no unbind path. */
+    public static boolean bindGuard(Object owner,long epoch,ProducerGuard guard){
+        if(guard==null||!owns(owner,epoch))return false;
+        if(!phase.equals("preparing")&&!phase.equals("starting")&&!phase.equals("ready"))return false;
+        sessionGuard=guard;return true;
+    }
+    private static boolean guardAllows(){
+        ProducerGuard guard=sessionGuard;if(guard==null)return true;
+        try{return guard.allowed();}catch(Exception denied){return false;}
+    }
+    // Nothing reached the vendor SDK, so there is no session to close and no text to commit.
+    private static void finishDeniedOpen(Object owner,long epoch){
+        if(!owns(owner,epoch))return;
+        MAIN.removeCallbacks(tick);sessionGuard=null;sid="";device="";latest="";sent="";pending=false;
+        mark("idle","未创建显示会话");
     }
     public static boolean offer(Handle h,String text){return valid(h)&&update(h.owner,h.epoch,text);}
     public static void stop(Handle h){if(valid(h))requestStop();}
     public static boolean confirmIdle(Handle h){return valid(h)&&confirmClear(h.owner,h.epoch);}
+    // A reopen mints a new sid, so the pre-reopen Handle goes stale. Owners keep controlling the same
+    // lease through identity alone: owns(owner,epoch) is the exact check and epoch is monotonic per owner.
+    public static void stop(Object owner,long epoch){if(owns(owner,epoch))requestStop();}
+    public static boolean confirmIdle(Object owner,long epoch){return owns(owner,epoch)&&confirmClear(owner,epoch);}
     // Unscoped entry points cannot prove a producer's identity.
     public static boolean start(String text){return false;}
     public static boolean start(String text,boolean navigation){return false;}
@@ -72,6 +106,7 @@ public final class NavGlasses {
         previousOutcome="previous lens clear unverified";
         MAIN.removeCallbacks(tick);
         epochs.put(owner,newEpoch);sessionOwner=owner;sessionEpoch=newEpoch;clearState=null;clearListener=listener;
+        sessionGuard=null;
         latestExpires=expires;lifetime=Long.MAX_VALUE;interval=700;
         sid="";latest="";sent="";pending=false;
         boolean opened=open(text,false);
@@ -90,6 +125,7 @@ public final class NavGlasses {
         Long previous=epochs.get(owner);if(previous!=null&&epoch<=previous)return false;
         if(NativeNavigation.active()||ReaderBridge.active()||MusicBridge.active()||NativeTransfer.busy())return false;
         epochs.put(owner,epoch);sessionOwner=owner;sessionEpoch=epoch;clearState=null;clearListener=listener;latestExpires=expires;
+        sessionGuard=null;
         lifetime=Long.MAX_VALUE;interval=700;
         boolean opened=open(text,false);
         if(!opened){if(sid.isEmpty()){device="";clearListener=null;mark("idle","未创建显示会话");}else requestStop();}
@@ -133,7 +169,8 @@ public final class NavGlasses {
             textSubmitted=0;textCompleted=0;navigationSession=navigation;
             JSONObject config=new JSONObject().put("font_size",2).put("content_width",100).put("max_lines",5).put("position","center").put("is_display",true).put("straight_view","original");
             mark("starting","正在开启纯显示通道，等待眼镜回执");
-            send(7,new JSONObject().put("sid",sid).put("force",false).put("scope","temporary").put("config",config));MAIN.removeCallbacks(tick);MAIN.postDelayed(tick,1000);return true;
+            if(!send(7,new JSONObject().put("sid",sid).put("force",false).put("scope","temporary").put("config",config)))return false;
+            MAIN.removeCallbacks(tick);MAIN.postDelayed(tick,1000);return true;
         }catch(Exception e){mark("uncertain","无法开启；请确认连接和镜片状态");return false;}
     }
     public static void offer(String text){}
@@ -149,7 +186,7 @@ public final class NavGlasses {
     }
     public static void confirmIdle(){}
     private static void finishClear(){MAIN.removeCallbacks(tick);ClearListener listener=clearListener;clearListener=null;sid="";device="";latest="";sent="";pending=false;clearState=ClearState.CONFIRMED;mark("idle","已由用户确认镜片退出");if(listener!=null)listener.onClear(ClearState.CONFIRMED);}
-    private static void send(int type,JSONObject json)throws Exception{
+    private static boolean send(int type,JSONObject json)throws Exception{
         String submittedSid=sid;Object owner=sessionOwner;long epoch=sessionEpoch;long submittedExpiry=latestExpires;
         if(!device.equals(connected()))throw new IllegalStateException("device_changed");
         Object business=NavReflect.call(NavReflect.type(HostSymbols.BIZ_ENUM_CLASS),"valueOf","AI_SUBTITLE"),priority=NavReflect.call(NavReflect.type(HostSymbols.PRIO_ENUM_CLASS),"valueOf","NORMAL");
@@ -157,22 +194,33 @@ public final class NavGlasses {
         Object sdkManager=manager();
         Object callback=NavReflect.proxy("kotlin.jvm.functions.Function2",(name,args)->MAIN.post(()->{
             if(!sid.equals(submittedSid)||!owns(owner,epoch))return;
+            // The guard is rechecked in the callback; a denial closes only this lease without hiding type 3 evidence.
+            if(type!=3&&!guardAllows()){requestStop();return;}
             if(type==3){closeSucceeded=args.length>1&&args[1]==null;if(!closeSucceeded)reopenEligible=false;}
             if(type==5&&!phase.equals("ready"))return;
             if(type==5){pending=false;if(args.length>1&&args[1]==null){textCompleted++;mark(phase,"文字已完成 SDK 发送，镜片效果以实际为准");}}
             if(args.length>1&&args[1]!=null){if(type==3&&phase.equals("stopping")){mark("uncertain","SDK拒绝退出，请用眼镜按钮关闭");clearStatus(ClearState.UNCERTAIN);}else if(type!=3)requestStop();}
         }));
-        if(!sid.equals(submittedSid)||!owns(owner,epoch))return;
+        if(!sid.equals(submittedSid)||!owns(owner,epoch))return false;
         if(type==5){
-            if(!phase.equals("ready"))return;
-            if(SystemClock.elapsedRealtime()>=submittedExpiry){requestStop();return;}
+            if(!phase.equals("ready"))return false;
+            if(SystemClock.elapsedRealtime()>=submittedExpiry){requestStop();return false;}
         }
-        NavReflect.call(sdkManager,HostSymbols.METHOD_SEND_PACKET,message,callback);
+        // Final checkpoint before the vendor call: identity or guard churn during packet construction still blocks the send.
+        if(!sid.equals(submittedSid)||!owns(owner,epoch))return false;
+        ProducerGuard guard=sessionGuard;
+        if(type!=3&&guard!=null){
+            if(!guard.run(()->NavReflect.call(sdkManager,HostSymbols.METHOD_SEND_PACKET,message,callback))){
+                if(type==5)requestStop();return false;
+            }
+        }else NavReflect.call(sdkManager,HostSymbols.METHOD_SEND_PACKET,message,callback);
+        return true;
     }
     private static final Runnable tick=new Runnable(){public void run(){
         long now=SystemClock.elapsedRealtime();
         try{
-            if(phase.equals("starting")&&now>=deadline){requestStop();}
+            if((phase.equals("starting")||phase.equals("ready"))&&!guardAllows()){requestStop();}
+            else if(phase.equals("starting")&&now>=deadline){requestStop();}
             else if(phase.equals("ready")){
                 if(now>=latestExpires){stopForReentry(sessionOwner,sessionEpoch);}
                 else if(now-started>=lifetime){requestStop();}

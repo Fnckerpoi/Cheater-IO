@@ -101,6 +101,13 @@ final class DshSettings {
  static boolean capability(Map<String,Object> response){return DshAuth.capability(response);
  }
  static final class Policy {
+  // Safe diagnostic for a failed status read: the DSH client already classifies its own transport
+  // failures, and a local exception never claims that a request was attempted.
+  static String statusError(Exception error){
+   if(error instanceof DshClient.StatusQueryException)return ((DshClient.StatusQueryException)error).safeSummary();
+   if(error instanceof java.security.GeneralSecurityException)return "local/local_secret";
+   return "local/preflight_unknown";
+  }
   static boolean sessionCurrent(long epoch,long currentEpoch,long generation,long currentGeneration,long request,long currentRequest,String c,String p,String r,DshDirectory directory){return epoch==currentEpoch&&generation==currentGeneration&&request==currentRequest&&directory.matches(c,p,r);}
   static String savedMessage(boolean targetChanged,String selected,String oldSession,String fingerprint,String oldFingerprint,String oldMessage){return !targetChanged&&!selected.isEmpty()&&selected.equals(oldSession)&&fingerprint.equals(oldFingerprint)?oldMessage:"";}
   static DshDirectory.Option find(List<DshDirectory.Option> rows,String id){if(rows!=null&&id!=null&&!id.isEmpty())for(DshDirectory.Option row:rows)if(id.equals(row.id))return row;return null;}
@@ -211,6 +218,10 @@ final class DshSettings {
   final DshDirectory directory=new DshDirectory();
   final TextView syncState,syncSession,syncReply,syncTime,syncNote;
   final TextView endSessionButton;
+  final Switch compositeHudSwitch;
+  final TextView glassesNote;
+  final TextView dashboardTarget,dashboardStatus,dashboardResult,dashboardFreshness;
+  final DshProactiveDisplay.Listener proactiveListener;
   private boolean closed;
   private long catalogAccount=-1;
   private long sessionRequest,sessionAccount=-1,sessionGeneration=-1,restoreAccount=-1;
@@ -226,6 +237,25 @@ final class DshSettings {
    ui.body.addView(status);
    EditorialUI.button(a,ui.body,"网页授权登录",true,this::login);
    EditorialUI.button(a,ui.body,"退出登录",false,this::logout);
+   LinearLayout hudCard=EditorialUI.card(a,ui.body);
+   hudCard.addView(EditorialUI.text(a,"眼镜合成 HUD",15,EditorialUI.INK));
+   hudCard.addView(EditorialUI.text(a,"统一显示 Agents-Anywhere 看板与实时语音字幕；关闭后只停止本机镜片显示，手机端任务状态与结果继续更新。",12,EditorialUI.MUTED));
+   compositeHudSwitch=new Switch(a);
+   DshCompositeHudSettings.Store hudStore=new DshCompositeHudSettings.Store(){
+    public boolean contains(String key){return prefs.contains(key);}
+    public boolean getBoolean(String key,boolean fallback){return prefs.getBoolean(key,fallback);}
+    public boolean commit(String key,boolean value){return prefs.edit().putBoolean(key,value).commit();}
+   };
+   compositeHudSwitch.setText("显示看板与实时字幕");
+   compositeHudSwitch.setChecked(DshCompositeHudSettings.enabled(hudStore));
+   hudCard.addView(compositeHudSwitch);
+   DshProactiveDisplay.get(app).setHudEnabled(compositeHudSwitch.isChecked());
+   compositeHudSwitch.setOnCheckedChangeListener((button,enabled)->{
+    if(!DshCompositeHudSettings.setEnabled(hudStore,enabled)){button.setChecked(!enabled);status.setText("HUD 设置未能保存，原状态保持。");return;}
+    DshProactiveDisplay display=DshProactiveDisplay.get(app);
+    display.setHudEnabled(enabled);
+    status.setText(enabled?"已开启合成 HUD；仅在有效 AA 看板授权时显示。":"已关闭镜片 HUD；AA 手机状态与结果继续更新。");
+   });
    // Task and session sync card lives above the save button; disposal buttons are appended inside it.
    LinearLayout syncCard=EditorialUI.card(a,ui.body);
    syncCard.addView(EditorialUI.text(a,"当前任务与会话同步",15,EditorialUI.INK));
@@ -234,8 +264,30 @@ final class DshSettings {
    syncReply=EditorialUI.text(a,"",12,EditorialUI.MUTED);
    syncTime=EditorialUI.text(a,"最近同步：尚未同步",12,EditorialUI.MUTED);
    syncNote=EditorialUI.text(a,"",12,EditorialUI.MUTED);
+   glassesNote=EditorialUI.text(a,"",12,EditorialUI.MUTED);
+   dashboardTarget=EditorialUI.text(a,"",12,EditorialUI.MUTED);
+   dashboardStatus=EditorialUI.text(a,"",12,EditorialUI.MUTED);
+   dashboardResult=EditorialUI.text(a,"",12,EditorialUI.MUTED);
+   dashboardFreshness=EditorialUI.text(a,"尚无状态查询结果",12,EditorialUI.MUTED);
+   proactiveListener=new DshProactiveDisplay.Listener(){
+    public void onReport(Map<String,Object> report){
+     if(closed)return;applyStatus(report);
+     String note=stringOf(report,"displayNote");
+     syncNote.setText("此卡显示结果摘要；完整结果请到 AA 工作台查看。"+(note.isEmpty()?"":"\n"+note));
+    }
+    public void onDisplayStatus(String text){if(!closed)glassesNote.setText(text);}
+    public void onDashboard(DshDashboardModel.View view){if(closed)return;dashboardTarget.setText(view==null?"":view.targetLine);dashboardStatus.setText(view==null?"":view.statusLine);dashboardResult.setText(view==null?"":view.resultLine);dashboardFreshness.setText(view==null?"":view.lastObservedMillis<0?"尚无状态查询结果":view.stale?"状态可能过期；请等待新的查询结果。":"状态已更新；完整结果请到 AA 查看。");}
+   };
+   syncCard.addView(dashboardTarget);syncCard.addView(dashboardStatus);syncCard.addView(dashboardResult);syncCard.addView(dashboardFreshness);
+   EditorialUI.button(activity,syncCard,"在眼镜显示当前看板（直到眼镜空闲释放）",false,()->DshProactiveDisplay.get(app).showDashboard());
    syncCard.addView(syncState);syncCard.addView(syncSession);syncCard.addView(syncReply);syncCard.addView(syncTime);syncCard.addView(syncNote);
    EditorialUI.button(activity,syncCard,"刷新任务状态",false,this::refreshTask);
+   EditorialUI.button(activity,syncCard,"停止本地结果监听（远端继续）",false,()->{ToolClient.pauseAdoption();DshProactiveDisplay.get(app).stop();});
+   syncReply.setTextIsSelectable(true);
+   syncCard.addView(glassesNote);
+   EditorialUI.button(activity,syncCard,"已确认镜片退出，释放本次显示通道",false,()->{
+    if(!DshProactiveDisplay.get(app).confirmGlassesClosed())glassesNote.setText("没有可确认的本次主动回报通道；请先确认镜片已退出，不会释放其他显示来源。");
+   });
    syncCard.addView(EditorialUI.text(a,"结束会话：停止在最近一次 DSH 会话中继续追加消息，下次派发将新建会话；只影响本机跟踪，远端会话不受影响。",12,EditorialUI.MUTED));
    endSessionButton=EditorialUI.button(activity,syncCard,"结束当前会话（下次新建）",false,this::endSession);
    syncCard.addView(EditorialUI.text(a,"未确认提交处置：仅在派发结果未知且无法核对时使用强制放弃，放弃不会取消远端任务。",12,EditorialUI.MUTED));
@@ -243,11 +295,12 @@ final class DshSettings {
   EditorialUI.button(activity,syncCard,"强制放弃本地追踪",false,()->forceRelease());
   ui.body.addView(EditorialUI.text(a,"电脑、项目、运行时、会话、模型与权限请在 AA 首页展开配置。",13,EditorialUI.MUTED));
   // Small voice alias entry: maps a spoken name to the runtime instance this account already verified.
-  voiceAliasCard();
-  refreshSyncCard();
+   voiceAliasCard();
+   refreshSyncCard();
+   DshProactiveDisplay.get(app).subscribe(proactiveListener);
    ui.dialog.setOnDismissListener(d->notifyClosed());
   }
-  void close(){closed=true;options.clear();chosen.clear();directory.reset();notifyClosed();}
+  void close(){closed=true;DshProactiveDisplay.get(app).unsubscribe(proactiveListener);options.clear();chosen.clear();directory.reset();notifyClosed();}
   void connectorsCard(){
    EditorialUI.CardText card=EditorialUI.optionCard(activity,ui.body,"电脑",()->EditorialUI.pickOption(activity,"电脑",options.get(CONNECTORS),chosen.get(CONNECTORS),choice->pickConnector(choice)));
    cards.put(CONNECTORS,card);
@@ -428,6 +481,10 @@ final class DshSettings {
    String[] values={ORIGIN,directory.connector(),directory.project(),directory.runtime(),model.id,permission.id,selected,message,fingerprint};
    if(!prefs.getBoolean("dsh",false)||prefs.getBoolean("dsh_unknown_delivery",false)){storageFailed=true;throw new IllegalStateException();}
    for(int i=0;i<names.length;i++)if(!values[i].equals(prefs.getString("dsh_"+names[i],""))){storageFailed=true;throw new IllegalStateException();}
+   // Advance the selection generation synchronously, inside the same host lock and only after the write
+   // read back: every in-flight round ticket carries the previous generation, so a re-selection retires
+   // the old round and no delayed monitor/display callback can be attributed to the new binding.
+   ToolClient.selectionChanged();
    lastSessionId=selected;lastMessageId=message;lastState=selected.isEmpty()?"就绪":message.isEmpty()?"已选择会话":"就绪";lastReply="";lastNote="";syncStamp=0;refreshSyncCard();draw(SESSIONS);
    status.setText(selected.isEmpty()?"已保存并启用 DSH 工具；下次发送时新建会话。":"已保存并绑定所选会话，下次发送将在此会话继续；模型与权限选择仅用于新建，未修改已有远端会话。");
    }catch(Exception e){status.setText("保存失败，未确认启用状态。");}}}
@@ -833,28 +890,36 @@ final class DshSettings {
   void refreshTask(){
    if(!ToolClient.pendingLocked()&&!app.getSharedPreferences("turboio_settings",0).getBoolean("dsh_unknown_delivery",false)&&app.getSharedPreferences("turboio_settings",0).getString("dsh_session_id","").isEmpty()){lastState="无当前跟踪会话";lastNote="";lastReply="";lastSessionId="";lastMessageId="";status.setText(lastState);refreshSyncCard();return;}
    if(!ToolClient.pendingLocked()&&!dshReady()){status.setText("尚未启用 DSH 工具，请先完成选择并保存。");return;}
-   status.setText("正在查询电脑端 DSH 任务状态…");
-   long epoch=accountEpoch,screen=screenEpoch;
-   IO.execute(()->{
-    try{
-     // dsh_status takes no arguments; modelSecret is only used by other tools to filter secrets, empty is the documented calling convention.
-     Map<String,Object> out=DshClient.parseJsonObject(new ToolClient(app).call("dsh_status",new org.json.JSONObject(),modelSecret()).toString());
-     MAIN.post(()->{if(!closed&&epoch==accountEpoch&&screen==screenEpoch)applyStatus(out);});
-    }catch(Exception e){MAIN.post(()->{if(!closed&&epoch==accountEpoch&&screen==screenEpoch){syncStamp=System.currentTimeMillis();lastState="同步失败（查询异常）";lastNote="dsh_status 查询失败，请检查网络或电脑端 DSH。";status.setText(lastState+"："+lastNote);refreshSyncCard();}});}
-   });
-  }
+  status.setText("正在查询电脑端 DSH 任务状态…");
+  long epoch=accountEpoch,screen=screenEpoch;
+  // The user is looking at the card again: re-arm desktop-round adoption for this bound session.
+  ToolClient.resumeAdoption(new ToolClient(app));
+  final ToolClient client=new ToolClient(app);final ToolClient.CardRequest request;
+  try{request=client.captureCard();}catch(Exception e){status.setText("无法读取当前任务身份，请检查配置。");return;}
+  IO.execute(()->{
+   try{
+    // The card shows one binding, so the read must carry that binding's exact alias: with two or more
+    // aliases configured, a target-less status is refused locally (zero requests) by the router.
+    request.guard();
+    Map<String,Object> out=DshClient.parseJsonObject(client.call("dsh_status",client.statusArguments(),modelSecret(),request::guard,request::committed).toString());
+    MAIN.post(()->{synchronized(DshClient.LOCK){if(!closed&&epoch==accountEpoch&&screen==screenEpoch&&request.current())applyStatus(out);}});
+   }catch(Exception e){final String diagnostic=Policy.statusError(e);MAIN.post(()->{synchronized(DshClient.LOCK){if(!closed&&epoch==accountEpoch&&screen==screenEpoch&&request.current()){syncStamp=System.currentTimeMillis();lastState="同步失败（查询异常）";lastNote="dsh_status 查询失败 ["+diagnostic+"]，请核对连接或电脑端状态。";status.setText(lastState+"："+lastNote);refreshSyncCard();}}});}
+  });
+ }
   private boolean dshReady(){
    try{return new DshClient.Config(app.getSharedPreferences("turboio_settings",0).getBoolean("dsh",false),app.getSharedPreferences("turboio_settings",0).getString("dsh_url",""),SecretStore.get(app,"dsh_key"),app.getSharedPreferences("turboio_settings",0).getString("dsh_connector",""),app.getSharedPreferences("turboio_settings",0).getString("dsh_project",""),app.getSharedPreferences("turboio_settings",0).getString("dsh_runtime",""),app.getSharedPreferences("turboio_settings",0).getString("dsh_model",""),app.getSharedPreferences("turboio_settings",0).getString("dsh_permission","")).ready();}catch(Exception e){return false;}
   }
   private String modelSecret(){
    try{return SecretStore.get(app,"dsh_key");}catch(Exception e){return "";}
   }
-  void applyStatus(Map<String,Object> out){
-   lastNote=stringOf(out,"message");
-   syncStamp=System.currentTimeMillis();
-   String state=stringOf(out,"status");
-   lastReply=stringOf(out,"answer");
-   if("submitted".equals(state)||"running".equals(state))lastState="正在执行";
+ void applyStatus(Map<String,Object> out){
+  lastNote=stringOf(out,"message");
+  syncStamp=System.currentTimeMillis();
+  String state=stringOf(out,"status");
+  lastReply=stringOf(out,"answer");
+  // A monitored round reports its own turn id, so the card names the round it is actually showing.
+  String messageId=stringOf(out,"clientMessageId");if(!messageId.isEmpty())lastMessageId=messageId;
+  if("submitted".equals(state)||"running".equals(state))lastState="正在执行";
    else if("waiting_approval".equals(state))lastState="等待权限审批";
    else if("session_selected".equals(state))lastState="已选择会话，尚无本机发送的本轮消息";
    else if("completed".equals(state))lastState="已完成";
@@ -873,15 +938,18 @@ final class DshSettings {
   void queryAndReconcile(){
    Map<String,Object> snapshot=ToolClient.pendingSnapshot();
    if(!ToolClient.pendingLocked()){status.setText("当前没有未确认提交。");return;}
-   status.setText("正在核对未确认提交…");
-   long epoch=accountEpoch,screen=screenEpoch;
-   IO.execute(()->{
-    try{
-     Map<String,Object> out=DshClient.parseJsonObject(new ToolClient(app).call("dsh_status",new org.json.JSONObject(),modelSecret()).toString());
-     MAIN.post(()->{if(!closed&&epoch==accountEpoch&&screen==screenEpoch)reconcile(out,snapshot);});
-    }catch(Exception e){MAIN.post(()->{if(!closed&&epoch==accountEpoch&&screen==screenEpoch){syncState.setText("状态：未确认提交（锁定）");syncNote.setText("核对查询失败，锁定保持；请稍后重试或在网页核对。");status.setText("核对未完成：查询异常，锁定保持。");}});}
-   });
-  }
+  status.setText("正在核对未确认提交…");
+  long epoch=accountEpoch,screen=screenEpoch;
+  final ToolClient client=new ToolClient(app);final ToolClient.CardRequest request;
+  try{request=client.captureCard();}catch(Exception e){status.setText("无法读取当前提交身份，保持锁定。");return;}
+  IO.execute(()->{
+   try{
+    request.guard();
+    Map<String,Object> out=DshClient.parseJsonObject(client.call("dsh_status",client.statusArguments(),modelSecret(),request::guard,request::committed).toString());
+    MAIN.post(()->{synchronized(DshClient.LOCK){if(!closed&&epoch==accountEpoch&&screen==screenEpoch&&request.current())reconcile(out,snapshot);}});
+   }catch(Exception e){final String diagnostic=Policy.statusError(e);MAIN.post(()->{synchronized(DshClient.LOCK){if(!closed&&epoch==accountEpoch&&screen==screenEpoch&&request.current()){syncState.setText("状态：未确认提交（锁定）");syncNote.setText("核对查询失败 ["+diagnostic+"]，锁定保持；请稍后重试或在网页核对。");status.setText("核对未完成：["+diagnostic+"]，锁定保持。");}}});}
+  });
+ }
   void reconcile(Map<String,Object> out,Map<String,Object> snapshot){
    syncStamp=System.currentTimeMillis();
    String state=stringOf(out,"status");

@@ -10,7 +10,9 @@ ART = ROOT / 'android-addon/assets/art'
 HOME = ROOT / 'android-addon/assets/art'
 GALLERY = ROOT / 'app-gallery'
 
-def assets():
+def assets(payload_apk=None, payload_sidecar=None):
+    if bool(payload_apk) != bool(payload_sidecar):
+        raise ValueError('Payload APK and sidecar must be supplied together')
     result = {}
     result['assets/turboio/reader/demo-7392.txt'] = ROOT / 'android-addon/assets/reader-demo-7392.txt'
     result['assets/turboio/licenses/music-mit.txt'] = ROOT / 'android-addon/THIRD_PARTY_MUSIC_LICENSE.txt'
@@ -36,4 +38,12 @@ def assets():
         result[f'assets/turboio/gallery/{name}.zip'] = path
     if sum(p.stat().st_size for p in result.values()) > 24 * 1024 * 1024:
         raise ValueError('Asset budget exceeded')
+    # The budget bounds the reviewed repository allowlist only. The payload pair is
+    # a single externally built artifact and is bounded by its own contract instead.
+    if payload_apk:
+        from embedded_payload import PAYLOAD, SIDECAR, validate_payload
+        payload_apk, payload_sidecar = Path(payload_apk), Path(payload_sidecar)
+        validate_payload(payload_apk.read_bytes(), payload_sidecar.read_bytes())
+        result[PAYLOAD] = payload_apk
+        result[SIDECAR] = payload_sidecar
     return result

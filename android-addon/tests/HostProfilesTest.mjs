@@ -235,4 +235,34 @@ try {
   fs.rmSync(dir107, { recursive: true, force: true });
 }
 
-console.log("Host profile and audit fixtures passed (including 1.0.5 and 1.0.7).");
+// 1.0.10 profile and baseline verification
+const sha110 = "951dabcb8a0a954dd90b901dab9a6b53c48c406545879f4900949c8b41e26e22";
+const profile110 = profileFor(sha110);
+assert.equal(profile110.version, "1.0.10");
+assert.equal(profile110.code, 258);
+assert.equal(assertBuildProfile(profile110), true);
+
+const dir110 = fs.mkdtempSync(path.join(os.tmpdir(), "turbo-host-110-test-"));
+try {
+  for (const descriptor of new Set(profile110.baseline.map((x) => x[0]))) {
+    const smaliDir = descriptor === "LO4/V;" ? "smali_classes2" : "smali";
+    const file = path.join(dir110, smaliDir, descriptor.slice(1, -1) + ".smali");
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const symbols = profile110.baseline
+      .filter((x) => x[0] === descriptor)
+      .map((x) => (x[1].startsWith('"') ? "const-string v0, " + x[1] : x[1]));
+    fs.writeFileSync(file, ".class public " + descriptor + "\n" + symbols.join("\n") + "\n");
+  }
+  const good110 = auditDirectory(dir110, profile110, { inputSha256: sha110 });
+  assert.equal(good110.staticBaselineMatch, true);
+  assert.equal(good110.packagingAllowed, true);
+  const host110 = verifyHost(dir110, profile110);
+  assert.equal(host110.version, "1.0.10");
+  assert.match(host110.listener, /m9[\\/]c\$c\.smali$/);
+  assert.match(host110.ota.queue, /O4[\\/]Y\.smali$/);
+  assert.match(host110.ota.sender, /O4[\\/]v\.smali$/);
+} finally {
+  fs.rmSync(dir110, { recursive: true, force: true });
+}
+
+console.log("Host profile and audit fixtures passed (including 1.0.5, 1.0.7 and 1.0.10).");

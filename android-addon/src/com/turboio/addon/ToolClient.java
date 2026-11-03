@@ -55,7 +55,8 @@ final class ToolClient {
         return DshClient.releasePending(pendingStore(prefs), keepAudit);
     }
     /** Explicitly stop tracking the current DSH session. Local-only: the remote session is untouched. Locked or unconfirmed-delivery state is never cleared. */
-    static boolean endSession(Context app) {
+    static boolean endSession(Context app) { return endSession(app,null); }
+    private static boolean endSession(Context app,Runnable committed) {
         synchronized(DshClient.LOCK) {
             if(app==null) return false;
             if(dshLocked()) return false;
@@ -65,13 +66,22 @@ final class ToolClient {
                 dshStorageFailed=true;
                 throw new IllegalStateException("dsh_storage_failed");
             }
+            if(committed!=null)committed.run();
             return true;
         }
     }
     /** Alias table lives in its own prefs file so AA load persistence and settings storage stay separate. */
-    static final String ALIAS_FILE="turboio_aliases",ALIAS_DOC="alias_document",ALIAS_COLUMN="dsh_voice_alias",
-        ANCHOR_DOC="anchor_document";
+    static final String ALIAS_FILE="turboio_aliases",ALIAS_DOC="alias_document",ALIAS_COLUMN="dsh_voice_alias";
     private static SharedPreferences aliasPrefs(Context target){return target.getSharedPreferences(ALIAS_FILE,0);}
+    static String aliasDocumentKey(SharedPreferences settings){
+        String identity=settings.getString("dsh_user_id","")+"\n"+DshClient.normalizeBaseUrl(settings.getString("dsh_url",""));
+        return ALIAS_DOC+"_"+Base64.getUrlEncoder().withoutPadding().encodeToString(identity.getBytes(StandardCharsets.UTF_8));
+    }
+    static String aliasDocument(SharedPreferences settings,SharedPreferences aliases){
+        String key=aliasDocumentKey(settings);
+        return DshAliasRegistry.scopedDocument(settings.getString("dsh_user_id",""),settings.getString("dsh_url",""),aliases.getString(ALIAS_DOC,""),aliases.contains(key)?aliases.getString(key,""):null);
+    }
+    JSONObject statusArguments()throws Exception{synchronized(DshClient.LOCK){return new JSONObject(DshClient.stringifyJson(DshAliasRegistry.statusArguments(routeSnapshot())));}}
     /**
      * Reads the alias table that belongs to the account and server address currently bound on this device.
      * A damaged document fails closed: the table is empty, so no alias can resolve, and a call that asked
@@ -80,38 +90,11 @@ final class ToolClient {
     private static DshAliasRegistry aliasTable(SharedPreferences settings,SharedPreferences aliases,String[] damaged){
         String user=settings.getString("dsh_user_id",""),url=settings.getString("dsh_url","");
         if(user.isEmpty()||DshClient.normalizeBaseUrl(url)==null) return new DshAliasRegistry("",url);
-        String document=aliases.getString(ALIAS_DOC,"");
+        String document=aliasDocument(settings,aliases);
         if(document.isEmpty()) return new DshAliasRegistry(user,url);
         try{return DshAliasRegistry.deserializeSnapshot(document,user,url);}
         catch(RuntimeException malformed){if(damaged!=null&&damaged.length>0)damaged[0]="ALIAS_DOCUMENT_DAMAGED";return new DshAliasRegistry(user,url);}
     }
-    /**
-     * Per-target local session anchors (stage two), kept in the same prefs file as the alias table. Rows are keyed
-     * by target identity and scoped to the current account plus server address, so an account switch, a logout or
-     * a damaged document yields NO anchors rather than partial ones.
-     */
-    static DshAnchorStore anchorStore(SharedPreferences settings,SharedPreferences aliases,String[] damaged){
-        String user=settings.getString("dsh_user_id",""),url=settings.getString("dsh_url","");
-        if(user.isEmpty()||DshClient.normalizeBaseUrl(url)==null) return new DshAnchorStore("",url);
-        String document=aliases.getString(ANCHOR_DOC,"");
-        if(document.isEmpty()) return new DshAnchorStore(user,url);
-        try{return DshAnchorStore.deserializeSnapshot(document,user,url);}
-        catch(RuntimeException malformed){if(damaged!=null&&damaged.length>0)damaged[0]="ANCHOR_DOCUMENT_DAMAGED";return new DshAnchorStore(user,url);}
-    }
-    /** One durable write of the whole anchor document, verified after commit; never touches a remote session. */
-    static boolean persistAnchors(Context app,SharedPreferences settings,DshAnchorStore store){
-        if(store==null) return false;
-        String document=DshAnchorStore.serializeSnapshot(store);
-        SharedPreferences aliases=aliasPrefs(app);
-        if(!store.usable()) return document.equals(aliases.getString(ANCHOR_DOC,""));
-        if(!aliases.edit().putString(ANCHOR_DOC,document).commit()) return false;
-        return document.equals(aliases.getString(ANCHOR_DOC,""));
-    }
-    /**
-     * Per-target local session anchors (stage two), kept in the same prefs file as the alias table. Rows are
-     * keyed by target identity and scoped to the current account plus server address, so an account switch,
-     * a logout or a damaged document yields NO anchors rather than partial ones.
-     */
     private List<String> aliasValues(){return aliasTable(prefs,aliasPrefs(app),null).aliasValuesSnapshot();}
     /** Adds the optional {@code target} enum to the three DSH tools; dispatch requires it from two aliases up. */
     private static void voiceTargets(JSONArray tools,List<String> aliases)throws Exception{
@@ -124,7 +107,7 @@ final class ToolClient {
             JSONObject parameters=function.getJSONObject("parameters");
             parameters.getJSONObject("properties").put("target",new JSONObject().put("type","string").put("minLength",1)
                 .put("maxLength",DshAliasRegistry.MAX_ALIAS_CODE_POINTS).put("enum",values)
-                .put("description","目标 Agent 电脑别名；必须原样取自 enum。配置了两个及以上别名时 dsh_dispatch 必须携带 target，未点名不要猜测。"));
+                .put("description","目标 Agent 电脑别名；必须原样取自 enum。配置了两个及以上别名时三个 DSH 工具均必须携带 target，未点名不要猜测。"));
             if(aliases.size()>=2)parameters.getJSONArray("required").put("target");
         }
     }
@@ -159,13 +142,13 @@ final class ToolClient {
         private DirectoryCheck(){}
         static String verdict(Map<String,Object> response,String connectorId,String runtimeId){
             String top=DshDirectory.text(response,"connectorId");
-            if(!top.isEmpty()&&!top.equals(connectorId))return "ALIAS_TARGET_RETIRED";
+            if(!top.equals(connectorId))return "ALIAS_TARGET_RETIRED";
             List<Map<String,Object>> rows=DshDirectory.rows(response,"runtimes");
             Map<String,Object> found=null;
             for(Map<String,Object> row:rows){
                 if(!runtimeId.equals(DshDirectory.text(row,"runtimeId")))continue;
                 String bound=DshDirectory.text(row,"connectorId");
-                if(!bound.isEmpty()&&!bound.equals(connectorId))return "ALIAS_TARGET_RETIRED";
+                if(!bound.equals(connectorId))return "ALIAS_TARGET_RETIRED";
                 found=row;break;
             }
             if(found==null)return "ALIAS_TARGET_RETIRED";
@@ -176,265 +159,229 @@ final class ToolClient {
             return "TARGET_UNAVAILABLE";
         }
     }
-    /** Live directory identity check for one alias dispatch; all network runs OUTSIDE DshClient.LOCK. */
-    private String verifyAliasTarget(DshAliasRegistry.AliasEntry entry){
-        String user=prefs.getString("dsh_user_id",""),url=prefs.getString("dsh_url","");
-        if(user.isEmpty()||!entry.baseUrl.equals(DshClient.normalizeBaseUrl(url)))return "STALE_AUTH";
-        String token;try{token=SecretStore.get(app,"dsh_key");}catch(Exception unavailable){dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");}
-        if(token.isEmpty())return "STALE_AUTH";
-        try{
-            Map<String,Object> response=DshClient.httpTransport("GET",entry.baseUrl+"/api/v2/connectors/"
-                +URLEncoder.encode(entry.connectorId,"UTF-8")+"/runtimes",token,null);
-            return DirectoryCheck.verdict(response,entry.connectorId,entry.runtimeId);
-        }catch(Exception unavailable){
-            // Offline, timeout, HTTP error or malformed directory: keep the binding, never reroute.
-            return "TARGET_UNAVAILABLE";
-        }
+    DshAliasRegistry.RouteSnapshot routeSnapshot() throws Exception {
+        return new DshAliasRegistry.RouteSnapshot(prefs.getString("dsh_user_id",""),dshConfig(),aliasDocument(prefs,aliasPrefs(app)),
+            DshSettings.authGeneration(),selectionGeneration,prefs.getString("dsh_session_id",""),prefs.getBoolean("dsh_unknown_delivery",false),dshLocked());
     }
-    /** True when the stored binding already is this alias target, so a call stays idempotent and keeps the anchor. */
-    private boolean bindingIs(DshAliasRegistry.AliasEntry entry){
-        return DshClient.sameTarget(prefs.getString("dsh_url",""),prefs.getString("dsh_connector",""),prefs.getString("dsh_project",""),
-            prefs.getString("dsh_runtime",""),entry.baseUrl,entry.connectorId,entry.projectId,entry.runtimeId)
-            &&entry.model.equals(prefs.getString("dsh_model",""))&&entry.permission.equals(prefs.getString("dsh_permission",""));
-    }
-    /**
-     * Voice target routing for one action. Returns null when the call may continue, otherwise a ready
-     * result map. Every routing/identity refusal happens before any dispatch request; the only
-     * pre-dispatch network is the account-scoped directory read used to verify the alias target.
-     * A storage lock or an unconfirmed delivery is never cleared here: the local session anchor
-     * always survives a refusal.
-     *
-     * @param enforceTarget true only for {@code dsh_dispatch}, where two or more aliases make target mandatory
-     * @param mayRebind false for {@code dsh_end_session}, which must not move the single slot to another target
-     * @param action which keyed-anchor path the call takes: dispatch, status or end_session
-     */
-    private Map<String,Object> routeForTarget(String rawTarget,Runnable guard,boolean enforceTarget,boolean mayRebind,String action){
-        reboundAlias="";
-        reboundNote="";
-        parkedMode=action==null?DshAnchorStore.ACTION_STATUS:action;
-        SharedPreferences aliases=aliasPrefs(app);
-        String[] damaged=new String[1];
-        DshAliasRegistry table=aliasTable(prefs,aliases,damaged);
-        List<DshAliasRegistry.AliasEntry> entries=table.listSnapshot();
-        String target=rawTarget==null?"":rawTarget;
-        if(damaged[0]!=null)
-            return DshClient.mapOf("status","failed","code","ALIAS_UNAVAILABLE","message","语音别名数据无法读取，本次不派发；请在 Agents-Anywhere 设置中重新确认别名。");
-        DshAliasRegistry.Decision decision=DshAliasRegistry.resolveForAction(entries,target);
-        if(target.trim().isEmpty()&&DshAliasRegistry.TARGET_REQUIRED.equals(decision.code))return DshClient.mapOf("status","failed","code",decision.code,"configuredAliases",table.aliasValuesSnapshot(),
-            "message","已配置多个语音别名，必须明确 target；本次零网络请求，不会改用当前绑定。");
-        if(!DshAliasRegistry.RESOLVED.equals(decision.code)){
-            if(DshAliasRegistry.TARGET_REQUIRED.equals(decision.code))
-                return DshClient.mapOf("status","failed","code",decision.code,"configuredAliases",table.aliasValuesSnapshot(),
-                    "message","已配置多个语音别名，必须明确 target；本次零网络请求，不会改用当前绑定。");
-            return DshClient.mapOf("status","failed","code",decision.code,"configuredAliases",table.aliasValuesSnapshot(),
-                "message","target 未命中任何已配置别名；不做近似匹配，也不会改投其他设备，请与用户确认目标。");
-        }
-        if(decision.entry==null)return null;
-        final DshAliasRegistry.AliasEntry entry=decision.entry;
-        if(dshLocked())throw new IllegalStateException("dsh_storage_failed");
-        // Queries and local-track stops never move the single active slot to another target. Stage two gives each
-        // target its own keyed anchor row, so such a call runs on that row: the bound device keeps its session.
-        if(!mayRebind)return bindingIs(entry)?null:parkedAction(entry,aliases);
-        if(!DshClient.validBinding(entry.baseUrl,entry.connectorId,entry.projectId,entry.runtimeId,entry.model,entry.permission))
-            return DshClient.mapOf("status","failed","code","NEEDS_CONFIGURATION","voiceAlias",entry.aliasKey,
-                "message","该别名缺少项目、模型或执行权限快照；请在 Agents-Anywhere 显式补齐后再试，不会代选。");
-        // Identity verification BEFORE binding/dispatch: the live account-scoped directory must still
-        // contain this connector+runtime as a usable DSH runtime. Network stays outside DshClient.LOCK;
-        // the in-lock re-checks below still guard account, alias document and unknown delivery.
-        String directoryCode=verifyAliasTarget(entry);
-        if(!DirectoryCheck.OK.equals(directoryCode)){
-            if("STALE_AUTH".equals(directoryCode))
-                return DshClient.mapOf("status","failed","code",directoryCode,"message","账号或服务地址已变化，别名映射作废；请重新核验账户与目标。");
-            if("ALIAS_TARGET_RETIRED".equals(directoryCode))
-                return DshClient.mapOf("status","failed","code",directoryCode,"voiceAlias",entry.aliasKey,
-                    "message","别名指向的 runtime 已退役、消失或不属于本账号；本次未派发，请在 Agents-Anywhere 重新绑定别名。");
-            return DshClient.mapOf("status","failed","code","TARGET_UNAVAILABLE","voiceAlias",entry.aliasKey,
-                "message","目标离线、启动中或目录暂时不可读；保留当前绑定，本次未派发也未改投其他设备，请稍后重试。");
-        }
-        synchronized(DshClient.LOCK){
-            if(guard!=null)guard.run();
-            if(dshLocked())throw new IllegalStateException("dsh_storage_failed");
-            String user=prefs.getString("dsh_user_id",""),url=prefs.getString("dsh_url","");
-            String token;try{token=SecretStore.get(app,"dsh_key");}catch(Exception unavailable){dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");}
-            if(user.isEmpty()||token.isEmpty()||!entry.baseUrl.equals(DshClient.normalizeBaseUrl(url)))
-                return DshClient.mapOf("status","failed","code","STALE_AUTH","message","账号或服务地址已变化，别名映射作废；请重新核验账户与目标。");
-            DshAliasRegistry fresh=aliasTable(prefs,aliases,null);
-            DshAliasRegistry.AliasEntry current=fresh.getSnapshot(entry.aliasKey);
-            if(current==null||!sameEntry(current,entry)||!fresh.ownerUserId().equals(user))
-                return DshClient.mapOf("status","failed","code","STALE_ALIAS","message","别名已被改名、删除或改指向其他实例；本次不派发，请重新确认目标。");
-            if(bindingIs(entry)){
-                // Same target: keep the anchor. Only the audit label may still need to catch up.
-                if(!entry.aliasKey.equals(prefs.getString(ALIAS_COLUMN,""))&&!prefs.edit().putString(ALIAS_COLUMN,entry.aliasKey).commit()){
+    private static long selectionGeneration;
+    // Every configuration writer, including the AA bridge, advances this synchronously under LOCK.
+    static long selectionGeneration(){synchronized(DshClient.LOCK){return selectionGeneration;}}
+    static void selectionChanged(){synchronized(DshClient.LOCK){selectionGeneration++;}}
+    private Map<String,Object> executeDsh(final String name,JSONObject arguments,final String modelSecret,final Runnable bridgeGuard,final Runnable committed)throws Exception {
+        Map<String,Object> parsed=DshClient.parseJsonObject(arguments.toString());
+        if("dsh_dispatch".equals(name))DshClient.validateTask(DshClient.mapOf("task",parsed.get("task")),modelSecret,SecretStore.get(app,"search_key"));
+        Map<String,Object> routed = DshAliasRegistry.executeRoute(name,parsed,new DshAliasRegistry.RouteIo(){
+            public DshAliasRegistry.RouteSnapshot snapshot()throws Exception{if(bridgeGuard!=null)bridgeGuard.run();return routeSnapshot();}
+            public String verify(DshAliasRegistry.RouteSnapshot s,DshAliasRegistry.AliasEntry e)throws Exception{
+                Map<String,Object> response=DshClient.httpTransport("GET",s.config.baseUrl+"/api/v2/connectors/"+URLEncoder.encode(e.connectorId,"UTF-8")+"/runtimes",s.config.token,null);
+                return DirectoryCheck.verdict(response,e.connectorId,e.runtimeId);
+            }
+            public DshAliasRegistry.RouteSnapshot bind(DshAliasRegistry.RouteSnapshot s,DshAliasRegistry.AliasEntry e)throws Exception{
+                SharedPreferences.Editor edit=prefs.edit().putString(ALIAS_COLUMN,e.aliasKey);
+                boolean changed=!s.matches(e);
+                if(changed)edit.putString("dsh_url",e.baseUrl).putString("dsh_connector",e.connectorId).putString("dsh_project",e.projectId)
+                    .putString("dsh_runtime",e.runtimeId).putString("dsh_model",e.model).putString("dsh_permission",e.permission)
+                    .putString("dsh_session_id","").putString("dsh_client_message_id","").putString("dsh_target_fingerprint","");
+                if(!edit.commit()){dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");}
+                if(changed)selectionChanged();
+                DshAliasRegistry.RouteSnapshot bound=routeSnapshot();
+                if(!bound.matches(e)||!e.aliasKey.equals(prefs.getString(ALIAS_COLUMN,""))||changed&&(!bound.session.isEmpty()||!prefs.getString("dsh_client_message_id","").isEmpty()||!prefs.getString("dsh_target_fingerprint","").isEmpty())){
                     dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");
                 }
-                return null;
+                if(committed!=null)committed.run();
+                return bound;
             }
-            if(prefs.getBoolean("dsh_unknown_delivery",false))
-                return DshClient.mapOf("status","unknown_delivery","voiceAlias",entry.aliasKey,
-                    "message","存在未确认提交，禁止更换语音目标或清除本地锚点；请先在 Agents-Anywhere 核对。");
-            // Per-target anchors (stage two): every runtime instance keeps its OWN local session anchor, keyed by
-            // its identity and usable only under its own binding fingerprint.
-            String entryFingerprint=fingerprintOf(entry.baseUrl,token,entry.connectorId,entry.projectId,entry.runtimeId,entry.model,entry.permission);
-            if(entryFingerprint.isEmpty()){dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");}
-            DshAnchorStore anchors=anchorStore(prefs,aliases,null);
-            String incomingKey=DshAnchorStore.targetKey(entry.baseUrl,entry.connectorId,entry.projectId,entry.runtimeId);
-            DshAnchorStore.Anchor parked=anchors.getSnapshot(incomingKey);
-            if(parked!=null&&parked.unknownDelivery)
-                return DshClient.mapOf("status","unknown_delivery","code","ANCHOR_LOCKED","voiceAlias",entry.aliasKey,
-                    "message","该语音目标存在未确认提交，保持其本地跟踪；本次不派发也不新建会话，请先在 Agents-Anywhere 核对。");
-            if(parked!=null&&!entryFingerprint.equals(parked.targetFingerprint))
-                return DshClient.mapOf("status","failed","code","ANCHOR_STALE","voiceAlias",entry.aliasKey,
-                    "message","该目标的本地会话锚点已因账户凭据或配置变化失效；不会沿用也不会新建，请在 AA 显式选择该实例的会话。");
-            // Park what the outgoing binding is about to lose BEFORE the identity commit, so a lost write can only
-            // drop a local anchor and never move an action to another device.
-            String outgoingKey=DshAnchorStore.targetKey(prefs.getString("dsh_url",""),prefs.getString("dsh_connector",""),
-                prefs.getString("dsh_project",""),prefs.getString("dsh_runtime",""));
-            String outgoingSession=prefs.getString("dsh_session_id",""),outgoingMessage=prefs.getString("dsh_client_message_id","");
-            String outgoingFingerprint=anchorFingerprint(prefs,token);
-            DshAnchorStore staging;
-            try{
-                staging=new DshAnchorStore(prefs.getString("dsh_user_id",""),prefs.getString("dsh_url",""));
-                staging.replaceSnapshot(anchors.listSnapshot());
-                if(parked!=null)staging.dropSnapshot(incomingKey);
-                if(!outgoingKey.isEmpty()&&(!outgoingSession.isEmpty()||!outgoingMessage.isEmpty())&&!outgoingFingerprint.isEmpty())
-                    staging.saveSnapshot(outgoingKey,outgoingFingerprint,prefs.getString(ALIAS_COLUMN,""),
-                        outgoingSession,outgoingMessage,false);
-            }catch(RuntimeException invalid){
-                return DshClient.mapOf("status","failed","code","ANCHOR_UNAVAILABLE","voiceAlias",entry.aliasKey,
-                    "message","本地会话锚点已达上限或格式不被接受，未切换语音目标；请先在 AA 结束或核对该目标的会话。");
+            public Map<String,Object> act(String action,Map<String,Object> args,final DshAliasRegistry.RouteSnapshot s)throws Exception{
+                // snapshot() checked the bridge revision immediately before our atomic bind.
+                // From here the bound snapshot is authoritative; our own bind may have advanced revision.
+                DshAliasRegistry.OperationGuard pinned=new DshAliasRegistry.OperationGuard(s,()->{if(bridgeGuard!=null)bridgeGuard.run();return routeSnapshot();},null);
+                if("dsh_end_session".equals(action)){synchronized(DshClient.LOCK){pinned.run();return DshClient.mapOf("status",endSession(app,committed)?"ended":"locked","remote_session_affected",Boolean.FALSE);}}
+                DshClient client=dshClient(pinned,"dsh_status".equals(action),committed);
+                Map<String,Object> result="dsh_dispatch".equals(action)?client.dispatch(args,modelSecret,SecretStore.get(app,"search_key")):client.status(args);
+                notifyWorkbench(result);
+                Map<String,Object> out=new LinkedHashMap<>(result);out.put("voiceAlias",prefs.getString(ALIAS_COLUMN,""));return out;
             }
-            if(!persistAnchors(app,prefs,staging))
-                return DshClient.mapOf("status","failed","code","ANCHOR_UNAVAILABLE","voiceAlias",entry.aliasKey,
-                    "message","本地会话锚点写入未确认，未切换语音目标；当前绑定与远端会话均未改动。");
-            // Atomic re-bind: one commit writes the new identity plus that target's own anchor (or none).
-            String restoredSession=parked==null?"":parked.sessionId,restoredMessage=parked==null?"":parked.clientMessageId;
-            String restoredFingerprint=parked==null?"":parked.targetFingerprint;
-            if(!prefs.edit().putString("dsh_url",entry.baseUrl).putString("dsh_connector",entry.connectorId)
-                .putString("dsh_project",entry.projectId).putString("dsh_runtime",entry.runtimeId)
-                .putString("dsh_model",entry.model).putString("dsh_permission",entry.permission)
-                .putString(ALIAS_COLUMN,entry.aliasKey)
-                .putString("dsh_session_id",restoredSession).putString("dsh_client_message_id",restoredMessage)
-                .putString("dsh_target_fingerprint",restoredFingerprint).commit()){
-                dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");
-            }
-            String[]keys={"url","connector","project","runtime","model","permission","session_id","client_message_id","target_fingerprint"};
-            String[]values={entry.baseUrl,entry.connectorId,entry.projectId,entry.runtimeId,entry.model,entry.permission,
-                restoredSession,restoredMessage,restoredFingerprint};
-            for(int i=0;i<keys.length;i++)if(!values[i].equals(prefs.getString("dsh_"+keys[i],""))){dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");}
-            if(!entry.aliasKey.equals(prefs.getString(ALIAS_COLUMN,""))||prefs.getBoolean("dsh_unknown_delivery",false)
-                ||lockedAnchor(anchorStore(prefs,aliases,null),incomingKey)){
-                dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");
-            }
-            reboundAlias=entry.aliasKey;
-            reboundNote=parked==null?"语音目标已切换：新目标没有本机跟踪会话，本次将新建；旧目标的本地锚点已存入其专属行，远端会话未取消。"
-                :"语音目标已切换：新目标沿用其专属本地会话锚点继续，旧目标的本地锚点已存入其专属行；远端会话均未取消。";
+        });
+        if ("dsh_dispatch".equals(name) && "submitted".equals(routed.get("status"))) {
+            DshProactiveReport.RoundIdentity round = snapshotRound();
+            if (round != null && round.sessionId.equals(routed.get("sessionId"))
+                    && round.clientMessageId.equals(routed.get("clientMessageId"))) armDisplay(round);
+            // A local dispatch is the moment this device is provably bound to a live session, so the
+            // desktop-side adoption poller starts here too (design risk 5).
+            adoptionFor(this);
         }
-        return null;
+        return routed;
     }
-    /** Set when a voice target swapped the single binding slot, so the caller can explain the fresh anchor. */
-    private String reboundAlias="";
     /**
-     * Reads or stops the local tracking of a voice target that is NOT the active binding, using only that target's
-     * keyed anchor row. Refusals never touch another key, and an unconfirmed submission locks only its own key.
-     * Any network here is read-only and runs outside DshClient.LOCK.
+     * Arming the display coordinator is the AA-owned lens path. The one persisted composite switch travels
+     * with every armed round, so a lens write after a process restart or an out-of-process preference
+     * change still obeys the user's stored choice instead of defaulting the lens back on.
      */
-    private Map<String,Object> parkedAction(DshAliasRegistry.AliasEntry entry,SharedPreferences aliases){
-        String label=entry.aliasKey;
-        String user=prefs.getString("dsh_user_id",""),url=prefs.getString("dsh_url","");
-        String token;try{token=SecretStore.get(app,"dsh_key");}catch(Exception unavailable){dshStorageFailed=true;throw new IllegalStateException("dsh_storage_failed");}
-        if(user.isEmpty()||token.isEmpty()||!entry.baseUrl.equals(DshClient.normalizeBaseUrl(url)))
-            return DshClient.mapOf("status","failed","code","STALE_AUTH","voiceAlias",label,
-                "remote_session_affected",Boolean.FALSE,"message","账号或服务地址已变化，别名映射与会话锚点作废；本次未查询也未停止跟踪。");
-        DshAnchorStore anchors=anchorStore(prefs,aliases,null);
-        String key=DshAnchorStore.targetKey(entry.baseUrl,entry.connectorId,entry.projectId,entry.runtimeId);
-        if(key.isEmpty())
-            return DshClient.mapOf("status","failed","code","ANCHOR_UNAVAILABLE","voiceAlias",label,
-                "message","该目标的锚点键格式不被接受；未查询也未停止跟踪。");
-        DshAnchorStore.Anchor row=anchors.getSnapshot(key);
-        if(row==null||row.empty())
-            return DshClient.mapOf("status","no_session","code","NO_SESSION","voiceAlias",label,
-                "remote_session_affected",Boolean.FALSE,"message","该语音目标当前没有本地跟踪会话；未改动其他目标的本地锚点。");
-        if(row.unknownDelivery)
-            return DshClient.mapOf("status","unknown_delivery","code","ANCHOR_LOCKED","voiceAlias",label,
-                "remote_session_affected",Boolean.FALSE,"message","该语音目标存在未确认提交，保持其本地跟踪；请先在 Agents-Anywhere 核对，本次未查询也未停止跟踪。");
-        String fingerprint=fingerprintOf(entry.baseUrl,token,entry.connectorId,entry.projectId,entry.runtimeId,entry.model,entry.permission);
-        if(fingerprint.isEmpty()||!fingerprint.equals(row.targetFingerprint))
-            return DshClient.mapOf("status","failed","code","ANCHOR_STALE","voiceAlias",label,
-                "remote_session_affected",Boolean.FALSE,"message","该目标的本地会话锚点已因账户凭据或配置变化失效；未沿用、未新建，也未改动其他目标的锚点。");
-        if(!DshAnchorStore.ACTION_END_SESSION.equals(parkedMode))return parkedStatus(entry,row,fingerprint,label,token);
-        // Stop tracking that target only: one durable write drops its own row; every other key survives.
-        DshAnchorStore staging;
-        try{staging=new DshAnchorStore(user,url);staging.replaceSnapshot(anchors.listSnapshot());staging.dropSnapshot(key);}
-        catch(RuntimeException invalid){
-            return DshClient.mapOf("status","failed","code","ANCHOR_UNAVAILABLE","voiceAlias",label,
-                "message","本地会话锚点格式不被接受，未停止该目标的跟踪；请先核对。");
-        }
-        // Durable write under the same lock the dispatcher uses, so a switch and a stop cannot interleave.
-        boolean released;
-        synchronized(DshClient.LOCK){
-            if(dshLocked())throw new IllegalStateException("dsh_storage_failed");
-            // Re-read: the row must still be the one we decided on, and it must still be attributable.
-            DshAnchorStore again=anchorStore(prefs,aliases,null);
-            DshAnchorStore.Anchor fresh=again.getSnapshot(key);
-            if(fresh==null||!fingerprint.equals(fresh.targetFingerprint)||fresh.unknownDelivery)
-                return DshClient.mapOf("status","failed","code","ANCHOR_STALE","voiceAlias",label,
-                    "remote_session_affected",Boolean.FALSE,"message","该目标的锚点在此期间已变化；本次未停止任何跟踪，请重新确认目标。");
-            released=persistAnchors(app,prefs,staging);
-        }
-        if(!released)
-            return DshClient.mapOf("status","failed","code","ANCHOR_UNAVAILABLE","voiceAlias",label,
-                "remote_session_affected",Boolean.FALSE,"message","本地会话锚点写入未确认，未停止该目标的跟踪；远端会话不受影响。");
-        return DshClient.mapOf("status","ended","code","ANCHOR_ENDED","voiceAlias",label,
-            "remote_session_affected",Boolean.FALSE,"message","已停止该语音目标的本地会话跟踪；其他目标的锚点与远端会话均未改动。");
+    private void armDisplay(DshProactiveReport.RoundIdentity round) {
+        DshProactiveDisplay display = DshProactiveDisplay.get(app);
+        display.setHudEnabled(prefs.getBoolean(DshCompositeHudSettings.KEY, true));
+        display.start(round);
     }
-    /** Queries one target's own parked anchor. The row stays read-only: a query never re-binds the slot. */
-    private Map<String,Object> parkedStatus(DshAliasRegistry.AliasEntry entry,DshAnchorStore.Anchor row,String fingerprint,String label,String token){
-        DshClient.Config config=new DshClient.Config(true,entry.baseUrl,token,entry.connectorId,entry.projectId,
-            entry.runtimeId,entry.model,entry.permission);
-        if(!config.ready()||!fingerprint.equals(config.targetFingerprint()))
-            return DshClient.mapOf("status","failed","code","ANCHOR_STALE","voiceAlias",label,
-                "message","该目标的绑定或凭据已变化；未沿用旧锚点查询，请在 AA 显式重新选择该实例。");
-        if(row.sessionId.isEmpty())
-            return DshClient.mapOf("status","no_session","code","NO_SESSION","voiceAlias",label,
-                "remote_session_affected",Boolean.FALSE,"message","该语音目标只有待确认记录而没有会话锚点；请在 Agents-Anywhere 核对。");
-        DshClient.MapStateStore store=new DshClient.MapStateStore();
-        store.saveSession(row.targetFingerprint,row.sessionId,row.clientMessageId);
-        try{
-            Map<String,Object> out=new DshClient(config,store,DshClient::httpTransport).status(Collections.<String,Object>emptyMap());
-            Map<String,Object> copy=new LinkedHashMap<>(out);
-            copy.put("voiceAlias",label);
-            copy.put("voiceAnchorScoped",Boolean.TRUE);
-            return copy;
-        }catch(Exception unavailable){
-            return DshClient.mapOf("status","failed","code","TARGET_UNAVAILABLE","voiceAlias",label,
-                "message","目标离线、启动中或状态暂不可读；保留该目标的本地锚点，本次未查询也不改投其他设备。");
+
+    DshProactiveReport.RoundIdentity snapshotRound() {
+        synchronized (DshClient.LOCK) {
+            try {
+                DshClient.Config config=dshConfig();
+                String fingerprint=prefs.getString("dsh_target_fingerprint", "");
+                if (dshLocked() || !config.ready() || !fingerprint.equals(config.targetFingerprint())) return null;
+                DshProactiveReport.RoundIdentity round=new DshProactiveReport.RoundIdentity(
+                    prefs.getString("dsh_user_id", ""), DshSettings.authGeneration(), selectionGeneration, fingerprint,
+                    prefs.getString("dsh_session_id", ""), prefs.getString("dsh_client_message_id", ""),
+                    prefs.getBoolean("dsh_unknown_delivery", false));
+                return round.valid() ? round : null;
+            } catch (Exception e) { return null; }
         }
     }
-    /** Which parked-row action the current call wants: a read (status) or a local-track stop. */
-    private String parkedMode=DshAnchorStore.ACTION_STATUS;
-    /** Explains, per switch, whether the new target restored its own anchor or starts fresh. */
-    private String reboundNote="";
-    /** Fingerprint of one identity under the current credential; "" when the credential is unusable. */
-    static String fingerprintOf(String baseUrl,String token,String connector,String project,String runtime,String model,String permission) {
-        try{
-            DshClient.Config config=new DshClient.Config(true,baseUrl,token,connector,project,runtime,model,permission);
-            return config.ready()?config.targetFingerprint():"";
-        }catch(RuntimeException invalid){return "";}
+    boolean isCurrentRound(DshProactiveReport.RoundIdentity round) {
+        synchronized (DshClient.LOCK) { return round != null && round.equals(snapshotRound()); }
     }
-    /** Fingerprint to park the outgoing anchor under: the live one when the credential still matches. */
-    static String anchorFingerprint(SharedPreferences prefs,String token) {
-        String live=fingerprintOf(prefs.getString("dsh_url",""),token,prefs.getString("dsh_connector",""),
-            prefs.getString("dsh_project",""),prefs.getString("dsh_runtime",""),
-            prefs.getString("dsh_model",""),prefs.getString("dsh_permission",""));
-        // Park under the fingerprint the anchor was created with. If the credential rotated underneath it, that
-        // row later reads as ANCHOR_STALE instead of becoming usable again under the new credential.
-        String stored=prefs.getString("dsh_target_fingerprint","");
-        return !stored.isEmpty()?stored:live;
+    /**
+     * Durable identity of the session this device is bound to, as an adoption candidate. It is NOT a
+     * round: no client message id is claimed yet, because the turn we might adopt is whatever the bound
+     * session's timeline reports as newest. Null unless a bound, confirmed, still-matching session exists.
+     */
+    static final class Binding {
+        final String account;
+        final long authGeneration, selectionGeneration;
+        final String targetFingerprint, sessionId;
+        Binding(String account, long authGeneration, long selectionGeneration, String targetFingerprint, String sessionId) {
+            this.account = account == null ? "" : account;
+            this.authGeneration = authGeneration;
+            this.selectionGeneration = selectionGeneration;
+            this.targetFingerprint = targetFingerprint == null ? "" : targetFingerprint;
+            this.sessionId = sessionId == null ? "" : sessionId;
+        }
+        /**
+         * Ownership only: generation churn (re-login, re-selection) is answered by the durable round
+         * guard, not here, so a poll under a refreshed generation keeps adopting the same owner's session.
+         */
+        boolean sameIdentity(Binding other) {
+            return other != null && account.equals(other.account) && targetFingerprint.equals(other.targetFingerprint);
+        }
     }
-    /** Post-commit assertion: the restored row must not have come back with an unconfirmed submission. */
-    static boolean lockedAnchor(DshAnchorStore anchors,String targetKey) {
-        DshAnchorStore.Anchor anchor=anchors==null?null:anchors.getSnapshot(targetKey);
-        return anchor!=null&&anchor.unknownDelivery;
+    Binding adoptionBinding() {
+        synchronized (DshClient.LOCK) {
+            try {
+                if (dshLocked()) return null;
+                DshClient.Config config = dshConfig();
+                if (!config.ready()) return null;
+                String fingerprint = prefs.getString("dsh_target_fingerprint", "");
+                if (!fingerprint.equals(config.targetFingerprint())) return null;
+                String sessionId = prefs.getString("dsh_session_id", "");
+                if (sessionId.isEmpty() || prefs.getBoolean("dsh_unknown_delivery", false)) return null;
+                return new Binding(prefs.getString("dsh_user_id", ""), DshSettings.authGeneration(),
+                    selectionGeneration, fingerprint, sessionId);
+            } catch (Exception e) { return null; }
+        }
+    }
+    /** Timeline turns of the bound session, newest first; transport problems simply discover nothing. */
+    List<String> discoveredMessages(String sessionId) {
+        try { return dshClient(null, true).timelineUserMessageIds(sessionId); }
+        catch (Exception e) { return Collections.emptyList(); }
+    }
+    String trackedMessageId() {
+        synchronized (DshClient.LOCK) { return prefs.getString("dsh_client_message_id", ""); }
+    }
+    /**
+     * Publishes a discovered desktop-side turn as this device's tracked turn, so the local monitor and
+     * every later guard recognise it from durable state before anything is displayed. Refused unless the
+     * session, target, account, unconfirmed-delivery flag and generations still match the candidate.
+     * Local-only: the remote session is untouched and nothing here re-dispatches.
+     */
+    boolean adoptRound(DshProactiveReport.RoundIdentity round) {
+        if (round == null || !round.valid()) return false;
+        synchronized (DshClient.LOCK) {
+            try {
+                if (dshLocked()) return false;
+                DshClient.Config config = dshConfig();
+                String fingerprint = prefs.getString("dsh_target_fingerprint", "");
+                if (!config.ready() || !fingerprint.equals(config.targetFingerprint())
+                    || !fingerprint.equals(round.targetFingerprint)) return false;
+                if (prefs.getBoolean("dsh_unknown_delivery", false)) return false;
+                if (!round.account.equals(prefs.getString("dsh_user_id", ""))) return false;
+                if (!round.sessionId.equals(prefs.getString("dsh_session_id", ""))) return false;
+                if (round.authGeneration != DshSettings.authGeneration() || round.selectionGeneration != selectionGeneration)
+                    return false;
+                if (!prefs.edit().putString("dsh_target_fingerprint", fingerprint)
+                    .putString("dsh_session_id", round.sessionId).putString("dsh_client_message_id", round.clientMessageId)
+                    .putBoolean("dsh_unknown_delivery", false).commit()) {
+                    dshStorageFailed = true;
+                    return false;
+                }
+                return round.equals(snapshotRound());
+            } catch (Exception e) { return false; }
+        }
+    }
+    Context application() { return app; }
+    /** Host port for the single-slot adopter. Display calls always happen outside the host lock. */
+    static DshSessionAdopter.Host adoptionHost(final ToolClient client) {
+        return new DshSessionAdopter.Host() {
+            @Override public Binding binding() { return client.adoptionBinding(); }
+            @Override public List<String> discoveredMessages(String sessionId) { return client.discoveredMessages(sessionId); }
+            @Override public String trackedMessageId() { return client.trackedMessageId(); }
+            @Override public boolean start(DshProactiveReport.RoundIdentity round) {
+                if (!client.adoptRound(round)) return false;
+                DshProactiveDisplay.get(client.application()).start(round);
+                return client.isCurrentRound(round);
+            }
+            @Override public void stop() { DshProactiveDisplay.get(client.application()).stop(); }
+        };
+    }
+    private static DshSessionAdopter adoption;
+    /**
+     * One process-wide adoption poller. A desktop-sent task never passes through this device's
+     * executeDsh, so without this poller the phone card and the glasses would keep the previous result.
+     */
+    static synchronized DshSessionAdopter adoptionFor(ToolClient client) {
+        if (adoption == null) adoption = DshSessionAdopter.startBackground(adoptionHost(client));
+        return adoption;
+    }
+    /** The stop-local-monitoring button also stops adoption, or the next poll would just re-adopt. */
+    static void pauseAdoption() { DshSessionAdopter current = adoption; if (current != null) current.pause(); }
+    /**
+     * An explicit "look at the desktop task" action (the sync card refresh) re-arms adoption, creating the
+     * poller when this process has not dispatched locally yet — that is exactly the desktop-only-bound
+     * session the dispatch hook alone cannot reach.
+     */
+    static void resumeAdoption(ToolClient client) { adoptionFor(client).resume(); }
+    /** Also covers selected/unconfirmed sessions that are intentionally not watchable rounds. */
+    String cardIdentity() throws Exception {
+        synchronized(DshClient.LOCK) {
+            return DshClient.stringifyJson(Arrays.asList(prefs.getString("dsh_user_id",""),
+                DshSettings.authGeneration(),selectionGeneration,dshConfig().targetFingerprint(),dshConfig().model,dshConfig().permission,prefs.getBoolean("dsh",false),
+                prefs.getString("dsh_target_fingerprint",""),prefs.getString("dsh_session_id",""),
+                prefs.getString("dsh_client_message_id",""),prefs.getBoolean("dsh_unknown_delivery",false),dshLocked()));
+        }
+    }
+    boolean isCurrentCard(String identity) {
+        synchronized(DshClient.LOCK) {try{return identity!=null&&identity.equals(cardIdentity());}catch(Exception e){return false;}}
+    }
+    /** A card request follows only its own guarded durable transitions, never a fresh return-time snapshot. */
+    final class CardRequest {
+        private String expected;
+        CardRequest() throws Exception { expected=cardIdentity(); }
+        boolean current(){synchronized(DshClient.LOCK){return isCurrentCard(expected);}}
+        void guard(){synchronized(DshClient.LOCK){if(!current())throw new IllegalStateException("stale_card");}}
+        void committed(){
+            if(!Thread.holdsLock(DshClient.LOCK))throw new IllegalStateException("dsh_commit_outside_lock");
+            try{expected=cardIdentity();}catch(Exception e){throw new IllegalStateException("dsh_identity_unreadable",e);}
+        }
+    }
+    CardRequest captureCard() throws Exception {synchronized(DshClient.LOCK){return new CardRequest();}}
+    Map<String,Object> queryRound(DshProactiveReport.RoundIdentity round) throws Exception {
+        final DshClient client;
+        synchronized (DshClient.LOCK) {
+            if (!isCurrentRound(round)) throw new IllegalStateException("stale_round");
+            client=dshClient(() -> { if (!isCurrentRound(round)) throw new IllegalStateException("stale_round"); }, true);
+        }
+        Map<String,Object> result=client.status(Collections.emptyMap());
+        if (!isCurrentRound(round)) throw new IllegalStateException("stale_round");
+        return result;
     }
     private final Context app;
     private final SharedPreferences prefs;
@@ -471,14 +418,17 @@ final class ToolClient {
     }
     private DshClient dshClient() throws Exception { return dshClient(null); }
     private DshClient dshClient(final Runnable guard) throws Exception { return dshClient(guard,false); }
-    private DshClient dshClient(final Runnable guard,final boolean statusRead) throws Exception {
+    private DshClient dshClient(final Runnable guard,final boolean statusRead) throws Exception { return dshClient(guard,statusRead,null); }
+    private DshClient dshClient(final Runnable guard,final boolean statusRead,final Runnable committed) throws Exception {
         final DshClient.Config snapshot;
         synchronized(DshClient.LOCK) { if(guard!=null)guard.run(); snapshot=dshConfig(); }
-        return new DshClient(snapshot, new DshClient.StateStore() {
+        DshClient.StateStore store=new DshClient.StateStore() {
             private void commit(SharedPreferences.Editor editor) {
+                if(!Thread.holdsLock(DshClient.LOCK))throw new IllegalStateException("dsh_commit_outside_lock");
                 if(!editor.commit()) { dshStorageFailed=true; throw new IllegalStateException("dsh_storage_failed"); }
+                if(committed!=null)committed.run();
             }
-            @Override public String sessionId() { if(statusRead&&guard!=null)guard.run(); return prefs.getString("dsh_session_id",""); }
+            @Override public String sessionId() { return prefs.getString("dsh_session_id",""); }
             @Override public boolean unknownDelivery() { return dshStorageFailed || prefs.getBoolean("dsh_unknown_delivery",false); }
             @Override public String clientMessageId() { return prefs.getString("dsh_client_message_id",""); }
             @Override public String targetFingerprint() { return prefs.getString("dsh_target_fingerprint",""); }
@@ -522,7 +472,9 @@ final class ToolClient {
                     .putString("dsh_target_fingerprint","")
                     );
             }
-        }, DshClient::httpTransport);
+        };
+        if(guard instanceof DshAliasRegistry.OperationGuard)store=DshAliasRegistry.guardedStore(store,(DshAliasRegistry.OperationGuard)guard,()->routeSnapshot(),statusRead);
+        return new DshClient(snapshot,store,(method,url,token,body)->{if(guard!=null)guard.run();return DshClient.httpTransport(method,url,token,body);});
     }
     private static JSONObject http(String url,String token,String header,JSONObject body) throws Exception {
         HttpURLConnection connection=(HttpURLConnection)new URL(url).openConnection();
@@ -538,38 +490,12 @@ final class ToolClient {
         } finally {connection.disconnect();}
     }
     JSONObject call(String name,JSONObject arguments,String modelSecret) throws Exception { return call(name,arguments,modelSecret,null); }
-    JSONObject call(String name,JSONObject arguments,String modelSecret,Runnable guard) throws Exception {
+    JSONObject call(String name,JSONObject arguments,String modelSecret,Runnable guard) throws Exception { return call(name,arguments,modelSecret,guard,null); }
+    /** Reports only this call's successful durable writes, synchronously while LOCK is held. */
+    JSONObject call(String name,JSONObject arguments,String modelSecret,Runnable guard,Runnable committed) throws Exception {
         Set<String> enabled=new HashSet<>(); JSONArray tools=specs();for(int i=0;i<tools.length();i++) enabled.add(tools.getJSONObject(i).getJSONObject("function").getString("name"));
         if(!enabled.contains(name)) throw new IllegalArgumentException("tool_disabled");
-        if(name.equals("dsh_end_session")) {
-            Map<String,Object> refused=routeForTarget(optionalTarget(arguments,"target"),guard,false,false,DshAnchorStore.ACTION_END_SESSION);
-            if(refused!=null) return new JSONObject(refused);
-            boolean ended; synchronized(DshClient.LOCK){if(guard!=null)guard.run();ended=endSession(app);}
-            return new JSONObject().put("status",ended?"ended":"locked").put("remote_session_affected",false)
-                .put("message",ended?"已停止跟踪当前会话；下次派发将新建；远端会话不受影响。":"存在未确认提交或存储锁定，保留会话跟踪。");
-        }
-        if(name.equals("dsh_dispatch")) {
-            // Routing guard runs before DshClient, so TARGET_REQUIRED or ALIAS_NOT_FOUND cost zero HTTP.
-            // The mandatory-target rule guards the voice path, which has no other way to name the device. A
-            // workbench call already carries a bridge pin (guard) on the revision, account and session the user
-            // picked on screen, so it stays on that binding instead of failing on a missing spoken label.
-            Map<String,Object> refused=routeForTarget(optionalTarget(arguments,"task","target"),guard,guard==null,true,DshAnchorStore.ACTION_DISPATCH);
-            if(refused!=null) return new JSONObject(refused);
-            Map<String,Object> parsedArgs=DshClient.parseJsonObject(dispatchTaskOnly(arguments).toString());
-            Map<String,Object> out=dshClient(guard).dispatch(parsedArgs, modelSecret, SecretStore.get(app,"search_key"));
-            notifyWorkbench(out);
-            return new JSONObject(DshClient.stringifyJson(withVoiceAlias(out)));
-        }
-        if(name.equals("dsh_status")) {
-            String statusTarget=optionalTarget(arguments,"target");
-            // A query never re-binds the single slot: another target is queried through its own keyed anchor row.
-            Map<String,Object> refused=routeForTarget(statusTarget,guard,false,false,DshAnchorStore.ACTION_STATUS);
-            if(refused!=null) return new JSONObject(refused);
-            Map<String,Object> parsedArgs=DshClient.parseJsonObject("{}");
-            Map<String,Object> out=dshClient(guard,true).status(parsedArgs);
-            notifyWorkbench(out);
-            return new JSONObject(DshClient.stringifyJson(withVoiceAlias(out)));
-        }
+        if(name.startsWith("dsh_"))return new JSONObject(DshClient.stringifyJson(executeDsh(name,arguments,modelSecret,guard,committed)));
         String query=arguments.optString("query","").trim();
         if(query.length()<2||query.length()>200||query.matches("(?s).*[\\p{Cntrl}].*")||query.contains("sk-")||query.toLowerCase(Locale.ROOT).contains("bearer ")||(!modelSecret.isEmpty()&&query.contains(modelSecret))) throw new IllegalArgumentException();
         if(name.equals("web_search")) {
@@ -588,6 +514,12 @@ final class ToolClient {
     }
     private static String truncate(String value,int count) {return value.substring(0,Math.min(value.length(),count));}
     /** Keeps only the task argument so a {@code target} can never reach the remote request body. */
+    private static JSONObject dispatchTaskOnly(JSONObject arguments) throws JSONException {
+        Object task=arguments.get("task");
+        if(!(task instanceof String)) throw new IllegalArgumentException("invalid_task_type");
+        try{return new JSONObject().put("task",task);}catch(JSONException impossible){throw new IllegalStateException();}
+    }
+
     private static void notifyWorkbench(Map<String,Object> out){
         if(out==null)return;
         try{
@@ -608,22 +540,5 @@ final class ToolClient {
             DshWorkbenchCardSync.aa(label,sessionId,answer);
         }catch(Throwable ignored){}
     }
-    private static JSONObject dispatchTaskOnly(JSONObject arguments) throws JSONException {
-        Object task=arguments.get("task");
-        if(!(task instanceof String)) throw new IllegalArgumentException("invalid_task_type");
-        try{return new JSONObject().put("task",task);}catch(JSONException impossible){throw new IllegalStateException();}
-    }
-    /** Echoes the local alias label; a model restated name is never used as attribution evidence. */
-    private Map<String,Object> withVoiceAlias(Map<String,Object> out) {
-        String rebound=reboundAlias,note=reboundNote; reboundAlias=""; reboundNote="";
-        String alias=rebound.isEmpty()?prefs.getString(ALIAS_COLUMN,""):rebound;
-        if(out==null||alias.isEmpty()) return out;
-        Map<String,Object> copy=new LinkedHashMap<>(out);
-        copy.put("voiceAlias",alias);
-        if(!rebound.isEmpty()&&!note.isEmpty()) {
-            copy.put("voiceAliasSwitched",Boolean.TRUE);
-            copy.put("voiceAliasNote",note);
-        }
-        return copy;
-    }
+
 }

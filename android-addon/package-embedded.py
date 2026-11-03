@@ -3,25 +3,13 @@ import argparse,hashlib,json,pathlib,re,zipfile
 from embed_manifest import patch as patch_workbench
 from dsh_manifest import patch as patch_oauth
 from cleartext_manifest import patch as patch_cleartext
+from embedded_payload import PAYLOAD, SIDECAR, ENTRY, validate_payload
 
 def patch(data):
  return patch_cleartext(patch_workbench(patch_oauth(data)))
 PIN='d39312a28f22abb064552b536bc31e37126918219065b35af2f557a70e5a24b0'
-PAYLOAD='assets/turboio/aa/aa-embedded-payload.apk'
-SIDECAR='assets/turboio/aa/payload.json'
-ENTRY='com.agentsanywhere.embedded.PayloadEntry'
 def digest(data):return hashlib.sha256(data).hexdigest()
 def signature(name):return bool(re.fullmatch(r'META-INF/(?:MANIFEST.MF|[^/]+.(?:SF|RSA|DSA|EC))',name,re.I))
-def validate_payload(payload,sidecar):
- doc=json.loads(sidecar)
- if doc!={'schemaVersion':1,'abiVersion':1,'entry':ENTRY,'sha256':digest(payload)}:raise ValueError('payload sidecar mismatch')
- import io
- with zipfile.ZipFile(io.BytesIO(payload)) as apk:
-  names=apk.namelist()
-  if len(names)!=len(set(names)):raise ValueError('duplicate payload members')
-  if 'resources.arsc' not in names or 'classes.dex' not in names:raise ValueError('missing payload resources/dex')
-  if any(n.startswith('lib/') and n.endswith('.so') for n in names):raise ValueError('native payload libraries unsupported')
- return doc
 def assemble(source,dex,payload,sidecar,output):
  source=pathlib.Path(source);output=pathlib.Path(output)
  if output.exists():raise ValueError('output exists; choose a new candidate path')

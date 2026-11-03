@@ -46,4 +46,12 @@ def patch(data):
  body=b''.join(chunks)
  return struct.pack('<HHI',3,8,len(body)+8)+body
 
-def shared_patch(data):return patch(ax.patch(data))
+def shared_patch(data, embedded=False, cheater_io=False):
+ data=patch(ax.patch(data))
+ if embedded:
+  from embed_manifest import patch as patch_workbench
+  data=patch_workbench(data)
+ if cheater_io:
+  from cheater_manifest import patch as patch_label
+  data=patch_label(data)
+ return data

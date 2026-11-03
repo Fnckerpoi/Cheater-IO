@@ -19,4 +19,13 @@ let fileRes107=fileHookFor({version:'1.0.7'},f107);
 assert.match(fileRes107,/\.method public final turboioOriginal_u/);
 assert.match(fileRes107,/invoke-virtual\/range \{p0 .. p4\}, LY3\/u;->turboioOriginal_u\(Ljava\/io\/File;Ljava\/lang\/String;Lk4\/q;Ljava\/lang\/String;\)Ljava\/lang\/String;/);
 
-console.log('OTA wrapper tests passed (including 1.0.7);  exact ABI checked again before package mutation.');
+let q110='.class public LO4/Y;\n.method public static s(LO4/V;)V\n .locals 0\n return-void\n.end method\n';
+let res110=queueHookFor({version:'1.0.10'},q110);
+assert.match(res110,/\.method public static turboioOriginal_s/);
+assert.match(res110,/invoke-static \{p0\}, LO4\/Y;->turboioOriginal_s\(LO4\/V;\)V/);
+let f110='.class public LO4/v;\n.method public final u(Ljava/io/File;Ljava/lang/String;Lb5/q;Ljava/lang/String;)Ljava/lang/String;\n .locals 0\n return-object p1\n.end method\n';
+let fileRes110=fileHookFor({version:'1.0.10'},f110);
+assert.match(fileRes110,/\.method public final turboioOriginal_u/);
+assert.match(fileRes110,/invoke-virtual\/range \{p0 .. p4\}, LO4\/v;->turboioOriginal_u\(Ljava\/io\/File;Ljava\/lang\/String;Lb5\/q;Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+
+console.log('OTA wrapper tests passed (including 1.0.7 and 1.0.10);  exact ABI checked again before package mutation.');

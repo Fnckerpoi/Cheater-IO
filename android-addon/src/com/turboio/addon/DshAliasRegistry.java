@@ -382,6 +382,21 @@ public final class DshAliasRegistry {
     }
 
     /** Damaged, foreign or ownerless documents fail closed with an empty table, so nothing can resolve. */
+    static List<Map<String,Object>> workbenchTargets(String owner,String baseUrl,String document){
+        List<Map<String,Object>> rows=new ArrayList<>();
+        for(AliasEntry entry:loadFor(owner,baseUrl,document).listSnapshot())
+            rows.add(DshClient.mapOf("alias",entry.alias,"connectorId",entry.connectorId,"runtimeId",entry.runtimeId));
+        return rows;
+    }
+    static String checkWorkbenchTarget(String owner,String baseUrl,String document,String target,String connector,String runtime){
+        try{
+            DshAliasRegistry table=loadFor(owner,baseUrl,document);
+            if(target==null||target.isEmpty())return table.sizeSnapshot()>=2?"TARGET_REQUIRED":"";
+            AliasEntry entry=table.resolveSnapshot(target);
+            if(entry==null)return "ALIAS_NOT_FOUND";
+            return entry.connectorId.equals(connector)&&entry.runtimeId.equals(runtime)?"":"ALIAS_TARGET_MISMATCH";
+        }catch(IllegalArgumentException invalid){return invalid.getMessage();}
+    }
     private static DshAliasRegistry loadFor(String ownerUserId, String baseUrl, String document) {
         if (ownerUserId == null || ownerUserId.isEmpty() || DshClient.normalizeBaseUrl(baseUrl) == null)
             throw new IllegalArgumentException("FOREIGN_TARGET");
@@ -398,6 +413,164 @@ public final class DshAliasRegistry {
             throw new IllegalArgumentException("IDENTITY_REQUIRED");
         // Order for upsertSnapshot: alias, baseUrl, connector, runtime, project, model, permission.
         return new String[]{binding[0], binding[1], binding[2], binding[3], binding[4], binding[5]};
+    }
+
+    /** Select a per-account document while preserving legacy corruption as an explicit failure. */
+    static String scopedDocument(String owner,String baseUrl,String legacy,String scoped){
+        if(scoped!=null)return scoped;
+        if(legacy==null||legacy.isEmpty())return "";
+        try{
+            Map<String,Object> raw=DshClient.parseJsonObject(legacy);
+            String storedOwner=stringOf(raw,"ownerUserId"),storedUrl=baseUrl;
+            Object aliases=raw.get("aliases");
+            if(aliases instanceof List&&!((List<?>)aliases).isEmpty()){
+                Object first=((List<?>)aliases).get(0);if(first instanceof Map)storedUrl=stringOf((Map<String,Object>)first,"baseUrl");
+            }
+            deserializeSnapshot(legacy,storedOwner,storedUrl);
+            return owner.equals(storedOwner)&&Objects.equals(DshClient.normalizeBaseUrl(baseUrl),DshClient.normalizeBaseUrl(storedUrl))?legacy:"";
+        }catch(RuntimeException damaged){return legacy;}
+    }
+    static String selectionDocument(String owner,String baseUrl,String document,String connector,String project,String runtime,String model,String permission){
+        DshAliasRegistry table=loadFor(owner,baseUrl,document);
+        for(AliasEntry entry:table.listSnapshot())if(entry.runtimeId.equals(runtime)){
+            table.upsertSnapshot(entry.alias,baseUrl,connector,runtime,project,model,permission);
+            return serializeSnapshot(table);
+        }
+        return document;
+    }
+    static Map<String,Object> statusArguments(RouteSnapshot snapshot){
+        DshAliasRegistry table=loadFor(snapshot.owner,snapshot.config.baseUrl,snapshot.document);
+        for(AliasEntry entry:table.listSnapshot())if(snapshot.matches(entry))return DshClient.mapOf("target",entry.alias);
+        if(table.sizeSnapshot()>=2)throw new IllegalStateException("SESSION_UNSELECTED");
+        return DshClient.mapOf();
+    }
+    /** Immutable operation identity. Credentials stay in memory only. */
+    static final class RouteSnapshot {
+        final String owner,document,session; final DshClient.Config config;
+        final long auth,selection; final boolean unknown,locked;
+        RouteSnapshot(String owner,DshClient.Config config,String document,long auth,long selection,String session,boolean unknown,boolean locked){
+            this.owner=owner;this.config=config;this.document=document;this.auth=auth;this.selection=selection;this.session=session;this.unknown=unknown;this.locked=locked;
+        }
+        boolean matches(AliasEntry e){return config.baseUrl.equals(e.baseUrl)&&config.connectorId.equals(e.connectorId)&&config.projectId.equals(e.projectId)&&config.runtimeId.equals(e.runtimeId)&&config.model.equals(e.model)&&config.permission.equals(e.permission);}
+    }
+    interface SnapshotReader {RouteSnapshot read() throws Exception;}
+    /**
+     * Wraps a state store so every mutation is bracketed by one operation guard: pre-write staleness
+     * check, then advance the guard to the state just written. The guard must observe the operation's
+     * own pending/session transitions, otherwise the mid-flight savePending would look like a foreign
+     * unknown-delivery change and wrongly abort its own request.
+     */
+    static DshClient.StateStore guardedStore(final DshClient.StateStore delegate,final OperationGuard guard,final SnapshotReader reader,final boolean guardSessionRead){
+        if(guard==null)return delegate;
+        return new DshClient.StateStore(){
+            private void committed(){try{guard.committed(reader.read());}catch(RuntimeException failed){throw failed;}catch(Exception failed){throw new IllegalStateException("STORAGE_FAILED");}}
+            public String sessionId(){if(guardSessionRead)guard.run();return delegate.sessionId();}
+            public boolean unknownDelivery(){return delegate.unknownDelivery();}
+            public String clientMessageId(){return delegate.clientMessageId();}
+            public String targetFingerprint(){return delegate.targetFingerprint();}
+            public void savePending(String fingerprint,String anchor,String message){synchronized(DshClient.LOCK){guard.run();delegate.savePending(fingerprint,anchor,message);committed();}}
+            public void clearPending(){synchronized(DshClient.LOCK){guard.run();delegate.clearPending();committed();}}
+            public void saveSession(String fingerprint,String session,String message){synchronized(DshClient.LOCK){guard.run();delegate.saveSession(fingerprint,session,message);committed();}}
+            public void clearSession(){synchronized(DshClient.LOCK){guard.run();delegate.clearSession();committed();}}
+            public void clearSessionAndPending(){synchronized(DshClient.LOCK){guard.run();delegate.clearSessionAndPending();committed();}}
+        };
+    }
+    static DshClient.StateStore guardedStore(DshClient.StateStore delegate,OperationGuard guard,SnapshotReader reader){return guardedStore(delegate,guard,reader,false);}
+    static final class OperationGuard implements Runnable {
+        private RouteSnapshot expected; private final SnapshotReader reader; private final Runnable external; private boolean ownCommit;
+        OperationGuard(RouteSnapshot expected,SnapshotReader reader,Runnable external){this.expected=expected;this.reader=reader;this.external=external;}
+        public void run(){synchronized(DshClient.LOCK){try{
+            if(!ownCommit&&external!=null)external.run();
+            RouteSnapshot current=reader.read();
+            String error=evaluateRoute(expected,current);
+            if(error.isEmpty()&&expected.unknown!=current.unknown)error="STALE_SELECTION";
+            if(!error.isEmpty())throw new IllegalStateException(error);
+        }catch(RuntimeException failed){throw failed;}catch(Exception failed){throw new IllegalStateException("STORAGE_FAILED");}}}
+        // Called only after our guarded durable write while LOCK is still held.
+        void committed(RouteSnapshot ownWrite){synchronized(DshClient.LOCK){expected=ownWrite;ownCommit=true;}}
+    }
+    interface AliasEditIo {
+        RouteSnapshot snapshot() throws Exception;
+        String verify(RouteSnapshot snapshot,AliasEntry entry) throws Exception;
+        void persist(String document) throws Exception;
+    }
+    static String editAlias(RouteSnapshot dialog,String alias,boolean delete,AliasEditIo io) throws Exception {
+        final DshAliasRegistry table; final AliasEntry target;
+        synchronized(DshClient.LOCK){
+            RouteSnapshot current=io.snapshot();String stale=evaluateRoute(dialog,current);
+            if(!stale.isEmpty())return stale;
+            if(current.unknown)return "unknown_delivery";
+            if(!current.config.ready()||current.owner.isEmpty())return "NEEDS_CONFIGURATION";
+            table=loadFor(current.owner,current.config.baseUrl,current.document);
+            DshClient.Config c=current.config;
+            target=new AliasEntry("","",c.baseUrl,c.connectorId,c.runtimeId,c.projectId,c.model,c.permission);
+            if(delete){AliasEntry found=null;for(AliasEntry e:table.listSnapshot())if(e.runtimeId.equals(c.runtimeId))found=e;
+                if(found==null)return "ALIAS_NOT_FOUND";table.deleteSnapshot(found.aliasKey);
+            }else table.upsertSnapshot(alias,c.baseUrl,c.connectorId,c.runtimeId,c.projectId,c.model,c.permission);
+        }
+        String verdict;try{verdict=io.verify(dialog,target);}catch(Exception unavailable){return "TARGET_UNAVAILABLE";}
+        if(!"OK".equals(verdict))return verdict;
+        synchronized(DshClient.LOCK){
+            RouteSnapshot current=io.snapshot();String stale=evaluateRoute(dialog,current);
+            if(!stale.isEmpty())return stale;
+            if(current.unknown)return "unknown_delivery";
+            io.persist(serializeSnapshot(table));
+        }
+        return "OK";
+    }
+    interface RouteIo {
+        RouteSnapshot snapshot() throws Exception;
+        String verify(RouteSnapshot snapshot,AliasEntry entry) throws Exception;
+        RouteSnapshot bind(RouteSnapshot snapshot,AliasEntry entry) throws Exception;
+        Map<String,Object> act(String action,Map<String,Object> arguments,RouteSnapshot snapshot) throws Exception;
+    }
+    static String evaluateRoute(RouteSnapshot expected,RouteSnapshot current){
+        if(current.locked)return "STORAGE_LOCKED";
+        if(expected.auth!=current.auth||!expected.owner.equals(current.owner)||!expected.config.token.equals(current.config.token)||!expected.config.baseUrl.equals(current.config.baseUrl))return "STALE_AUTH";
+        if(!expected.document.equals(current.document))return "STALE_ALIAS";
+        if(expected.selection!=current.selection||!expected.config.targetFingerprint().equals(current.config.targetFingerprint())||!expected.config.model.equals(current.config.model)||!expected.config.permission.equals(current.config.permission)||!expected.session.equals(current.session))return "STALE_SELECTION";
+        return "";
+    }
+    static Map<String,Object> refusal(String code){return DshClient.mapOf("status","unknown_delivery".equals(code)?code:"failed","code",code,"remote_session_affected",Boolean.FALSE,"untrusted_external_data",Boolean.TRUE);}
+    /** Production entry core; only directory/storage/action IO is injectable. */
+    static Map<String,Object> executeRoute(String action,Map<String,Object> arguments,RouteIo io) throws Exception {
+        boolean dispatch="dsh_dispatch".equals(action),status="dsh_status".equals(action);
+        if(!dispatch&&!status&&!"dsh_end_session".equals(action))throw new IllegalArgumentException("unknown_tool");
+        for(String key:arguments.keySet())if(!"target".equals(key)&&!(dispatch&&"task".equals(key)))throw new IllegalArgumentException("invalid_arguments");
+        Object target=arguments.get("target");
+        if(arguments.containsKey("target")&&!(target instanceof String))throw new IllegalArgumentException("invalid_target_type");
+        if(target!=null&&((String)target).length()>128)throw new IllegalArgumentException("invalid_target_length");
+        final RouteSnapshot expected; final AliasEntry entry; final Map<String,Object> task;
+        synchronized(DshClient.LOCK){
+            expected=io.snapshot();
+            if(expected.locked)return refusal("STORAGE_LOCKED");
+            if(expected.owner.isEmpty()||expected.config.token.isEmpty())return refusal("STALE_AUTH");
+            DshAliasRegistry table;
+            try{table=loadFor(expected.owner,expected.config.baseUrl,expected.document);}catch(RuntimeException damaged){return refusal("ALIAS_UNAVAILABLE");}
+            Decision decision=resolveForAction(table.listSnapshot(),(String)target);
+            if(!RESOLVED.equals(decision.code))return refusal(decision.code);
+            entry=decision.entry;
+            if(!status&&expected.unknown)return refusal("unknown_delivery");
+            task=dispatch?DshClient.mapOf("task",arguments.get("task")):Collections.<String,Object>emptyMap();
+            if(dispatch)DshClient.validateTask(task,expected.config.token);
+            if(entry!=null&&!DshClient.validBinding(entry.baseUrl,entry.connectorId,entry.projectId,entry.runtimeId,entry.model,entry.permission))return refusal("NEEDS_CONFIGURATION");
+            if(!dispatch&&entry!=null&&!expected.matches(entry))return refusal("SESSION_UNSELECTED");
+        }
+        // Even an omitted target dispatch verifies the current binding; it never selects the sole alias.
+        AliasEntry verified=entry;
+        if(verified==null){DshClient.Config c=expected.config;verified=new AliasEntry("","",c.baseUrl,c.connectorId,c.runtimeId,c.projectId,c.model,c.permission);}
+        if(dispatch||status&&!expected.session.isEmpty()){
+            String verdict;try{verdict=io.verify(expected,verified);}catch(Exception unavailable){return refusal("TARGET_UNAVAILABLE");}
+            if(!"OK".equals(verdict))return refusal(verdict);
+        }
+        final RouteSnapshot bound;
+        synchronized(DshClient.LOCK){
+            RouteSnapshot current=io.snapshot();String stale=evaluateRoute(expected,current);
+            if(!stale.isEmpty())return refusal(stale);
+            if(!status&&current.unknown)return refusal("unknown_delivery");
+            bound=dispatch&&entry!=null?io.bind(expected,entry):current;
+        }
+        return io.act(action,task,bound);
     }
 
     private static String stringOf(Map<String, Object> row, String key) {

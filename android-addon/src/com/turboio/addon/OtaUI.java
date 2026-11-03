@@ -3,6 +3,7 @@ import android.app.*;import android.os.*;import android.widget.*;import android.
 
 final class OtaUI {
  static void show(Activity a){if(OfficialOtaBridge.enabled()){OfficialOtaBridge.show(a);return;}if(OfficialOtaPreparation.enabled()){OfficialOtaPreparation.show(a);return;}OtaController.init(a);EditorialUI.Screen s=new EditorialUI.Screen(a,"实验固件 · 默认锁定");s.dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);LinearLayout b=s.body;
+  b.addView(EditorialUI.text(a,"已构建候选：TMG3 · Strix OS 1.0.5.12\n离线构建与包审计通过；适配当前眼镜（1.0.4.12）。Android 1.0.10 已就绪。",14,EditorialUI.MUTED));
   b.addView(EditorialUI.text(a,"OTA-02 · 安装期保护版 · 仅供开发者受控验收\n安卓真机刷写尚未验证。仅支持指定 TAP1 / Strix OS 1.0.4.12 原样包；不接受未知固件、不改原厂缓存。刷写存在不可恢复故障风险，原厂回滚不是免风险保证。",15,EditorialUI.INK));
   TextView status=EditorialUI.text(a,"",14,EditorialUI.LIME);b.addView(status);
   EditorialUI.button(a,b,"1 · 导入指定 TAP1 ZIP（本机校验）",false,()->{if(OtaController.busy()){EditorialUI.notice(a,"准备或升级尚未结束，不能替换候选包");return;}DocumentPicker.pick(a,OtaPackage.ZIP_SIZE,OtaController::importPackage);});

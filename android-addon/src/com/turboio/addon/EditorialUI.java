@@ -68,7 +68,7 @@ final class EditorialUI {
         String[] names=new String[rows.size()];for(int i=0;i<rows.size();i++){DshDirectory.Option o=rows.get(i);names[i]=o.subtitle.isEmpty()?o.label:o.label+"\n"+o.subtitle;}
         new AlertDialog.Builder(a).setTitle(title).setSingleChoiceItems(names,checked,(d,w)->{d.dismiss();choose.accept(rows.get(w));}).setNegativeButton("取消",null).show();
     }
-    static void home(Activity a){Screen s=new Screen(a,"turbo io");LinearLayout content=s.body;TextView brand=text(a,"Turbo这个IO",32,INK);brand.setTypeface(null,Typeface.BOLD);content.addView(brand);content.addView(text(a,"声音、阅读与灵感，随你出发。",14,MUTED));EditorialArt hero=new EditorialArt(a,"hero-sequence-v5",true);content.addView(hero,new LinearLayout.LayoutParams(-1,dp(a,190)));
+    static void home(Activity a){Screen s=new Screen(a,"Cheater-IO");LinearLayout content=s.body;TextView brand=text(a,"Cheater-IO",32,INK);brand.setTypeface(null,Typeface.BOLD);content.addView(brand);content.addView(text(a,"声音、阅读与灵感，随你出发。",14,MUTED));EditorialArt hero=new EditorialArt(a,"hero-sequence-v5",true);content.addView(hero,new LinearLayout.LayoutParams(-1,dp(a,190)));
         button(a,content,"模型与对话  ›",false,TurboAddon::showSettings);
         button(a,content,"Agent-Anywhere设置",false,()->DshSettings.show(a));
         if(AaPayloadLoader.available(a))button(a,content,"AA 工作台",false,()->a.startActivity(new android.content.Intent(a,AaEmbeddedActivity.class)));

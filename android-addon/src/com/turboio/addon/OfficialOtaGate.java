@@ -48,7 +48,9 @@ final class OfficialOtaGate {
   if(started&&phase!=Phase.UNKNOWN&&phase!=Phase.INSTALLING&&deadline>0&&now>=deadline)fail("official response timeout");
  }
  private boolean recent(int t,long now,long ttl){return good[t]&&fresh[t]>=0&&now>=fresh[t]&&now-fresh[t]<=ttl;}
- boolean freshBoot(long now){return (phase==Phase.INSTALLING||phase==Phase.UNKNOWN)&&targetBoot&&recent(1,now,60000)&&recent(11,now,60000)&&fresh[1]>bootAfter&&fresh[11]>bootAfter;}
+ boolean bootEvidenceGood(){return targetBoot&&good[1]&&good[11];}
+ boolean freshBoot(long now){return (phase==Phase.INSTALLING||phase==Phase.UNKNOWN)&&bootEvidenceGood()&&recent(1,now,60000)&&recent(11,now,60000)&&fresh[1]>bootAfter&&fresh[11]>bootAfter;}
+ boolean freshBootAfter(long now,long requestedAt){return (phase==Phase.INSTALLING||phase==Phase.UNKNOWN)&&bootEvidenceGood()&&recent(1,now,60000)&&recent(11,now,60000)&&fresh[1]>requestedAt&&fresh[11]>requestedAt;}
  boolean readyToArm(long now){return recent(1,now,PREFLIGHT_TTL_MS)&&recent(2,now,PREFLIGHT_TTL_MS)&&recent(11,now,PREFLIGHT_TTL_MS);}
  String idleEvidence(long now){return "idleGood="+good[11]+" replyAgeMs="+(fresh[11]<0?-1:now-fresh[11])+" pendingAgeMs="+(requested[11]<0?-1:now-requested[11]);}
  boolean queryPending(int type,long now){return requested[type]>=0&&now-requested[type]<=15000;}
@@ -117,7 +119,7 @@ final class OfficialOtaGate {
    // Progress is observation only; it cannot unlock or complete a session.
    if(f.type==8||f.type==10)return;
    throw new IllegalArgumentException("unsupported incoming OTA type");
-  }catch(RuntimeException e){fail(e.getMessage()==null?"invalid inbound":e.getMessage());}
+  }catch(RuntimeException e){good[1]=false;good[11]=false;fail(e.getMessage()==null?"invalid inbound":e.getMessage());}
  }
  private void cover(int start,int end){
   Map.Entry<Integer,Integer> e=apRanges.floorEntry(start);if(e!=null&&e.getValue()>=start){start=e.getKey();end=Math.max(end,e.getValue());apCovered-=e.getValue()-e.getKey();apRanges.remove(e.getKey());}

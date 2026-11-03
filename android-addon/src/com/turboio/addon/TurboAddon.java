@@ -80,7 +80,7 @@ public final class TurboAddon {
         ViewGroup root = host.findViewById(android.R.id.content);
         if (root.findViewWithTag("turboio-entry") != null) return;
         TextView button = new TextView(host);
-        button.setText("Turbo IO"); button.setTextColor(Color.WHITE); button.setTextSize(15);
+        button.setText("Cheater-IO"); button.setTextColor(Color.WHITE); button.setTextSize(15);
         button.setTypeface(null, Typeface.BOLD); button.setGravity(Gravity.CENTER);
         GradientDrawable bg = new GradientDrawable(); bg.setColor(Color.rgb(15, 37, 32)); bg.setCornerRadius(dp(24));
         bg.setStroke(dp(1), Color.rgb(55, 212, 151)); button.setBackground(bg);
@@ -129,6 +129,10 @@ public final class TurboAddon {
             DshWorkbenchCardSync.asr(text,finished);
             if(text!=null&&!text.isEmpty())VoiceSpeech.asr(source,session,finished);
             onAsr(source,text,finished,session);
+            // Only forward the phrase to the composite HUD owner; never touch NavGlasses from here, so
+            // ASR alone cannot seize an idle or another producer's lens channel.
+            try { DshProactiveDisplay display=DshProactiveDisplay.existing(); if(display!=null)display.onAsr(text,finished,session); }
+            catch(Exception ignored) { diagnostic="看板字幕转发失败"; }
         });
     }
     public static void dispatchNlp(Object source,Object response) {
