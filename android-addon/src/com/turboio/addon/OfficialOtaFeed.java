@@ -33,6 +33,7 @@ final class OfficialOtaFeed implements Closeable {
   archive=frozen;deadline=clock.getAsLong()+900000;
  }
  synchronized void disarm(){archive=null;token="";md5="";deadline=0;}
+ synchronized boolean armed(){expire();return archive!=null;}
  private synchronized void expire(){if(archive!=null&&(clock.getAsLong()>=deadline||!protectedMode.getAsBoolean()))disarm();}
  synchronized String status(){expire();return "本机更新源："+(listener==null?"未启动":"运行中")+" · "+(archive==null?"无更新":"15 分钟只下载")+"\n来源查询："+queries+" · 匹配固件："+firmwareQueries+" · 下载请求："+downloads+" · 拒绝："+rejected+"（"+lastReject+"）\n查询形状："+queryShape;}
  public synchronized void close()throws IOException{closed=true;disarm();if(listener!=null)listener.close();}
