@@ -10,6 +10,12 @@
 
 以下说明仅适用于 Android/ESP32 路线；iOS 构建和升级方式请查看对应 iOS 分支 README。
 
+## 路线图
+
+![Cheater-IO 路线图：设备与宿主扩展及 EBC/MOM 规划方向](assets/roadmap.svg)
+
+> EBC/MOM 为新增规划方向：基于 DSH 创造模式与低代码元数据驱动架构，探索重构实现 EBC（企业业务能力系统）/MOM（制造运营管理系统）。当前仅表达方向，不代表已实现或确定交付计划。
+
 ---
 
 本仓库为基于 [Turbo1123/Turbo-IO (Upstream)](https://github.com/Turbo1123/Turbo-IO) 的个人定制与功能扩展分支。
