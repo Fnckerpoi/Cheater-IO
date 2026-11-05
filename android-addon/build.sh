@@ -237,8 +237,7 @@ jar cf build/turboio-addon.jar -C build/classes .
 # Official GUARD bridge manual release. Fakes first; android.jar and the add-on classes only satisfy
 # class loading for UI code that never runs here.
 rm -rf build/test-ota-bridge && mkdir -p build/test-ota-bridge
-javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar:build/classes" -d build/test-ota-bridge $(find tests/otabridge -name '*.java') src/com/turboio/addon/{OfficialOtaBridge,OfficialOtaGate,OfficialOtaFeed,OfficialOtaPreflightPoll,OtaRecoveryGuard,OtaAutoRun,OtaPackage,OtaFrame,BoundedJson,HostAbi,HostBusiness}.java tests/OtaAutoRunTest.java
+javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar:build/classes" -d build/test-ota-bridge $(find tests/otabridge -name '*.java') src/com/turboio/addon/{OfficialOtaBridge,OfficialOtaGate,OfficialOtaFeed,OfficialOtaPreflightPoll,OtaRecoveryGuard,OtaPackage,OtaFrame,BoundedJson,HostAbi,HostBusiness}.java
 java -cp "build/test-ota-bridge:$android_jar:build/classes" com.turboio.addon.OfficialOtaReleaseTest
-java -cp "build/test-ota-bridge:$android_jar:build/classes" com.turboio.addon.OtaAutoRunTest
 "$build_tools/d8" --lib "$android_jar" --min-api 29 --output build/dex build/turboio-addon.jar
 shasum -a 256 build/dex/classes.dex

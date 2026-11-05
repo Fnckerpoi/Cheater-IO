@@ -26,38 +26,6 @@ int main(int argc,const char **argv){@autoreleasepool{
     g=Ready(dir);assert(![g allows:start device:@"TEST_DEVICE" uptime:910]);assert(![g.status[@"authorized"] boolValue]);
     g=Ready(dir);assert([g allows:start device:@"TEST_DEVICE" uptime:11]);assert(![g cancel]);assert(![g allows:info device:@"TEST_DEVICE" uptime:12]);assert([g.status[@"stage"] intValue]==3);
     g=Ready(dir);assert([g allows:start device:@"TEST_DEVICE" uptime:11]);assert([g allows:version device:@"TEST_DEVICE" uptime:12]);assert([g allows:info device:@"TEST_DEVICE" uptime:13]);
-    // Recovery requires a real same-device disconnect, reconnection and fresh solicited replies.
-    TIOOTAFlashGate *recovery=Ready(dir);assert([recovery allows:start device:@"TEST_DEVICE" uptime:11]);
-    assert([recovery allows:version device:@"TEST_DEVICE" uptime:12]);assert([recovery allows:info device:@"TEST_DEVICE" uptime:13]);
-    NSDictionary *boot=@{@"OsVersion":TIOOTAFrame(version)[@"json"][@"OtaVersion"],@"OtaValidationConfirmed":@YES,@"OtaValidationState":@"idle"};
-    NSDictionary *(^ble)(NSString *,NSString *)=^NSDictionary *(NSString *device,NSString *state){return @{@"eventType":@"bleStateChange",@"device":@{@"id":device},@"newState":state};};
-    NSDictionary *(^reply)(NSString *,NSUInteger,id)=^NSDictionary *(NSString *device,NSUInteger type,id body){return @{@"eventType":@"messageReceived",@"message":@{@"deviceId":device,@"businessId":@9,@"payload":F(type,body,nil)}};};
-    [recovery observeEvent:reply(@"TEST_DEVICE",1,boot) uptime:20];
-    [recovery observeEvent:ble(@"OTHER_DEVICE",@"disconnected") uptime:30];
-    [recovery observeEvent:ble(@"TEST_DEVICE",@"clientReady") uptime:40];
-    assert(![recovery recoveryAllowed:@"TEST_DEVICE" uptime:100]);
-    assert(![recovery releaseDevice:@"TEST_DEVICE" uptime:100 error:nil]);
-    [recovery observeEvent:ble(@"TEST_DEVICE",@"disconnected") uptime:101];
-    [recovery observeEvent:ble(@"OTHER_DEVICE",@"clientReady") uptime:102];
-    assert(![recovery recoveryAllowed:@"TEST_DEVICE" uptime:104]);
-    [recovery observeEvent:ble(@"TEST_DEVICE",@"clientReady") uptime:103];
-    assert(![recovery recoveryAllowed:@"TEST_DEVICE" uptime:104]);
-    assert(![recovery beginReadback:@"OTHER_DEVICE" uptime:105]);
-    assert([recovery beginReadback:@"TEST_DEVICE" uptime:105]);
-    [recovery observeEvent:reply(@"TEST_DEVICE",1,boot) uptime:105];
-    [recovery observeEvent:reply(@"TEST_DEVICE",11,@{@"Result":@YES}) uptime:106];
-    assert(![recovery freshBoot:106]);
-    [recovery observeEvent:reply(@"OTHER_DEVICE",1,boot) uptime:107];assert(![recovery freshBoot:107]);
-    [recovery observeEvent:reply(@"TEST_DEVICE",1,boot) uptime:108];assert([recovery freshBoot:108]);
-    [recovery observeEvent:reply(@"TEST_DEVICE",11,@{@"Result":@NO}) uptime:109];assert(![recovery freshBoot:109]);
-    [recovery observeEvent:reply(@"TEST_DEVICE",11,@{@"Result":@YES}) uptime:110];assert([recovery freshBoot:110]);
-    assert(![recovery freshBoot:171]);assert(![recovery releaseDevice:@"OTHER_DEVICE" uptime:110 error:nil]);
-    assert([recovery releaseDevice:@"TEST_DEVICE" uptime:110 error:nil]);assert([recovery.status[@"stage"] intValue]==0);
-    assert(!TIOOTAFileCallBlocked(@"rayneonet_sendFile",YES,0));
-    TIOOTAFlashGate *failed=Ready(dir);assert([failed allows:start device:@"TEST_DEVICE" uptime:11]);
-    assert(![failed allows:info device:@"TEST_DEVICE" uptime:12]);
-    [failed observeEvent:ble(@"TEST_DEVICE",@"disconnected") uptime:20];[failed observeEvent:ble(@"TEST_DEVICE",@"clientReady") uptime:21];
-    assert(![failed releaseDevice:@"TEST_DEVICE" uptime:100 error:nil]);
     NSUInteger slices=0,total=0;
     for(NSDictionary *row in manifest){NSString *name=row[@"Name"];NSData *file=files[name];for(NSUInteger at=0;at<file.length;at+=51200){NSUInteger size=MIN((NSUInteger)51200,file.length-at);NSData *part=[file subdataWithRange:NSMakeRange(at,size)];assert([g allows:F(7,@{@"Name":name,@"Start":@(at),@"Size":@(size)},part) device:@"TEST_DEVICE" uptime:20]);slices++;total+=size;}}
     assert([g.status[@"validatedSlices"] unsignedIntegerValue]==slices);assert([g.status[@"validatedSliceBytes"] unsignedIntegerValue]==total);

@@ -98,7 +98,7 @@ static void Send(id self,SEL cmd,NSString *channel,NSData *message,id reply){
     if([channel isKindOfClass:NSString.class]&&[channel.lowercaseString containsString:@"rayneonet"]&&message.length<262144){
         Class cls=NSClassFromString(@"FlutterStandardMethodCodec");
         @try{if([cls respondsToSelector:@selector(sharedInstance)]){id codec=((id(*)(id,SEL))objc_msgSend)(cls,@selector(sharedInstance));id event=((id(*)(id,SEL,id))objc_msgSend)(codec,NSSelectorFromString(@"decodeEnvelope:"),message);
-            if([event isKindOfClass:NSDictionary.class]){dispatch_async(dispatch_get_main_queue(),^{TCCameraObserveConnection(event);TDDotsPhoneObserveConnection(event);if(![event[@"eventType"] isEqual:@"messageReceived"])TIOOTAFlashObserveEvent(event);});NSMutableDictionary *copy=[event mutableCopy];id original=copy[@"message"];if([original isKindOfClass:NSDictionary.class]){NSMutableDictionary *m=[original mutableCopy];NSData *data=Data(m[@"payload"]);if(data)m[@"payload"]=data;copy[@"message"]=m;}
+            if([event isKindOfClass:NSDictionary.class]){dispatch_async(dispatch_get_main_queue(),^{TCCameraObserveConnection(event);TDDotsPhoneObserveConnection(event);});NSMutableDictionary *copy=[event mutableCopy];id original=copy[@"message"];if([original isKindOfClass:NSDictionary.class]){NSMutableDictionary *m=[original mutableCopy];NSData *data=Data(m[@"payload"]);if(data)m[@"payload"]=data;copy[@"message"]=m;}
 #if TIO_DISPLAY_PHONE
                 TDPDiagEnvelope(copy);
 #endif
@@ -118,7 +118,7 @@ static void Send(id self,SEL cmd,NSString *channel,NSData *message,id reply){
             }))return;
 #endif
             if([event isKindOfClass:NSDictionary.class]&&[event[@"eventType"] isEqual:@"messageReceived"]&&[event[@"message"] isKindOfClass:NSDictionary.class]){
-                NSMutableDictionary *e=[event mutableCopy],*m=[event[@"message"] mutableCopy];NSData *data=Data(m[@"payload"]);if(data)m[@"payload"]=data;e[@"message"]=m;dispatch_async(dispatch_get_main_queue(),^{TIOOTAFlashObserveEvent(e);});NSDictionary *physical=TIOTodoPhysicalStatus(e);
+                NSMutableDictionary *e=[event mutableCopy],*m=[event[@"message"] mutableCopy];NSData *data=Data(m[@"payload"]);if(data)m[@"payload"]=data;e[@"message"]=m;TIOOTAFlashObserveEvent(e);NSDictionary *physical=TIOTodoPhysicalStatus(e);
 #if TIO_DISPLAY_PHONE
                 if(TCCameraRouteReply(e,^(BOOL owned){if(owned){if(reply)((void(^)(NSData *))reply)(nil);}else PriorSend(self,cmd,channel,message,reply);}))return;
                 if(TDPPhoneRouteReply(e,^(BOOL owned){if(owned){if(reply)((void(^)(NSData *))reply)(nil);}else PriorSend(self,cmd,channel,message,reply);}))return;

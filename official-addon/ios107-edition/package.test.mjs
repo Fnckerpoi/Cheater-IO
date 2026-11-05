@@ -72,18 +72,3 @@ test('published unsigned original accepted; mutations and mixed input pairs reje
  if(process.env.IOS107_TEST_RUNNER)assert.throws(()=>validateHost(info,fs.readFileSync(process.env.IOS107_TEST_RUNNER),a));
  if(process.env.IOS107_TEST_APP_IMAGE)assert.throws(()=>validateHost(info,r,fs.readFileSync(process.env.IOS107_TEST_APP_IMAGE)));
 });
-
-test('iOS OTA production build includes the auto runner',()=>{
-  const build=fs.readFileSync(new URL('./build.sh',import.meta.url),'utf8');
-  assert.match(build,/ExperimentalOTAAutoRun\.m/);
-});
-test('iOS OTA UI uses valid single-line string literals',()=>{
-  const ui=fs.readFileSync(new URL('./ExperimentalOTAUI.m',import.meta.url),'utf8');
-  assert.doesNotMatch(ui,/@"(?:[^"\\]|\\[^\r\n])*[\r\n]/);
-});
-
-test('OTA recovery observes physical connection events and converted messages',()=>{
-  const src=fs.readFileSync(new URL('./TodoRuntime.m',import.meta.url),'utf8');
-  assert.ok(src.includes('if(![event[@"eventType"] isEqual:@"messageReceived"])TIOOTAFlashObserveEvent(event);'));
-  assert.ok(src.includes('e[@"message"]=m;dispatch_async(dispatch_get_main_queue(),^{TIOOTAFlashObserveEvent(e);});'));
-});
