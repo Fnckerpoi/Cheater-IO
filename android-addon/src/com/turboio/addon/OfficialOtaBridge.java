@@ -23,6 +23,24 @@ public final class OfficialOtaBridge {
  private static final int[] tx=new int[256],rx=new int[256];private static int blocked;
  private static final ArrayDeque<String> trace=new ArrayDeque<>();
  private static final OfficialOtaPreflightPoll preflightPoll=new OfficialOtaPreflightPoll();
+ private static final OtaAutoRun.Env AUTO=new OtaAutoRun.Env(){
+  public long now(){return SystemClock.elapsedRealtime();}
+  public void note(String s){OfficialOtaBridge.note=s;}
+  public boolean pending(){return OfficialOtaBridge.pending;}
+  public boolean armed(){return OfficialOtaBridge.armed;}
+  public boolean foreground(){return OfficialOtaBridge.foreground;}
+  public boolean feedReady(){return OfficialOtaBridge.feed!=null&&OfficialOtaBridge.feed.armed();}
+  public boolean blockedByHost(){return OtaController.busy()||DisplayBridge.active()||HdCast.active()||TodoRuntime.busy();}
+  public String peer(){String p=NativeTransfer.otaConnection();return p==null?"":p;}
+  public boolean readyToArm(){return OfficialOtaBridge.gate!=null&&OfficialOtaBridge.gate.readyToArm(SystemClock.elapsedRealtime());}
+  public boolean installStarted(){return OfficialOtaBridge.gate!=null&&OfficialOtaBridge.gate.pending();}
+  public void preflight(){OfficialOtaBridge.inspect();}
+  public void arm(){OfficialOtaBridge.authorize(OtaPackage.TOKEN);}
+  public boolean recoveryAllowed(){String p=NativeTransfer.otaConnection();long n=SystemClock.elapsedRealtime();return OfficialOtaBridge.recovery!=null&&OfficialOtaBridge.recovery.allowed(p==null?"":p,n);}
+  public boolean freshBoot(){return OfficialOtaBridge.gate!=null&&OfficialOtaBridge.gate.freshBoot(SystemClock.elapsedRealtime());}
+  public void readbackAuto(){OfficialOtaBridge.autoReadback();}
+  public boolean releaseAuto(){boolean was=OfficialOtaBridge.pending;OfficialOtaBridge.release();return !OfficialOtaBridge.pending;}
+ };
  private static void trace(String direction,OtaFrame f,long now){
   if(f.type!=1&&f.type!=2&&f.type!=3&&f.type!=4&&f.type!=11)return;
   Map<?,?> j=f.json instanceof Map?(Map<?,?>)f.json:Collections.emptyMap();Object result=j.get("Result");
@@ -55,14 +73,14 @@ public final class OfficialOtaBridge {
  });}
  private static synchronized void bindCurrent(String peer,long now){
   if(gate==null||peer==null||peer.isEmpty())return;
-  if(pending&&gate.peer().isEmpty()&&hashPeer(peer).equals(savedPeer)){gate.restore(peer,now);recovery=new OtaRecoveryGuard(peer,now,true);}
+  if(pending&&gate.peer().isEmpty()&&hashPeer(peer).equals(savedPeer)){gate.restore(peer,now);recovery=new OtaRecoveryGuard(peer,now,false);}
   else if(!pending&&!gate.active()&&!peer.equals(gate.peer()))gate.bind(peer);
  }
  private static void settle(){
   if(gate==null)return;armed=gate.phase()==OfficialOtaGate.Phase.ARMED;
   if(!gate.active()&&!checking){NativeTransfer.releaseMessages(lease);lease="";OtaService.finish();}
   if(pending&&(gate.phase()==OfficialOtaGate.Phase.INSTALLING||gate.phase()==OfficialOtaGate.Phase.UNKNOWN)){
-   if(recovery==null)recovery=new OtaRecoveryGuard(gate.peer(),SystemClock.elapsedRealtime(),true);
+   if(recovery==null)recovery=new OtaRecoveryGuard(gate.peer(),SystemClock.elapsedRealtime(),false);
    // Diagnostic failure never clears the durable START_INTENT fence.
    journal.edit().putString("phase",gate.phase().name()).apply();
   }
@@ -72,6 +90,7 @@ public final class OfficialOtaBridge {
   if(gate!=null){for(int type:preflightPoll.due(gate.phase()==OfficialOtaGate.Phase.ARMED&&peer.equals(gate.peer()),foreground,now,t->gate.queryPending(t,now))){
    try{sendReadOnly(peer,type);}catch(Exception e){gate.fail("armed read-only refresh failed");settle();break;}
   }}
+  OtaAutoRun.tick();
  }MAIN.postDelayed(this,1000);}};
  /** null means this profile is not installed. Every active-profile decision is final. */
  public static synchronized Boolean allowQueue(Object message){
@@ -109,7 +128,7 @@ public final class OfficialOtaBridge {
   }catch(Exception e){if(gate!=null){gate.fail("invalid official incoming event");settle();}}
  }
  static synchronized void serviceLost(){if(enabled()&&gate!=null&&gate.active()){gate.fail("foreground service lost");settle();}}
- static synchronized void cancel(){epoch++;if(gate!=null&&!pending){gate.revoke();armed=false;settle();note="未使用授权已撤销；没有自动开始";}}
+ static synchronized void cancel(){OtaAutoRun.stop();epoch++;if(gate!=null&&!pending){gate.revoke();armed=false;settle();note="未使用授权已撤销；没有自动开始";}}
  private static OtaPackage freeze()throws IOException{
   File root=app.getFilesDir();File[] dirs={new File(root,"ota/"+OtaPackage.DIRECTORY),new File(root.getParentFile(),"app_flutter/ota/"+OtaPackage.DIRECTORY)};File only=null;
   for(File d:dirs)if(d.exists()){if(only!=null)throw new IOException("ambiguous directory");only=d;}
@@ -157,6 +176,7 @@ public final class OfficialOtaBridge {
  static void show(Activity a){init(a);foreground=true;EditorialUI.Screen s=new EditorialUI.Screen(a,"官方升级 · 单次授权");
   s.body.addView(EditorialUI.text(a,"GUARD-07 · 预检有效期2分钟。授权等待期间自动刷新只读预检，开始传输即停止。实验固件有损坏风险。Android 官方负责检测、下载、解压及会话；扩展仅核对指定包和发送字节。首次 Android 实机刷写尚未验收，不能承诺不会刷坏。",15,EditorialUI.INK));
   TextView label=EditorialUI.text(a,status(),14,EditorialUI.LIME);s.body.addView(label);
+  EditorialUI.button(a,s.body,"0 · 一键升级：自动预检 · 授权 · 放行 · 回读 · 解保护",true,()->EditorialUI.confirm(a,"启动一键升级？","先用按钮1选择并校验官方固件，然后保持前台与供电。自动完成预检与授权、放行官方安装，升级结束后自动回读并解除结果保护；任何一步未通过都会保持锁定。",OfficialOtaBridge::oneClick));
   EditorialUI.button(a,s.body,"1 · 开启 15 分钟官方只下载",false,()->{if(pending||armed||feed==null){EditorialUI.notice(a,"请先处理结果保护或撤销授权");return;}DocumentPicker.pick(a,OtaPackage.ZIP_SIZE,b->{new Thread(()->{try{feed.arm(b);note="来源已开放；请去官方更新页下载，先不要安装";}catch(Exception e){note="指定包校验失败，未开放来源";}},"TurboIO-official-source").start();});});
   EditorialUI.button(a,s.body,"2 · 只读预检（不授权、不刷写）",false,OfficialOtaBridge::inspect);
   EditorialUI.button(a,s.body,"3 · 校验目录并允许一次试刷",false,()->{EditText input=new EditText(a);input.setSingleLine(true);input.setHint(OtaPackage.TOKEN);new AlertDialog.Builder(a).setTitle("单次授权，不自动开始").setMessage("先完成只读预检。确认眼镜无任务、电量至少50%，且已了解实验风险。只放行已校验 "+OtaPackage.TOKEN+"；输入完整标记后，返回官方页面开始。手机保持前台与供电。").setView(input).setNegativeButton("取消",null).setPositiveButton("授权",(d,w)->authorize(input.getText().toString().trim())).show();});
@@ -172,6 +192,12 @@ public final class OfficialOtaBridge {
   if(!pending||recovery==null||!recovery.confirmHome("已回首页",peer,now)||!recovery.allowed(peer,now)){note="等待最短保护时间及同一眼镜稳定连接；没有查询";return;}
   try{sendReadOnly(peer,1);sendReadOnly(peer,11);note="已提交只读回查；仍需眼镜回执和人工镜片确认";}catch(Exception e){note="只读回查提交失败，保护保留";}
  }
+ private static synchronized void autoReadback(){
+  String peer=NativeTransfer.otaConnection();long now=SystemClock.elapsedRealtime();
+  if(!pending||recovery==null||!recovery.allowed(peer,now)){note="等待最短保护时间及同一眼镜稳定连接；没有查询";return;}
+  try{sendReadOnly(peer,1);sendReadOnly(peer,11);note="自动只读回查已提交；等待眼镜回执与新启动证据";}catch(Exception e){note="自动只读回查提交失败，保护保留";}
+ }
+ private static synchronized void oneClick(){OtaAutoRun.attach(AUTO);OtaAutoRun.start();}
  private static void sendReadOnly(String peer,int type)throws Exception{
   if(type!=1&&type!=2&&type!=11)throw new IllegalArgumentException("not read only");
   Object manager=NavReflect.field(NavReflect.type(HostAbi.manager()),"h"),biz=NavReflect.call(NavReflect.type(HostAbi.business()),"valueOf","MARS_FOTA"),priority=NavReflect.call(NavReflect.type(HostAbi.priority()),"valueOf","NORMAL");
