@@ -1,0 +1,47 @@
+{
+  "release": "strix-1.0.5.12-tmg3-20261103",
+  "official": {
+    "file": "Strix-OS-1.0.5.12-OFFICIAL.zip",
+    "bytes": 8769953,
+    "sha256": "b7bfd3cc73528e3e9995ad227dc877c8334d43dc8051436e2d2ccff2ca0b4133",
+    "modified": false
+  },
+  "tmg3": {
+    "file": "Strix-OS-1.0.5.12-TMG3.zip",
+    "bytes": 8869710,
+    "sha256": "adf7a6fa6531c6246e0a067343310ac4c662ddd5b76fbe3aba457a8c4ac68c87",
+    "apBytes": 7515400,
+    "apSha256": "20094d589b2453ba97ac764da625e86dcc78b4f76cb00f2a5fd5cba486187f3f",
+    "moduleBytes": 199936,
+    "moduleSha256": "690371ced3c660bd6fa113dde2070295d74719990d1a7d432403d5ff5c257eb4"
+  },
+  "audit": {
+    "archiveMembers": 16,
+    "manifestPayloads": 15,
+    "unchangedCompanionPayloads": 14,
+    "patchSites": 34,
+    "startupDescriptorsPreserved": 7,
+    "fullRebuildMatchesFlashedZip": true
+  },
+  "device": {
+    "model": "RayNeo iO",
+    "androidApp": "1.0.10 (258)",
+    "transfer": {
+      "verifiedChunks": 239,
+      "apCoveredBytes": 7515400,
+      "type9Observed": true
+    },
+    "installation": "user confirmed",
+    "communication": "user confirmed restored after home confirmation and result protection release",
+    "readback": {
+      "pending": false,
+      "authorization": 0,
+      "phase": "LOCKED"
+    }
+  },
+  "limits": [
+    "No new Android APK in this release.",
+    "New ordinary-message lease source changes have host verification only and were not deployed for the device recovery.",
+    "Feature-by-feature optical validation remains device-specific."
+  ]
+}
