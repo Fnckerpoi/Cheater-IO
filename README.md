@@ -2,26 +2,42 @@
 
 ## Android 路线分支
 
-本分支维护 Android 宿主扩展与 ESP32 SCADA 定制。README、代码和提交独立于 iOS V1、iOS V2 与上游同步用的 `main`。
+本分支维护 Android 宿主扩展与 ESP32 SCADA 定制，README、代码和提交独立于上游同步用的 `main`。
 
-- 其它路线：[上游总览](https://github.com/Fnckerpoi/Turbo-IO/tree/main)、[iOS V1](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v1)、[iOS V2](https://github.com/Fnckerpoi/Turbo-IO/tree/ios-v2)。
+- 上游同步分支：[main](https://github.com/Fnckerpoi/Cheater-IO/tree/main)。
 - 开始定制：`git switch android`；提交后执行 `git push origin android`。
 - 吸收作者更新：在 `main` 快进同步 `upstream/main`，切回本分支合并 `main`，验证 Android/ESP32 改动后推送。
 
-以下说明仅适用于 Android/ESP32 路线；iOS 构建和升级方式请查看对应 iOS 分支 README。
-
 ## 路线图
 
-![Cheater-IO 路线图：设备与宿主扩展及 EBC/MOM 规划方向](assets/roadmap.svg)
+![Cheater-IO 路线图：MOM 与 EBC+商务两条核心路线及能力进展](assets/roadmap.svg)
 
-> EBC/MOM 为新增规划方向：基于 DSH 创造模式与低代码元数据驱动架构，探索重构实现 EBC（企业业务能力系统）/MOM（制造运营管理系统）。当前仅表达方向，不代表已实现或确定交付计划。
+### 核心路线
+
+| 路线 | 方向 |
+|---|---|
+| **MOM** | 制造运营管理系统，基于 DSH 创造模式与低代码元数据驱动架构重构实现。 |
+| **EBC + 商务** | 企业业务能力系统与商务，以元数据驱动业务模型与流程配置。 |
+
+### 已完成
+
+- **私有本地模型部署接入**：手机端“自有模型”模式通过 OpenAI 兼容的 HTTP(S)/SSE 接口接入私有部署的模型服务，API Key 由 Android Keystore 加密保存。
+- **电脑 Agent 交互协同接入**：眼镜语音经 `dsh_dispatch` / `dsh_status` / `dsh_end_session` 工具把任务派发给电脑端 DSH Agent，并查询、结束会话。
+- **知识库接入**：手机模型按需调用 `knowledge_query`，经 MCP 查询 Cortrix 知识库，依据返回证据的正文组织回答；切换话题不串题，不以来源数量代替回答。已于 2026-11-08 完成真机端到端验收。
+
+### 待办
+
+- **实时提示功能接入知识库**：在官方实时提示推送到眼镜前检索知识库，并据证据重新生成提示内容。
+- **常驻主页看板的电脑 Agent UI 交互组件**：在眼镜主页常驻看板上提供与电脑 Agent 交互的界面组件。
+
+> 路线图表达规划方向，不等同于交付承诺。
 
 ---
 
 本仓库为基于 [Turbo1123/Turbo-IO (Upstream)](https://github.com/Turbo1123/Turbo-IO) 的个人定制与功能扩展分支。
 
 > 📌 **上游项目说明**：  
-> 原项目完整说明、官方雷鸟（RayNeo）iO 基础 SDK 文档、iOS/Android 基础逆向、固件迁移与其它未修改功能，请直接访问原作者仓库：  
+> 原项目完整说明、官方雷鸟（RayNeo）iO 基础 SDK 文档、客户端基础逆向、固件迁移与其它未修改功能，请直接访问原作者仓库：  
 > 👉 **[Turbo1123/Turbo-IO (GitHub)](https://github.com/Turbo1123/Turbo-IO)**
 
 ---
