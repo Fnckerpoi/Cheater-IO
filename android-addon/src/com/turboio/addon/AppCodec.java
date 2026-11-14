@@ -16,7 +16,7 @@ public final class AppCodec {
     }
     private static void need(boolean yes){if(!yes)throw new IllegalArgumentException("Invalid TAP1 package");}
     static int u16(byte[] b,int at){return (b[at]&255)|((b[at+1]&255)<<8);}
-    static long u32(byte[] b,int at){return FocusCodec.u32(b,at);}
+    static long u32(byte[] b,int at){return SharedCodec.u32(b,at);}
     private static void p16(ByteArrayOutputStream o,int v){o.write(v);o.write(v>>>8);}
     private static void p32(ByteArrayOutputStream o,long v){p16(o,(int)v);p16(o,(int)(v>>>16));}
     private static void bytes(ByteArrayOutputStream o,byte[] b){o.write(b,0,b.length);}
@@ -33,7 +33,7 @@ public final class AppCodec {
             need(cd-local>=30&&u32(zip,local)==0x04034b50&&u16(zip,local+6)==flags&&u16(zip,local+8)==method&&u32(zip,local+14)==crc&&u32(zip,local+18)==packedLong&&u32(zip,local+22)==unpackedLong&&u16(zip,local+26)==nl&&u16(zip,local+28)==0&&cd-local-30>=nl);
             need(Arrays.equals(Arrays.copyOfRange(zip,local+30,local+30+nl),Arrays.copyOfRange(zip,at+46,at+46+nl)));local+=30+nl;need(packedLong<=cd-local);int packed=(int)packedLong,unpacked=(int)unpackedLong;byte[] data=new byte[unpacked];
             if(method==0){need(packed==unpacked);System.arraycopy(zip,local,data,0,unpacked);}else{Inflater inflater=new Inflater(true);try{inflater.setInput(zip,local,packed);int n=inflater.inflate(data);need(n==unpacked&&inflater.finished()&&inflater.getRemaining()==0);}catch(DataFormatException e){throw new IllegalArgumentException("ZIP deflate");}finally{inflater.end();}}
-            need(FocusCodec.crc(data,data.length)==crc);Object value=BoundedJson.read(data);need(Arrays.equals(canonical(value),data));files.put(name,value);total+=unpacked;local+=packed;at+=46+nl;
+            need(SharedCodec.crc(data,data.length)==crc);Object value=BoundedJson.read(data);need(Arrays.equals(canonical(value),data));files.put(name,value);total+=unpacked;local+=packed;at+=46+nl;
         }
         need(at==end&&local==cd);Map<String,Object> d=map(files.get("app.json")),m=map(files.get("manifest.json"));byte[] wire=encode(d);
         keys(m,"format","id","version","entry","sha256","runtime","permissions");need("TAP1-draft".equals(m.get("format"))&&"TAP1-draft".equals(m.get("runtime"))&&"app.json".equals(m.get("entry"))&&Objects.equals(m.get("id"),d.get("id"))&&Objects.equals(m.get("version"),d.get("version"))&&Objects.equals(m.get("permissions"),d.get("permissions"))&&sha(canonical(d)).equals(m.get("sha256")));
@@ -64,6 +64,6 @@ public final class AppCodec {
     public static byte[] command(int op,long request,long session,Package pkg,Slot target,int slot){
         need(op>=1&&op<=5&&request>0&&request<=0xffffffffL&&session>=0&&session<=0xffffffffL);byte[] id=new byte[0],title=new byte[0],wire=new byte[0];int version=0;
         if(op==QUERY){need(session==0&&pkg==null&&target==null&&slot==255);}else{need(session!=0);if(op==INSTALL){need(pkg!=null&&target==null&&slot==255);wire=encode(pkg.document);need(Arrays.equals(wire,pkg.wire));id=pkg.id.getBytes(StandardCharsets.UTF_8);title=pkg.name.getBytes(StandardCharsets.UTF_8);version=pkg.version;}else{need(pkg==null&&target!=null&&slot>=0&&slot<=3);id=target.id.getBytes(StandardCharsets.UTF_8);version=target.version;}}
-        ByteArrayOutputStream o=new ByteArrayOutputStream();bytes(o,new byte[]{'T','A','X','1'});o.write(op);o.write(slot);o.write(id.length);o.write(title.length);p32(o,request);p32(o,session);p16(o,version);p16(o,wire.length);p32(o,0);bytes(o,id);bytes(o,title);bytes(o,wire);byte[] b=o.toByteArray();long crc=FocusCodec.crc(b,b.length);for(int i=0;i<4;i++)b[20+i]=(byte)(crc>>>(8*i));return b;
+        ByteArrayOutputStream o=new ByteArrayOutputStream();bytes(o,new byte[]{'T','A','X','1'});o.write(op);o.write(slot);o.write(id.length);o.write(title.length);p32(o,request);p32(o,session);p16(o,version);p16(o,wire.length);p32(o,0);bytes(o,id);bytes(o,title);bytes(o,wire);byte[] b=o.toByteArray();long crc=SharedCodec.crc(b,b.length);for(int i=0;i<4;i++)b[20+i]=(byte)(crc>>>(8*i));return b;
     }
 }

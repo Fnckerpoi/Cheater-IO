@@ -71,6 +71,8 @@ python3 android-addon/package-official-ota-preparation.py --guarded \
  android-addon/build/TurboIO-GUARD07-unsigned.apk
 ```
 
+多 DEX 宿主（如 1.0.20）的 hook 不一定在 `classes2.dex`，需追加 `--receipt android-addon/build/turbo-build-<id>/package-report-<version>.json`，脚本按收据中经核对的 `hookDex` 校验基包。`tmig1_windows.py patch` 默认读取 `<work>/package-report-<version>.json`，跨目录调用时同样用 `--receipt` 指定。
+
 之后用 Android SDK 的 `zipalign` 和 `apksigner` 及**自己的签名**签署。保持同一个密钥才能覆盖自己以前签名的版本，密钥不要提交仓库。未加 `--guarded` 的准备包不允许升级，不要和正式实验门禁混淆。
 
 宿主版本外置 profile、审计命令和未审计 APK 准入规则见[Android 宿主维护指南](docs/HOST_UPGRADE_MAINTENANCE.md)与[分阶段执行计划](docs/HOST_UPGRADE_PLAN.md)。

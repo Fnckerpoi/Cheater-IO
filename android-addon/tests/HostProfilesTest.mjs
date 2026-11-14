@@ -235,4 +235,29 @@ try {
   fs.rmSync(dir107, { recursive: true, force: true });
 }
 
-console.log("Host profile and audit fixtures passed (including 1.0.5 and 1.0.7).");
+const sha120 = "05089c96fff1117a0fb9fe8bdc170ba5067bae3c91f8005bbc713440eac09673";
+const profile120 = profileFor(sha120);
+assert.equal(profile120.version, "1.0.20");
+assert.equal(profile120.code, 309);
+assert.equal(assertBuildProfile(profile120), true);
+const dir120 = fs.mkdtempSync(path.join(os.tmpdir(), "turbo-host-120-test-"));
+try {
+  for (const descriptor of new Set(profile120.baseline.map((x) => x[0]))) {
+    const file = path.join(dir120, "smali", descriptor.slice(1, -1) + ".smali");
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const symbols = profile120.baseline
+      .filter((x) => x[0] === descriptor)
+      .map((x) => (x[1].startsWith('"') ? "const-string v0, " + x[1] : x[1]));
+    fs.writeFileSync(file, ".class public " + descriptor + "\n" + symbols.join("\n") + "\n");
+  }
+  assert.equal(auditDirectory(dir120, profile120, { inputSha256: sha120 }).packagingAllowed, true);
+  const host120 = verifyHost(dir120, profile120);
+  assert.equal(host120.eventMethod, "F");
+  assert.match(host120.listener, /wl0[\\/]d\$c\.smali$/);
+  assert.match(host120.ota.queue, /coreconnect[\\/]y0\.smali$/);
+  assert.match(host120.ota.sender, /coreconnect[\\/]w\.smali$/);
+} finally {
+  fs.rmSync(dir120, { recursive: true, force: true });
+}
+
+console.log("Host profile and audit fixtures passed (including 1.0.20).");

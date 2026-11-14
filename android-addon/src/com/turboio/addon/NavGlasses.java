@@ -9,7 +9,7 @@ public final class NavGlasses {
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     private static volatile String device="",sid="",phase="idle";
     private static String note="眼镜显示未开启",latest="",sent="";
-    private static int textSubmitted,textCompleted;private static boolean navigationSession;private static long lifetime=240000,interval=3000;
+    private static int textSubmitted,textCompleted;private static long lifetime=3600000,interval=700;
     private static long latestExpires=Long.MAX_VALUE;
     private static long deadline,started,lastSend;private static boolean pending;
     private static Runnable changed;
@@ -26,12 +26,12 @@ public final class NavGlasses {
     private static ClearListener clearListener;
     public static void listen(Runnable r){changed=r;}
     private static void mark(String p,String n){phase=p;note=n;if(changed!=null)changed.run();}
-    public static String status(){return note+(previousOutcome.isEmpty()?"":" · "+previousOutcome)+" · "+phase+" · 文字提交 "+textSubmitted+" / SDK完成 "+textCompleted+" · "+(navigationSession?"路线":"测试");}
+    public static String status(){return note+(previousOutcome.isEmpty()?"":" · "+previousOutcome)+" · "+phase+" · 文字提交 "+textSubmitted+" / SDK完成 "+textCompleted;}
     public static String phase(){return phase;}
     public static boolean active(){return !phase.equals("idle");}
     private static Object manager()throws Exception{return NavReflect.field(NavReflect.type(HostSymbols.MANAGER_CLASS),"h");}
     private static String connected()throws Exception{
-        List<?> list=(List<?>)NavReflect.call(NavReflect.type(HostSymbols.MANAGER_CLASS),"g");String found="";
+        List<?> list=(List<?>)NavReflect.call(NavReflect.type(HostSymbols.MANAGER_CLASS),HostSymbols.METHOD_GET_DEVICES);String found="";
         for(Object d:list)if(Boolean.TRUE.equals(NavReflect.call(d,"b"))){if(!found.isEmpty())throw new IllegalStateException("multiple");found=(String)NavReflect.field(d,"a");}return found;
     }
     public static String connection(){try{return connected().isEmpty()?"眼镜未连接":"已找到官方连接";}catch(Exception e){return "连接信息不可用";}}
@@ -42,31 +42,27 @@ public final class NavGlasses {
     public static Handle reserve(Object owner,long epoch){
         if(owner==null||epoch<=0||active())return null;
         Long previous=epochs.get(owner);if(previous!=null&&epoch<=previous)return null;
-        if(NativeNavigation.active()||ReaderBridge.active()||MusicBridge.active()||NativeTransfer.busy())return null;
+        if(NativeTransfer.busy())return null;
         epochs.put(owner,epoch);sessionOwner=owner;sessionEpoch=epoch;sid=UUID.randomUUID().toString().replace("-","");
         clearState=null;clearListener=null;latest="";latestExpires=Long.MAX_VALUE;
         mark("preparing","显示通道已预留");return new Handle(owner,epoch,sid);
     }
     private static boolean valid(Handle h){return h!=null&&owns(h.owner,h.epoch)&&sid.equals(h.sid);}
-    public static boolean begin(Handle h,String text,boolean navigation){
+    public static boolean begin(Handle h,String text){
         if(!valid(h)||!phase.equals("preparing"))return false;
-        lifetime=navigation?240000:3600000;interval=navigation?3000:700;
-        boolean ok=open(text,navigation);if(!ok)requestStop();return ok;
+        lifetime=3600000;interval=700;
+        boolean ok=open(text);if(!ok)requestStop();return ok;
     }
     public static boolean offer(Handle h,String text){return valid(h)&&update(h.owner,h.epoch,text);}
     public static void stop(Handle h){if(valid(h))requestStop();}
     public static boolean confirmIdle(Handle h){return valid(h)&&confirmClear(h.owner,h.epoch);}
-    // Unscoped entry points cannot prove a producer's identity.
-    public static boolean start(String text){return false;}
-    public static boolean start(String text,boolean navigation){return false;}
-    public static boolean startCaption(String text){return false;}
     public static boolean reopen(Object owner,long oldEpoch,long newEpoch,String text,long expires,long capturedAt,ClearListener listener){
         if(owner==null||owner==LEGACY_OWNER||oldEpoch<=0||newEpoch<=oldEpoch)throw new IllegalArgumentException("owner_epoch");
         if(SystemClock.elapsedRealtime()>=expires)return false;
         if(!owns(owner,oldEpoch)||(!phase.equals("stopping")&&!phase.equals("uncertain")))return false;
         if(!reopenEligible||!closeSubmitted||!closeSucceeded||capturedAt<=closeAt||SystemClock.elapsedRealtime()-closeAt<8000)return false;
         try{if(device.isEmpty()||!device.equals(connected())){reopenEligible=false;return false;}}catch(Exception e){reopenEligible=false;return false;}
-        if(NativeNavigation.active()||ReaderBridge.active()||MusicBridge.active()||NativeTransfer.busy())return false;
+        if(NativeTransfer.busy())return false;
         Long previous=epochs.get(owner);if(previous!=null&&newEpoch<=previous)return false;
         reopenEligible=false;
         previousOutcome="previous lens clear unverified";
@@ -74,7 +70,7 @@ public final class NavGlasses {
         epochs.put(owner,newEpoch);sessionOwner=owner;sessionEpoch=newEpoch;clearState=null;clearListener=listener;
         latestExpires=expires;lifetime=Long.MAX_VALUE;interval=700;
         sid="";latest="";sent="";pending=false;
-        boolean opened=open(text,false);
+        boolean opened=open(text);
         if(!opened){if(sid.isEmpty()){device="";clearListener=null;mark("idle","未创建显示会话");}else requestStop();}
         return opened;
     }
@@ -88,10 +84,10 @@ public final class NavGlasses {
             return owns(owner,epoch)&&update(owner,epoch,text,expires);
         }
         Long previous=epochs.get(owner);if(previous!=null&&epoch<=previous)return false;
-        if(NativeNavigation.active()||ReaderBridge.active()||MusicBridge.active()||NativeTransfer.busy())return false;
+        if(NativeTransfer.busy())return false;
         epochs.put(owner,epoch);sessionOwner=owner;sessionEpoch=epoch;clearState=null;clearListener=listener;latestExpires=expires;
         lifetime=Long.MAX_VALUE;interval=700;
-        boolean opened=open(text,false);
+        boolean opened=open(text);
         if(!opened){if(sid.isEmpty()){device="";clearListener=null;mark("idle","未创建显示会话");}else requestStop();}
         return opened;
     }
@@ -101,7 +97,7 @@ public final class NavGlasses {
     }
     public static boolean update(Object owner,long epoch,String text){
         if(!owns(owner,epoch)||!phase.equals("starting")&&!phase.equals("ready"))return false;
-        latest=NavCore.clip(text,384);return true;
+        latest=DisplayCodec.clip(text,384);return true;
     }
     enum ReopenState { PENDING, ELIGIBLE, FAILED }
     static ReopenState reopenState(Object owner,long epoch){
@@ -128,16 +124,14 @@ public final class NavGlasses {
     }
     private static boolean owns(Object owner,long epoch){return owner==sessionOwner&&epoch==sessionEpoch;}
     private static void clearStatus(ClearState state){clearState=state;if(clearListener!=null)clearListener.onClear(state);}
-    private static boolean open(String text,boolean navigation){
-        try{device=connected();if(device.isEmpty())throw new IllegalStateException();if(!phase.equals("preparing"))sid=UUID.randomUUID().toString().replace("-","");latest=NavCore.clip(text,384);sent="";lastSend=0;pending=false;started=SystemClock.elapsedRealtime();deadline=started+10000;
-            textSubmitted=0;textCompleted=0;navigationSession=navigation;
+    private static boolean open(String text){
+        try{device=connected();if(device.isEmpty())throw new IllegalStateException();if(!phase.equals("preparing"))sid=UUID.randomUUID().toString().replace("-","");latest=DisplayCodec.clip(text,384);sent="";lastSend=0;pending=false;started=SystemClock.elapsedRealtime();deadline=started+10000;
+            textSubmitted=0;textCompleted=0;
             JSONObject config=new JSONObject().put("font_size",2).put("content_width",100).put("max_lines",5).put("position","center").put("is_display",true).put("straight_view","original");
             mark("starting","正在开启纯显示通道，等待眼镜回执");
             send(7,new JSONObject().put("sid",sid).put("force",false).put("scope","temporary").put("config",config));MAIN.removeCallbacks(tick);MAIN.postDelayed(tick,1000);return true;
         }catch(Exception e){mark("uncertain","无法开启；请确认连接和镜片状态");return false;}
     }
-    public static void offer(String text){}
-    public static void stop(){}
     private static void requestStop(){if(sid.isEmpty()||phase.equals("idle")||phase.equals("stopping")||phase.equals("uncertain")&&clearState!=null)return;
         if(phase.equals("preparing")){finishClear();return;}
         reopenEligible=false;closeSubmitted=false;closeSucceeded=false;closeAt=SystemClock.elapsedRealtime();
@@ -147,13 +141,12 @@ public final class NavGlasses {
         catch(Exception e){mark("uncertain","退出未确认，请用眼镜按钮关闭");clearStatus(ClearState.UNCERTAIN);}
         MAIN.removeCallbacks(tick);if(phase.equals("stopping"))MAIN.postDelayed(tick,1000);
     }
-    public static void confirmIdle(){}
     private static void finishClear(){MAIN.removeCallbacks(tick);ClearListener listener=clearListener;clearListener=null;sid="";device="";latest="";sent="";pending=false;clearState=ClearState.CONFIRMED;mark("idle","已由用户确认镜片退出");if(listener!=null)listener.onClear(ClearState.CONFIRMED);}
     private static void send(int type,JSONObject json)throws Exception{
         String submittedSid=sid;Object owner=sessionOwner;long epoch=sessionEpoch;long submittedExpiry=latestExpires;
         if(!device.equals(connected()))throw new IllegalStateException("device_changed");
         Object business=NavReflect.call(NavReflect.type(HostSymbols.BIZ_ENUM_CLASS),"valueOf","AI_SUBTITLE"),priority=NavReflect.call(NavReflect.type(HostSymbols.PRIO_ENUM_CLASS),"valueOf","NORMAL");
-        Object message=NavReflect.make(HostSymbols.PACKET_CLASS,NavCore.packet(type,json.toString()),UUID.randomUUID().toString(),device,business,null,priority,false,false,null,null);
+        Object message=NavReflect.make(HostSymbols.PACKET_CLASS,DisplayCodec.packet(type,json.toString()),UUID.randomUUID().toString(),device,business,null,priority,false,false,null,null);
         Object sdkManager=manager();
         Object callback=NavReflect.proxy("kotlin.jvm.functions.Function2",(name,args)->MAIN.post(()->{
             if(!sid.equals(submittedSid)||!owns(owner,epoch))return;
@@ -192,7 +185,7 @@ public final class NavGlasses {
             String d=String.valueOf(m.get("deviceId"));if(!d.equals(device))return;
             if(HostBusiness.id(m.get("businessId"))!=19)return;
             Object bytes=m.get("payload");if(!(bytes instanceof byte[]))return;
-            NavCore.Envelope e=NavCore.decode((byte[])bytes);if(e==null)return;
+            DisplayCodec.Envelope e=DisplayCodec.decode((byte[])bytes);if(e==null)return;
             // Audio bodies are not retained, parsed or uploaded.
             if(e.type==4)return; // No session identity: a delayed audio frame cannot close any owner.
             final JSONObject j=new JSONObject(e.json);

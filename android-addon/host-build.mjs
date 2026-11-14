@@ -36,15 +36,29 @@ export function planHookWrites(abi, profile = { version: '1.0.5' }) {
   transform(abi.listener,t=>wrapText(t,'onNlpResult','(Lcom/rayneo/airuntime/controller/NlpResult;)V','p0 .. p1'));
   transform(abi.listener,t=>wrapText(t,'onResponseComplete','()V','p0 .. p0'));
   transform(abi.activity,t=>wrapText(t,'onPostResume','()V','p0 .. p0'));
-  const eventHeader='.method public final z(Ljava/lang/String;Ljava/util/Map;)V';
+  const eventName=abi.eventMethod||'z';
+  const eventHeader='.method public final '+eventName+'(Ljava/lang/String;Ljava/util/Map;)V';
   transform(abi.event,source=>{
     let t=source;
-    if(t.includes('turboioOriginal_z(')){const start=t.indexOf(eventHeader+'\n');if(start<0)throw new Error('Missing event wrapper');const end=t.indexOf('.end method',start);if(end<0)throw new Error('Truncated event wrapper');t=t.slice(0,start)+t.slice(end+11);}
-    else {if(t.split(eventHeader).length!==2)throw new Error('Event signature mismatch');t=t.replace(eventHeader,'.method public final turboioOriginal_z(Ljava/lang/String;Ljava/util/Map;)V');}
-    return t+'\n'+eventHeader+'\n    .locals 1\n'+(abi.ota?EVENT_GUARD:'')+'\n    invoke-virtual {p0, p1, p2}, Lcom/rayneo/rayneo_venus_sdk_plugin/j;->turboioOriginal_z(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_try\n    invoke-static {p1, p2}, Lcom/turboio/addon/NativeTransfer;->event(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_end\n    return-void\n    :turboio_nav_error\n    move-exception v0\n    return-void\n    .catch Ljava/lang/Throwable; {:turboio_nav_try .. :turboio_nav_end} :turboio_nav_error\n.end method\n';
+    if(t.includes('turboioOriginal_'+eventName+'(')){const start=t.indexOf(eventHeader+'\n');if(start<0)throw new Error('Missing event wrapper');const end=t.indexOf('.end method',start);if(end<0)throw new Error('Truncated event wrapper');t=t.slice(0,start)+t.slice(end+11);}
+    else {if(t.split(eventHeader).length!==2)throw new Error('Event signature mismatch');t=t.replace(eventHeader,'.method public final turboioOriginal_'+eventName+'(Ljava/lang/String;Ljava/util/Map;)V');}
+    const eventClass=source.match(/^\.class[^\n]* (L[^;]+;)$/m)?.[1];
+    if(!eventClass)throw new Error('Event class header missing');
+    return t+'\n'+eventHeader+'\n    .locals 1\n'+(abi.ota?EVENT_GUARD:'')+'\n    invoke-virtual {p0, p1, p2}, '+eventClass+'->turboioOriginal_'+eventName+'(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_try\n    invoke-static {p1, p2}, Lcom/turboio/addon/NativeTransfer;->event(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_end\n    return-void\n    :turboio_nav_error\n    move-exception v0\n    return-void\n    .catch Ljava/lang/Throwable; {:turboio_nav_try .. :turboio_nav_end} :turboio_nav_error\n.end method\n';
   });
   if(abi.ota){transform(abi.ota.queue,t=>queueHookFor(profile,t));transform(abi.ota.sender,t=>fileHookFor(profile,t));}
   return writes;
+}
+export function hookDexSlots(writes,hostRoot) {
+  const slots=new Set();
+  for(const file of writes.keys()) {
+    const relative=path.relative(hostRoot,file).split(path.sep);
+    const match=/^smali(?:_classes([2-9][0-9]*))?$/.exec(relative[0]);
+    if(!match||relative.length<2)throw new Error('Hook class outside a smali directory: '+file);
+    slots.add(match[1]?'classes'+match[1]+'.dex':'classes.dex');
+  }
+  if(!slots.size)throw new Error('No hook classes planned');
+  return [...slots].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 }
 export function runTool(bin,args,options={}) {
   const result=spawnSync(bin,args,{...options,encoding:'utf8'});
@@ -60,8 +74,8 @@ export function build({source,workParent,dex,java,apktool,python='python3',runne
   api.assertBuildProfile(profile);
   const profileSnapshot=JSON.parse(JSON.stringify(profile));
   const profileSha256=sha256(JSON.stringify(profileSnapshot));
-  const supported = [{version:'1.0.5',code:201},{version:'1.0.7',code:230}];
-  if(!supported.some(s=>s.version===profile.version&&s.code===profile.code))throw new Error('INTEGRATION-07 OTA adapter only supports pinned 1.0.5 (201) and 1.0.7 (230)');
+  const supported = [{version:'1.0.5',code:201},{version:'1.0.7',code:230},{version:'1.0.20',code:309}];
+  if(!supported.some(s=>s.version===profile.version&&s.code===profile.code))throw new Error('INTEGRATION-07 OTA adapter only supports pinned 1.0.5 (201), 1.0.7 (230) and 1.0.20 (309)');
   fs.mkdirSync(workParent,{recursive:true});
   const work=fs.mkdtempSync(path.join(workParent,'turbo-build-'));
   const host=path.join(work,'host');
@@ -76,14 +90,16 @@ export function build({source,workParent,dex,java,apktool,python='python3',runne
   runApktool(['d','--no-res','--output',host,sourceCopy]);
   const abi=api.verifyHost(host,profile);
   const writes=planHookWrites(abi, profile);
+  const hookDex=hookDexSlots(writes,host);
   for(const [file,text] of writes)fs.writeFileSync(file,text);
   const assembled=path.join(work,'host-assembled.apk'),candidate=path.join(work,'candidate.apk');
   runApktool(['b',host,'-o',assembled]);
   const pythonOptions={stdio:'inherit',env:{...process.env,PYTHONUTF8:'1'}};
-  runner(python,[path.join(root,'assemble_apk.py'),sourceCopy,assembled,dexCopy,candidate,'--public-assets'],pythonOptions);
-  runner(python,[path.join(root,'verify_apk.py'),sourceCopy,candidate,'--public-assets'],pythonOptions);
+  const hookArgs=hookDex.flatMap(slot=>['--hook-dex',slot]);
+  runner(python,[path.join(root,'assemble_apk.py'),sourceCopy,assembled,dexCopy,candidate,'--public-assets',...hookArgs],pythonOptions);
+  runner(python,[path.join(root,'verify_apk.py'),sourceCopy,candidate,'--public-assets',...hookArgs],pythonOptions);
   const outputSha256=sha256(fs.readFileSync(candidate));
-  const report={schemaVersion:1,work:path.resolve(work),sourceSha256:sha,inputSha256:sha,addonSha256,profile:profileSnapshot,profileSha256,adapter:profile.adapterId,toolVersions,
+  const report={schemaVersion:1,work:path.resolve(work),sourceSha256:sha,inputSha256:sha,addonSha256,profile:profileSnapshot,profileSha256,adapter:profile.adapterId,toolVersions,hookDex,
     checks:{admission:true,hostAbi:true,hookPlan:true,verifyApk:true},outputSha256,originalSignaturePreserved:false,credentialsBundled:false,installed:false,flashed:false,runtimeValidated:false,nonRootValidated:false};
   return {work,candidate,report};
 }

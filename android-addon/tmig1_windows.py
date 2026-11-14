@@ -26,6 +26,13 @@ if mode == 'jar':
         for file in files:
             out.write(file, file.relative_to(classes).as_posix())
 elif mode == 'patch':
+    receipt = None
+    if '--receipt' in args:
+        at = args.index('--receipt')
+        if at + 1 >= len(args):
+            raise SystemExit('--receipt needs a package-report path')
+        receipt = pathlib.Path(args[at + 1])
+        del args[at:at + 2]
     source, base, work = map(pathlib.Path, args[:3])
     node = args[3] if len(args) == 4 else 'node'
     script = pathlib.Path(__file__).with_name('package-official-ota-preparation.py')
@@ -42,7 +49,9 @@ elif mode == 'patch':
     else:
         with library.open('xb') as output:
             output.write(patched)
-    api['prepare'](source, base, library, work/'guarded-unsigned.apk', True, node)
+    receipt = receipt or work / ('package-report-' + profile['version'] + '.json')
+    hook_slots = api['audited_hook_slots'](source, base, receipt)
+    api['prepare'](source, base, library, work/'guarded-unsigned.apk', True, node, hook_slots)
 elif mode == 'audit-signed':
     unsigned, signed, source, report = map(pathlib.Path, args)
     with zipfile.ZipFile(unsigned) as before, zipfile.ZipFile(signed) as after:

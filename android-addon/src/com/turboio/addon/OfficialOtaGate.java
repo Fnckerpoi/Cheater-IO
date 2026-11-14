@@ -32,7 +32,7 @@ final class OfficialOtaGate {
   peer=device;Arrays.fill(requested,-1);Arrays.fill(fresh,-1);Arrays.fill(good,false);
  }
  void arm(OtaPackage candidate,String device,String token,long now){
-  if(phase!=Phase.LOCKED||candidate==null||!peer.equals(device)||!profile.token.equals(token)||candidate.profile!=profile)throw new IllegalStateException("arm denied");
+  if(!profile.hasOfficialVersions()||phase!=Phase.LOCKED||candidate==null||!peer.equals(device)||!profile.token.equals(token)||candidate.profile!=profile)throw new IllegalStateException("arm denied");
   firmware=candidate;grant=now+900000;last=now;phase=Phase.ARMED;error="";
  }
  void revoke(){if(started)return;phase=Phase.LOCKED;grant=0;firmware=null;}

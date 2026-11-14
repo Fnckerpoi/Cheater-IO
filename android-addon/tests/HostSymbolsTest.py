@@ -29,9 +29,24 @@ def fixture(root, modern):
     put(root, a + ".u", "public class u implements " + c + ".p { static { if(System.nanoTime()!=0)throw new AssertionError(123); } public static volatile u h; public static java.util.List g(){return null;} public void " + send + "(" + packet + " p,kotlin.jvm.functions.Function2 cb){} public String " + file + "(java.io.File f,String peer," + c + ".q mode,String id){return null;} }")
 
 
+def fixture120(root):
+    base = "com.ffalconxr.mercury.coreconnect"
+    put(root, "vb.h", "public enum h { MARS_FOTA, LAUNCHER, AI_SUBTITLE }")
+    put(root, "vb.a0", "public enum a0 { MESSAGE_SEND_FAILED }")
+    put(root, "vb.r0", "public class r0 {}")
+    put(root, "wb.q", "public enum q { SmallCore }")
+    put(root, "wb.p", "public interface p {}")
+    put(root, base + ".b", "public enum b { NORMAL }")
+    put(root, base + ".g0", "public class g0 { public String a; public boolean b(){return false;} }")
+    put(root, base + ".y0", "public class y0 { public static void s(v0 packet){} }")
+    put(root, base + ".v0", "public class v0 { public String b; public vb.h c; public byte[] e; public kotlin.jvm.functions.Function2 k; public v0(byte[] payload,String id,String device,vb.h biz,vb.r0 option,b priority,boolean first,boolean second,wb.p listener,kotlin.jvm.functions.Function2 callback){} }")
+    put(root, base + ".w", "public class w implements wb.p { public static volatile w h; public static java.util.List i(){return null;} public void u(v0 packet,kotlin.jvm.functions.Function2 callback){} public String v(java.io.File file,String peer,wb.q mode,String id){return null;} }")
+
+
 with tempfile.TemporaryDirectory(prefix="host-symbols-") as temp:
     temp = pathlib.Path(temp)
-    cases = [("105", False, False, True), ("107", True, False, True),
+    cases = [("105", False, False, True), ("107", True, False, True), ("120", "120", False, True),
+             ("broken120", "broken120", False, False), ("ambiguous120", "ambiguous120", False, False),
              ("partial107-with105", False, True, False), ("unknown", None, False, False),
              ("ambiguous", "both", False, False), ("partial107", None, True, False),
              ("broken107", True, False, False), ("107-legacy-collision", True, False, True)]
@@ -43,6 +58,14 @@ with tempfile.TemporaryDirectory(prefix="host-symbols-") as temp:
             if version == "both":
                 fixture(root, False)
                 fixture(root, True)
+            elif version == "ambiguous120":
+                fixture120(root)
+                fixture(root, False)
+            elif version == "broken120":
+                fixture120(root)
+                put(root, "com.ffalconxr.mercury.coreconnect.g0", "public class g0 { public int a; public boolean b(){return false;} }")
+            elif version == "120":
+                fixture120(root)
             else:
                 fixture(root, version)
         if label == "107-legacy-collision":
@@ -54,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix="host-symbols-") as temp:
         target = root / "com/turboio/addon/HostSymbols.java"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text((ROOT / "src/com/turboio/addon/HostSymbols.java").read_text(encoding="utf-8"), encoding="utf-8")
-        expected = "Y3.u" if version is True else "E3.u"
+        expected = "com.ffalconxr.mercury.coreconnect.w" if version == "120" else "Y3.u" if version is True else "E3.u"
         put(root, "com.turboio.addon.Probe", 'public class Probe { public static void main(String[] args){ try { String name=HostSymbols.MANAGER_CLASS; if(!args[0].equals(name))throw new AssertionError(name); if(args[1].equals("reject"))throw new AssertionError("accepted invalid host"); } catch(ExceptionInInitializerError e){ if(!args[1].equals("reject"))throw e; if(!(e.getCause() instanceof IllegalStateException))throw e; } } }')
         out = root / "classes"
         sources = [str(p) for p in root.rglob("*.java")]

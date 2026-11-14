@@ -48,9 +48,8 @@ $Utility = Join-Path $PSScriptRoot "tmig1_windows.py"
 if ($LASTEXITCODE -ne 0) { throw "PUBLIC source / hook / guarded URL audit failed." }
 $Classes = Join-Path $Work "classes"; New-Item -ItemType Directory -Path $Classes | Out-Null
 $SourceList = Join-Path $Work "sources.txt"
-$JavaSources = @(Get-ChildItem (Join-Path $PSScriptRoot "src/com/turboio/addon") -Filter "*.java" -File | Sort-Object Name | ForEach-Object { "`"" + $_.FullName.Replace("\", "/") + "`"" })
-[IO.File]::WriteAllLines($SourceList, [string[]]$JavaSources, [Text.UTF8Encoding]::new($false))
-if (-not (Get-Content -LiteralPath $SourceList).Count) { throw "No addon Java sources." }
+& $Python (Join-Path $PSScriptRoot "tmg4_sources.py") $SourceList
+if ($LASTEXITCODE -ne 0) { throw "Source selection failed." }
 & $Javac -encoding UTF-8 -source 8 -target 8 -cp $AndroidJar -d $Classes "@$SourceList"
 if ($LASTEXITCODE -ne 0) { throw "Full addon Java compilation failed." }
 $AddonJar = Join-Path $Work "addon.jar"

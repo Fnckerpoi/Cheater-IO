@@ -65,19 +65,16 @@ public final class ScadaCaptionControllerTest {
     }
 
     private static NavGlasses.Handle cloud;
-    private static boolean cloudStart(String text){cloud=NavGlasses.reserve(new Object(),1);return cloud!=null&&NavGlasses.begin(cloud,text,false);}
+    private static boolean cloudStart(String text){cloud=NavGlasses.reserve(new Object(),1);return cloud!=null&&NavGlasses.begin(cloud,text);}
     private static void legacyCaptionAndNavigationRemainCompatible() {
         Object cloudOwner=new Object(), navigationOwner=new Object(), testOwner=new Object();
         NavGlasses.Handle preparing=NavGlasses.reserve(cloudOwner,1);
         check(preparing!=null&&NavGlasses.active(),"cloud preparation reserves the display");
         check(NavGlasses.reserve(navigationOwner,1)==null&&NavGlasses.reserve(testOwner,1)==null,"navigation and test cannot steal cloud preparation");
-        check(!NavGlasses.startCaption("old cloud")&&!NavGlasses.start("old nav",true),"unscoped starts fail closed");
-        int before=NavReflect.messages.size();NavGlasses.offer("old");NavGlasses.stop();NavGlasses.confirmIdle();
-        check(NavReflect.messages.size()==before&&NavGlasses.phase().equals("preparing"),"unscoped mutations cannot bypass lease");
         NavGlasses.stop(preparing);
-        check(!NavGlasses.active()&&!NavGlasses.begin(preparing,"late ready",false),"stopped preparation cannot revive");
+        check(!NavGlasses.active()&&!NavGlasses.begin(preparing,"late ready"),"stopped preparation cannot revive");
         NavGlasses.Handle navigation=NavGlasses.reserve(navigationOwner,1);
-        check(NavGlasses.begin(navigation,"navigation",true),"navigation owns fresh lease");
+        check(NavGlasses.begin(navigation,"display"),"navigation owns fresh lease");
         String sid=ready();
         check(!NavGlasses.offer(preparing,"late cloud")&&!NavGlasses.confirmIdle(preparing),"old cloud cannot mutate navigation");
         NavGlasses.stop(preparing);Handler.advance(1000);
@@ -125,9 +122,6 @@ public final class ScadaCaptionControllerTest {
         int before = NavReflect.messages.size();
         NavGlasses.stopAndClear(foreign, 1);
         NavGlasses.stopAndClear(owner, 2);
-        NavGlasses.stop();
-        NavGlasses.offer("legacy cannot overwrite owned text");
-        check(!NavGlasses.startCaption("cloud cannot steal") && !NavGlasses.start("navigation cannot steal", true), "legacy starts do not steal owned session");
         check(NavReflect.messages.size() == before && "ready".equals(NavGlasses.phase()), "foreign stops never send a stop for owned SID");
         NavGlasses.stopAndClear(owner, 1);
         NavReflect.Message oldStop = NavReflect.last();
@@ -164,8 +158,6 @@ public final class ScadaCaptionControllerTest {
         check(states.equals(Arrays.asList(NavGlasses.ClearState.REQUESTED)), "SDK success and peer stop do not prove the lens is clear");
         check(NavReflect.messages.size() == before, "repeated stop is idempotent");
         check(!NavGlasses.update(owner, 1, "must not reappear"), "stopping cannot accept text updates");
-        NavGlasses.confirmIdle();
-        check("stopping".equals(NavGlasses.phase()), "legacy confirmation cannot release owned session");
         check(NavGlasses.confirmClear(owner, 1), "owner confirmation releases display");
         check(states.equals(Arrays.asList(NavGlasses.ClearState.REQUESTED, NavGlasses.ClearState.CONFIRMED)), "confirmed follows explicit lens verification");
         Handler.advance(9000);
@@ -256,23 +248,11 @@ public final class ScadaCaptionControllerTest {
     private static void otherDisplaysKeepTheirBusyGuards() {
         ScadaCaptionController captions = controller();
         int before = NavReflect.messages.size();
-        NativeNavigation.running = true;
-        captions.onReading(1,reading(2100), SystemClock.now, SystemClock.now);
-        captions.stop();
-        NativeNavigation.running = false;
-        ReaderBridge.running = true;
-        captions.onReading(1,reading(2200), SystemClock.now, SystemClock.now);
-        captions.stop();
-        ReaderBridge.running = false;
-        MusicBridge.running = true;
-        captions.onReading(1,reading(2300), SystemClock.now, SystemClock.now);
-        captions.stop();
-        MusicBridge.running = false;
         NativeTransfer.running = true;
         captions.onReading(1,reading(2400), SystemClock.now, SystemClock.now);
         captions.stop();
         NativeTransfer.running = false;
-        check(NavReflect.messages.size() == before && !NavGlasses.active(), "native navigation, reader, music and transfer guards prevent SCADA claims");
+        check(NavReflect.messages.size() == before && !NavGlasses.active(), "active transfers prevent SCADA claims");
     }
 
     private static void enter(ScadaProximity proximity) {
@@ -384,7 +364,7 @@ public final class ScadaCaptionControllerTest {
         oldStop.complete("late failure");event(3,first,1);event(4,first,1);Handler.drain();
         check(NavGlasses.phase().equals("ready"),"old callbacks cannot affect new SID");
         Handler.advance(1);c.onExit(1);Handler.drain();Handler.advance(8000);
-        NativeNavigation.running=true;c.onReading(1,reading(2010),SystemClock.now,SystemClock.now);NativeNavigation.running=false;
+        NativeTransfer.running=true;c.onReading(1,reading(2010),SystemClock.now,SystemClock.now);NativeTransfer.running=false;
         before=NavReflect.messages.size();
         for(int i=0;i<20;i++){Handler.advance(1000);c.onReading(1,reading(2011),SystemClock.now,SystemClock.now);}
         check(NavReflect.messages.size()==before,"failed attempt stays latched across many fresh packets");
@@ -457,16 +437,8 @@ public final class ScadaCaptionControllerTest {
             check(!NavGlasses.confirmClear(other, 1), "foreign owner cannot clear a closing session");
             check(!NavGlasses.reopen(owner, 2, 3, "wrong epoch", Long.MAX_VALUE, SystemClock.now, state -> {}), "same owner must present current old epoch");
             check(!NavGlasses.reopen(owner, 1, 2, "expired facts", SystemClock.now, SystemClock.now, state -> {}), "expired facts cannot rotate session");
-            for (int guard = 0; guard < 4; guard++) {
-                NativeNavigation.running = guard == 0;
-                ReaderBridge.running = guard == 1;
-                MusicBridge.running = guard == 2;
-                NativeTransfer.running = guard == 3;
-                check(!NavGlasses.reopen(owner, 1, 2, "busy display", Long.MAX_VALUE, SystemClock.now, state -> {}), "rotation respects busy guard " + guard);
-            }
-            NativeNavigation.running = false;
-            ReaderBridge.running = false;
-            MusicBridge.running = false;
+            NativeTransfer.running = true;
+            check(!NavGlasses.reopen(owner, 1, 2, "busy display", Long.MAX_VALUE, SystemClock.now, state -> {}), "rotation respects transfer guard");
             NativeTransfer.running = false;
             check(NavReflect.messages.size() == before && phase.equals(NavGlasses.phase()), "denied operations leave old SID and phase intact");
             oldText.complete("queued old text failure");

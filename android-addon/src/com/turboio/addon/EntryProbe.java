@@ -35,7 +35,7 @@ final class EntryProbe {
   if(until==0||SystemClock.elapsedRealtime()>until||!peer.equals(device)||!peer.equals(NativeTransfer.connected()))return;
   try{OtaFrame f=OtaFrame.decode(bytes);if(f.type!=11||f.binary.length!=0||!(f.json instanceof Map))return;
    Object idle=((Map<?,?>)f.json).get("Result");if(!(idle instanceof Boolean))return;
-   finish(generation,(Boolean)idle?"原厂空闲检查：空闲（不等同于阅读页入口已通过）":"原厂空闲检查：忙碌（语音/智记或其他前台业务）");
+   finish(generation,(Boolean)idle?"原厂空闲检查：空闲":"原厂空闲检查：忙碌（语音/智记或其他前台业务）");
   }catch(RuntimeException ignored){}
  }
  private static void finish(long token,String value){if(token!=generation||until==0)return;until=0;note=value;NativeTransfer.releaseMessages(OWNER);android.util.Log.i("TurboIOTransfer","entry probe: "+value);}

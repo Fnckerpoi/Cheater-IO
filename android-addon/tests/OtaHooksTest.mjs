@@ -19,4 +19,15 @@ let fileRes107=fileHookFor({version:'1.0.7'},f107);
 assert.match(fileRes107,/\.method public final turboioOriginal_u/);
 assert.match(fileRes107,/invoke-virtual\/range \{p0 .. p4\}, LY3\/u;->turboioOriginal_u\(Ljava\/io\/File;Ljava\/lang\/String;Lk4\/q;Ljava\/lang\/String;\)Ljava\/lang\/String;/);
 
-console.log('OTA wrapper tests passed (including 1.0.7);  exact ABI checked again before package mutation.');
+const q120='.class public Lcom/ffalconxr/mercury/coreconnect/y0;\n.method public static s(Lcom/ffalconxr/mercury/coreconnect/v0;)V\n .locals 0\n return-void\n.end method\n';
+const qResult120=queueHookFor({version:'1.0.20'},q120);
+assert.match(qResult120,/Lcom\/ffalconxr\/mercury\/coreconnect\/y0;->turboioOriginal_s\(Lcom\/ffalconxr\/mercury\/coreconnect\/v0;\)V/);
+assert.equal(queueHookFor({version:'1.0.20'},qResult120).split('.method public static turboioOriginal_s').length,2);
+assert.throws(()=>queueHookFor({version:'1.0.20'},q120.replace('v0;','g0;')),/ABI mismatch/);
+const f120='.class public Lcom/ffalconxr/mercury/coreconnect/w;\n.method public final v(Ljava/io/File;Ljava/lang/String;Lwb/q;Ljava/lang/String;)Ljava/lang/String;\n .locals 0\n return-object p1\n.end method\n';
+const fResult120=fileHookFor({version:'1.0.20'},f120);
+assert.match(fResult120,/Lcom\/ffalconxr\/mercury\/coreconnect\/w;->turboioOriginal_v\(Ljava\/io\/File;Ljava\/lang\/String;Lwb\/q;Ljava\/lang\/String;\)Ljava\/lang\/String;/);
+assert.equal(fileHookFor({version:'1.0.20'},fResult120).split('.method public final turboioOriginal_v').length,2);
+assert.throws(()=>fileHookFor({version:'1.0.20'},f120.replace('Lwb/q;','Lb5/q;')),/ABI mismatch/);
+
+console.log('OTA wrapper tests passed (including 1.0.20); exact ABI checked again before package mutation.');

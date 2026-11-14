@@ -14,7 +14,7 @@ final class OfficialOtaFeed implements Closeable {
  private final LongSupplier clock;private final BooleanSupplier protectedMode;
  private ServerSocket listener;private volatile boolean closed;private byte[] archive;
  private String token="",md5="";private long deadline;private int queries,firmwareQueries,downloads,rejected;
- private String queryShape="尚无查询";
+ private String queryShape="尚无查询",queryEvidence="尚无固件查询";
  private String lastReject="无";
  private final boolean guarded;private final OtaProfile profile;
  OfficialOtaFeed(LongSupplier clock,BooleanSupplier protectedMode){this(clock,protectedMode,false);}
@@ -27,6 +27,7 @@ final class OfficialOtaFeed implements Closeable {
  }
  synchronized void arm(byte[] zip)throws IOException{
   if(listener==null||!protectedMode.getAsBoolean())throw new IOException("preparation guard unavailable");
+  if(!profile.hasOfficialVersions())throw new IOException("official version evidence unavailable");
   // Immutable private snapshot, verified in full before publication to downloader.
   byte[] frozen=zip.clone();OtaPackage.verify(frozen,profile);
   byte[] random=new byte[24];new SecureRandom().nextBytes(random);
@@ -35,7 +36,7 @@ final class OfficialOtaFeed implements Closeable {
  }
  synchronized void disarm(){archive=null;token="";md5="";deadline=0;}
  private synchronized void expire(){if(archive!=null&&(clock.getAsLong()>=deadline||!protectedMode.getAsBoolean()))disarm();}
- synchronized String status(){expire();return "本机更新源："+(listener==null?"未启动":"运行中")+" · "+(archive==null?"无更新":"15 分钟只下载")+"\n来源查询："+queries+" · 匹配固件："+firmwareQueries+" · 下载请求："+downloads+" · 拒绝："+rejected+"（"+lastReject+"）\n查询形状："+queryShape;}
+ synchronized String status(){expire();return "官方版本依据："+(profile.hasOfficialVersions()?"已登记":"待实测，下载与刷写未开放")+"\n本机更新源："+(listener==null?"未启动":"运行中")+" · "+(archive==null?"无更新":"15 分钟只下载")+"\n来源查询："+queries+" · 匹配固件："+firmwareQueries+" · 下载请求："+downloads+" · 拒绝："+rejected+"（"+lastReject+"）\n查询形状："+queryShape+"\n固件查询证据："+queryEvidence;}
  public synchronized void close()throws IOException{closed=true;disarm();if(listener!=null)listener.close();}
  static Map<String,String> query(String target)throws IOException{
   Map<String,String> out=new HashMap<>();int at=target.indexOf('?');if(at<0)return out;
@@ -47,6 +48,8 @@ final class OfficialOtaFeed implements Closeable {
  }
  static boolean firmware(Map<String,String> q){return firmware(q,OtaProfile.TAP1);}
  static boolean firmware(Map<String,String> q,OtaProfile profile){return "firmware".equals(q.get("packageType"))&&"strix OS".equals(q.get("packageName"))&&"S3".equals(q.get("glassesType"))&&"android".equals(q.get("deviceType"))&&profile.acceptsQuery(q.get("versionCode"));}
+ static String evidenceText(Object value){return value instanceof String&&((String)value).length()<=80&&((String)value).matches("[A-Za-z0-9._ -]+")?(String)value:"<unavailable>";}
+ static String readbackEvidence(Map<?,?> j){Object result=j.get("Result"), confirmed=j.get("OtaValidationConfirmed"), types=j.get("PackageTypes");return "OsVersion="+evidenceText(j.get("OsVersion"))+" OtaValidationState="+evidenceText(j.get("OtaValidationState"))+" OtaValidationConfirmed="+(confirmed instanceof Boolean?confirmed:"<unavailable>")+" supportsFiles="+(types instanceof List?((List<?>)types).contains("files"):"<unavailable>")+" Result="+(result instanceof Boolean||result instanceof Integer||result instanceof Long?result:"<unavailable>");}
  static final class Reply {int code=200;byte[] body=new byte[0];String type="application/json",range="";boolean head;}
  synchronized Reply reply(String request){
   Reply r=new Reply();try{
@@ -61,9 +64,9 @@ final class OfficialOtaFeed implements Closeable {
    String path=target.split("\\?",2)[0];
    if(Arrays.asList(PATHS).contains(path)){
     Map<String,String> q=query(target);queries++;boolean match=firmware(q,profile);if(match)firmwareQueries++;
-    // Values are never retained: these booleans cannot expose IDs, tokens or headers.
+    if("firmware".equals(q.get("packageType")))queryEvidence="packageType=firmware packageName="+evidenceText(q.get("packageName"))+" versionCode="+evidenceText(q.get("versionCode"));
     queryShape="firmware="+"firmware".equals(q.get("packageType"))+", app="+"app".equals(q.get("packageType"))+", S3="+"S3".equals(q.get("glassesType"))+", android="+"android".equals(q.get("deviceType"))+", name="+"strix OS".equals(q.get("packageName"))+", version="+profile.acceptsQuery(q.get("versionCode"));
-    Object data=null;if(match&&archive!=null)data=OtaFrame.object("taskName",profile.token+(guarded?" GUARDED":" PREPARATION ONLY"),"appName","Strix OS","packageName","Strix OS","versionName",profile==OtaProfile.TMIG1?"0100050005":"0100040012","versionCode",profile==OtaProfile.TMIG1?100050005:100040012,"upgradeType",1,"userScope",0,"updateDesc",guarded?profile.token+" experimental full firmware. Modified AP and original companion payloads; separate one-time authorization required.":"TEST: download and verify on phone only. Glasses upgrade sending is disabled.","appIcon","","apkSize",archive.length,"apkMd5",md5,"downloadUrl","http://127.0.0.1:"+listener.getLocalPort()+"/p/"+token+"/"+profile.directory+".zip");
+    Object data=null;if(match&&archive!=null)data=OtaFrame.object("taskName",profile.token+(guarded?" GUARDED":" PREPARATION ONLY"),"appName","Strix OS","packageName","Strix OS","versionName",profile.queryVersionName(),"versionCode",profile.queryVersionCode(),"upgradeType",1,"userScope",0,"updateDesc",guarded?profile.token+" experimental full firmware. Modified AP and original companion payloads; separate one-time authorization required.":"TEST: download and verify on phone only. Glasses upgrade sending is disabled.","appIcon","","apkSize",archive.length,"apkMd5",md5,"downloadUrl","http://127.0.0.1:"+listener.getLocalPort()+"/p/"+token+"/"+profile.directory+".zip");
     r.body=BoundedJson.canonical(OtaFrame.object("error_code",1000,"error_msg","success","data",data));
    }else if(archive!=null&&target.equals("/p/"+token+"/"+profile.directory+".zip")){
     r.type="application/zip";r.body=archive;

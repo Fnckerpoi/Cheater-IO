@@ -3,6 +3,12 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 export const ADAPTERS = Object.freeze({
+  "rayneo-1.0.20-309": Object.freeze({
+    sha256: "05089c96fff1117a0fb9fe8bdc170ba5067bae3c91f8005bbc713440eac09673",
+    version: "1.0.20",
+    code: 309,
+    baselineSha256: "c1cfef2db07ffc5b87330e5cbdc09b098e9debf63fff4434666ac08cd88b585c",
+  }),
   "rayneo-1.0.5-201": Object.freeze({
     sha256: "770ba0793d31609aa1e4477db2f8a7aec2c8acc4d9c6ab43d57b0dfc720d3ab3",
     version: "1.0.5",
@@ -82,7 +88,7 @@ export function validateProfileDocument(doc) {
       !/^[a-z0-9-]+$/.test(p.directory) ||
       !["draft", "approved", "revoked"].includes(p.status) ||
       !(p.adapterId === null || typeof p.adapterId === "string") ||
-      (p.baseline !== "static-1.0.5" && p.baseline !== "static-1.0.7")
+      !["static-1.0.5", "static-1.0.7", "static-1.0.20"].includes(p.baseline)
     )
       throw new Error("Invalid profile schema");
     if (ids.has(p.id) || shas.has(p.sha256))
@@ -153,6 +159,7 @@ export function assertBuildProfile(profile) {
   const allowedVersions = [
     { version: "1.0.5", code: 201 },
     { version: "1.0.7", code: 230 },
+    { version: "1.0.20", code: 309 },
   ];
   if (!allowedVersions.some(v => v.version === profile.version && v.code === profile.code))
     throw new Error("Historical host profiles are not buildable");
@@ -240,6 +247,21 @@ export function verifyHost(root, profile) {
     if (!f || f.length !== 1) throw new Error("Missing or ambiguous exact class: " + d);
     return f[0];
   };
+
+  if (profile.version === "1.0.20") {
+    return {
+      listener: file("Lwl0/d$c;"),
+      activity: file("Lcom/rayneo/venus/MainActivity;"),
+      event: file("Lcom/rayneo/rayneo_venus_sdk_plugin/o4;"),
+      eventMethod: "F",
+      ota: {
+        queue: file("Lcom/ffalconxr/mercury/coreconnect/y0;"),
+        sender: file("Lcom/ffalconxr/mercury/coreconnect/w;"),
+      },
+      version: profile.version,
+      code: profile.code,
+    };
+  }
 
   if (profile.version === "1.0.7") {
     return {

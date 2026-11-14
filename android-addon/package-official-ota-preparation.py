@@ -6,6 +6,7 @@ installs, alters firmware, reads credentials or starts an OTA operation.
 import hashlib
 import json
 import pathlib
+import re
 import subprocess
 import sys
 import zipfile
@@ -78,7 +79,21 @@ def audit_prepared(base, prepared, new, marker, value):
                 raise ValueError('Non-native payload changed: '+name)
 
 
-def prepare(original, base, patched_lib, out, guarded=False, node='node'):
+def audited_hook_slots(original, base, receipt):
+    report = json.loads(receipt.read_text(encoding='utf-8'))
+    checks = report.get('checks', {})
+    slots = report.get('hookDex')
+    if (report.get('sourceSha256') != digest(original.read_bytes()) or
+            report.get('outputSha256') != digest(base.read_bytes()) or
+            not all(checks.get(key) is True for key in ('admission', 'hostAbi', 'hookPlan', 'verifyApk')) or
+            not isinstance(slots, list) or not slots or
+            any(not isinstance(slot, str) or not re.fullmatch(r'classes(?:[2-9]|[1-9][0-9]+)?\.dex', slot) for slot in slots) or
+            len(slots) != len(set(slots))):
+        raise ValueError('Invalid or mismatched base audit receipt')
+    return slots
+
+
+def prepare(original, base, patched_lib, out, guarded=False, node='node', hook_slots=None):
     import os
     import tempfile
     receipt = out.with_suffix('.audit.json')
@@ -90,7 +105,8 @@ def prepare(original, base, patched_lib, out, guarded=False, node='node'):
     profile = native_profile(original)
     if any(admitted[k] != profile[k] for k in ('version', 'code', 'adapterId')) or admitted['sha256'] != profile['hostSha256']:
         raise ValueError('Host admission/native contract mismatch')
-    subprocess.run([sys.executable, str(root/'verify_apk.py'), str(original), str(base), '--public-assets'], check=True, env={**os.environ, 'PYTHONUTF8':'1'})
+    hook_args = [arg for slot in (hook_slots or []) for arg in ('--hook-dex', slot)]
+    subprocess.run([sys.executable, str(root/'verify_apk.py'), str(original), str(base), '--public-assets', *hook_args], check=True, env={**os.environ, 'PYTHONUTF8':'1'})
     new = patched_lib.read_bytes()
     marker = 'assets/turboio/official-ota-'+('guarded.txt' if guarded else 'preparation.txt')
     value = ('ANDROID-'+profile['version'].replace('.', '')+'-OFFICIAL-OTA-'+('GUARD-02' if guarded else 'PREPARE-01')+'\n').encode('ascii')
@@ -135,7 +151,15 @@ if __name__ == '__main__':
     guarded = bool(arguments and arguments[0] == '--guarded')
     if guarded:
         arguments = arguments[1:]
+    receipt_path = None
+    if '--receipt' in arguments:
+        at = arguments.index('--receipt')
+        if at + 1 >= len(arguments):
+            raise SystemExit('--receipt needs a package-report path')
+        receipt_path = pathlib.Path(arguments[at + 1])
+        del arguments[at:at + 2]
     if len(arguments) not in (4, 5):
-        raise SystemExit('Expected [--guarded] source base patched-lib output [node]')
+        raise SystemExit('Expected [--guarded] source base patched-lib output [node] [--receipt package-report.json]')
     original, base, library, out = map(pathlib.Path, arguments[:4])
-    print(json.dumps(prepare(original, base, library, out, guarded, arguments[4] if len(arguments) == 5 else 'node'), indent=2))
+    slots = audited_hook_slots(original, base, receipt_path) if receipt_path else None
+    print(json.dumps(prepare(original, base, library, out, guarded, arguments[4] if len(arguments) == 5 else 'node', slots), indent=2))

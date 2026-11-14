@@ -70,8 +70,8 @@ public final class TurboAddon {
         OtaController.init(app);
         OfficialOtaPreparation.init(app);
         OfficialOtaBridge.init(app);
-        BackgroundWork.init(app);ScadaSensorController.init(app);MusicPlayer.init(app);ReaderLibrary.init(app);CloudCaption.init(app);BackgroundWork.register("新闻",NewsTele::stop);
-        NativeTransfer.init(app);FocusController.init(app);AppController.init(app);CardTransport.init();NativeNavigation.init(app);
+        BackgroundWork.init(app);ScadaSensorController.init(app);CloudCaption.init(app);BackgroundWork.register("新闻",NewsTele::stop);
+        NativeTransfer.init(app);AppController.init(app);CardTransport.init();
         ViewGroup root = host.findViewById(android.R.id.content);
         if (root.findViewWithTag("turboio-entry") != null) return;
         TextView button = new TextView(host);
@@ -88,7 +88,6 @@ public final class TurboAddon {
     }
     public static void shutdown() {
         MAIN.post(() -> {
-            NavigationUI.shutdown();
             cancel(); listener = null; template = null;
             View view = entry.get();
             if (view != null && view.getParent() instanceof ViewGroup) ((ViewGroup)view.getParent()).removeView(view);
@@ -392,24 +391,7 @@ public final class TurboAddon {
     public static void showHome() {
         Activity current=host();if(current!=null)EditorialUI.home(current);
     }
-    private static void showLegacyHome() {
-        Activity host = host(); if(host == null) return;
-        LinearLayout box=TurboStyle.column(host);
-        box.addView(TurboStyle.text(host,"眼镜的智能控制中心",16,TurboStyle.MUTED));TurboStyle.gap(host,box,18);
-        android.app.Dialog dialog=TurboStyle.screen(host,"Turbo IO",box,null);
-        LinearLayout hero=TurboStyle.card(host,box,TurboStyle.INK);
-        hero.addView(TurboStyle.text(host,"NAVIGATION  /  导航",12,TurboStyle.LIME));TurboStyle.gap(host,hero,12);
-        TextView heading=TurboStyle.text(host,"抬头，看见下一程",28,Color.WHITE);heading.setTypeface(null,Typeface.BOLD);hero.addView(heading);
-        TurboStyle.gap(host,hero,10);hero.addView(TurboStyle.text(host,"搜索地点 · 规划路线 · 眼镜指引\n步行 / 骑行 / 驾车 · 前台研究版",14,0xffc9dacf));
-        TurboStyle.button(host,hero,"打开导航  ↗",true,()->{dialog.dismiss();NavigationUI.show(host);});
-        TurboStyle.row(host,box,"◌","模型与对话",mode()==2?"自有模型 · 流式回答":"官方 / 自有模型与个人提示词",()->{dialog.dismiss();showSettings();});
-        TurboStyle.row(host,box,"◎","联网搜索与工具","TinyFish · DSH · 工具开关",()->{dialog.dismiss();showTools();});
-        TurboStyle.row(host,box,"≋","录音与全天智记","选择本机音频，导出或分享",()->{dialog.dismiss();RecordingExports.show(host,false);});
-        TurboStyle.row(host,box,"▤","文字与对话存档","Markdown · 本机转写 · 系统分享",()->new AlertDialog.Builder(host).setTitle("导出内容").setItems(new String[]{"分享 AI 对话 Markdown","选择本机转写文件"},(d,w)->{dialog.dismiss();if(w==0)shareArchive(host);else RecordingExports.show(host,true);}).setNegativeButton("取消",null).show());
-        TurboStyle.button(host,box,"诊断与测试",false,()->new AlertDialog.Builder(host).setTitle("诊断 · 不含密钥").setMessage(status()+"\n"+NavGlasses.connection()+"\n"+NavGlasses.status()).setNeutralButton("随机回复",(d,w)->setTestMode()).setNegativeButton("清空上下文",(d,w)->{cancel();HISTORY.clear();}).setPositiveButton("关闭",null).show());
-        TurboStyle.gap(host,box,14);box.addView(TurboStyle.text(host,"ANDROID  /  1.0.5 移植基线\n保留官方连接与原有功能。当前仍是旧功能基线，不代表已完成 iOS 全量移植。",12,TurboStyle.MUTED));
-    }
-    static void showSettings() {
+    public static void showSettings() {
         Activity host = host(); if(host == null) return;
         LinearLayout box = panel(host); ScrollView scroll = new ScrollView(host); scroll.addView(box);
         action(host,box,"回答同步朗读 · 本机 TTS",()->VoiceSpeech.show(host));

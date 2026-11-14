@@ -18,12 +18,12 @@ const fixture=()=>{
  return files;
 };
 const api={profileFor:()=>profile,assertBuildProfile,verifyHost};
-let fixtures=fixture(),calls=[],lastHost;
+let fixtures=fixture(),calls=[],lastHost,slotForFile=()=> 'smali_classes2';
 function runner(bin,args,options){
  calls.push([bin,args]);
  if(args.includes('--version')||args.includes('-version'))return bin+' fixture-version';
  const a=args[0]==='-jar'?args.slice(2):args;
- if(a[0]==='d'){lastHost=a[a.indexOf('--output')+1];assert.equal(fs.existsSync(lastHost),false);for(const [f,text] of Object.entries(fixtures)){const file=path.join(lastHost,'smali_classes2',f);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,text);}return '';}
+ if(a[0]==='d'){lastHost=a[a.indexOf('--output')+1];assert.equal(fs.existsSync(lastHost),false);for(const [f,text] of Object.entries(fixtures)){const file=path.join(lastHost,slotForFile(f),f);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,text);}return '';}
  if(a[0]==='b'){fs.writeFileSync(a[a.indexOf('-o')+1],'fixture assembled');return '';}
  if(path.basename(a[0])==='assemble_apk.py'){assert.equal(options.env.PYTHONUTF8,'1');fs.writeFileSync(a[4],'fixture verified candidate');return '';}
  if(path.basename(a[0])==='verify_apk.py'){assert.equal(options.env.PYTHONUTF8,'1');return '';}
@@ -55,7 +55,7 @@ try {
  const windowsEntry=packageWindows([source,path.join(tmp,'windows-entry'),dex,'java','apktool.jar','python'],{options:{runner},hostApi:api});
  const defaultReport=JSON.parse(fs.readFileSync(defaultEntry.receipt));
  const windowsReport=JSON.parse(fs.readFileSync(windowsEntry.receipt));
- for(const field of ['inputSha256','outputSha256','profileSha256','adapter','checks'])assert.deepEqual(defaultReport[field],windowsReport[field]);
+ for(const field of ['inputSha256','outputSha256','profileSha256','adapter','checks','hookDex'])assert.deepEqual(defaultReport[field],windowsReport[field]);
  assert.equal(fs.existsSync(defaultEntry.output),true);assert.equal(fs.existsSync(windowsEntry.output),true);
  const second=build({...options,java:'java',apktool:'apktool.jar',python:'python'},api);
  assert.notEqual(first.work,second.work);
@@ -119,5 +119,25 @@ try {
  const file107 = fs.readFileSync(path.join(build107.work, 'host/smali_classes2/Y3/u.smali'), 'utf8');
  assert.match(file107, /LY3\/u;->turboioOriginal_u\(Ljava\/io\/File;Ljava\/lang\/String;Lk4\/q;Ljava\/lang\/String;\)Ljava\/lang\/String;/);
 
- console.log('Host build fixtures passed: admission, all-or-nothing hook planning, shared entry gates, isolated directories, audit failure, receipt binding and overwrite refusal. No real APK build was performed.');
+ const profile120 = profileFor('05089c96fff1117a0fb9fe8bdc170ba5067bae3c91f8005bbc713440eac09673');
+ const files120 = {};
+ for (const [descriptor, line] of profile120.baseline) {
+   const file = descriptor.slice(1, -1) + '.smali';
+   files120[file] = (files120[file] || '.class public ' + descriptor + '\n') + (line.startsWith('"') ? 'const-string v0, ' + line : line) + '\n' + (line.startsWith('.method') ? '    .locals 0\n    return-void\n.end method\n' : '');
+ }
+ fixtures=files120;
+ slotForFile=file=>file==='wl0/d$c.smali'?'smali_classes4':file==='com/rayneo/venus/MainActivity.smali'?'smali_classes5':file==='com/rayneo/rayneo_venus_sdk_plugin/o4.smali'?'smali_classes3':file==='com/ffalconxr/mercury/coreconnect/y0.smali'?'smali_classes6':file==='com/ffalconxr/mercury/coreconnect/w.smali'?'smali_classes7':'smali_classes2';
+ calls=[];
+ const build120=build(options,{profileFor:()=>profile120,assertBuildProfile,verifyHost});
+ assert.match(fs.readFileSync(path.join(build120.work,'host/smali_classes3/com/rayneo/rayneo_venus_sdk_plugin/o4.smali'),'utf8'),/turboioOriginal_F/);
+ assert.match(fs.readFileSync(path.join(build120.work,'host/smali_classes6/com/ffalconxr/mercury/coreconnect/y0.smali'),'utf8'),/turboioOriginal_s/);
+ assert.match(fs.readFileSync(path.join(build120.work,'host/smali_classes7/com/ffalconxr/mercury/coreconnect/w.smali'),'utf8'),/turboioOriginal_v/);
+ const expectedSlots=['classes3.dex','classes4.dex','classes5.dex','classes6.dex','classes7.dex'];
+ assert.deepEqual(build120.report.hookDex,expectedSlots);
+ for(const script of ['assemble_apk.py','verify_apk.py']){
+   const args=calls.find(([,args])=>path.basename(args[0])===script)[1];
+   assert.deepEqual(args.flatMap((arg,index)=>arg==='--hook-dex'?[args[index+1]]:[]),expectedSlots);
+ }
+
+ console.log('Host build fixtures passed: admission through 1.0.20, hook planning, shared entry gates, receipt binding and overwrite refusal. No real APK build was performed.');
 } finally {fs.rmSync(tmp,{recursive:true,force:true});}

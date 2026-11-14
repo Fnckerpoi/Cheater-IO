@@ -49,11 +49,8 @@ $Work = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $Work | Out-Null
 $Classes = New-Item -ItemType Directory -Path (Join-Path $Work 'classes')
 $Dex = New-Item -ItemType Directory -Path (Join-Path $Work 'dex')
-$Sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src/com/turboio/addon') -Filter '*.java' -File | Sort-Object Name)
-if ($Sources.Count -eq 0) { throw 'No addon Java sources' }
 $SourceList = Join-Path $Work 'sources.txt'
-$SourceLines = [string[]]@($Sources | ForEach-Object { '"' + $_.FullName.Replace('\','/') + '"' })
-[IO.File]::WriteAllLines($SourceList, $SourceLines, (New-Object Text.UTF8Encoding($false)))
+Run $Python @((Join-Path $PSScriptRoot 'tmg4_sources.py'), $SourceList)
 $Utility = Join-Path $PSScriptRoot 'tmig1_windows.py'
 Run $Javac @('-encoding','UTF-8','-source','8','-target','8','-cp',$AndroidJar,'-d',$Classes.FullName,"@$SourceList")
 $AddonJar = Join-Path $Work 'addon.jar'

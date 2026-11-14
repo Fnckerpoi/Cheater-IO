@@ -19,7 +19,7 @@ function Run-Group([string]$Group, [string[]]$Sources, [string[]]$Classes) {
 $sensor = @('ScadaReading','ScadaPacketCodec','ScadaReplayGuard','ScadaProximity','ScadaReplayHistory','ScadaSampleTime') | ForEach-Object { Join-Path $source ($_ + '.java') }
 $sensor += @(Get-ChildItem -LiteralPath (Join-Path $tests 'scadable') -Filter '*.java' | ForEach-Object FullName)
 Run-Group 'proximity' $sensor @('com.turboio.addon.ScadaPacketCodecTest','com.turboio.addon.ScadaReplayGuardTest','com.turboio.addon.ScadaProximityTest','com.turboio.addon.ScadaDurabilityTimeTest')
-$caption = @('BoundedJson','HostBusiness','NavCore','NavSessionPolicy','NavGlasses','CaptionEventQueue','ScadaCaptionController','ScadaProximity','ScadaReading') | ForEach-Object { Join-Path $source ($_ + '.java') }
+$caption = @('BoundedJson','HostBusiness','DisplayCodec','NavCore','NavSessionPolicy','NavGlasses','CaptionEventQueue','ScadaCaptionController','ScadaProximity','ScadaReading') | ForEach-Object { Join-Path $source ($_ + '.java') }
 $caption += @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.java' | ForEach-Object FullName)
 $caption += @(Join-Path $tests 'otaflow/Looper.java'; Join-Path $tests 'scadacard/SystemClock.java'; Join-Path $tests 'NavCoreTest.java'; Join-Path $tests 'NavSessionPolicyTest.java')
 Run-Group 'caption' $caption @('com.turboio.addon.ScadaCaptionControllerTest','NavCoreTest','NavSessionPolicyTest')

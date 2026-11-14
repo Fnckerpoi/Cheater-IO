@@ -13,7 +13,7 @@ final class NewsTele {
  private static void fail(String s){phase="uncertain";waiting=0;note=s+"；未自动重试，可从眼镜退出后确认恢复";BackgroundWork.release("新闻");NativeTransfer.MAIN.removeCallbacks(tick);}
  private static void clear(){NativeTransfer.releaseMessages(did);did="";text=null;phase="idle";waiting=0;BackgroundWork.release("新闻");NativeTransfer.MAIN.removeCallbacks(tick);}
  private static final Runnable tick=new Runnable(){public void run(){if(!active()||phase.equals("uncertain"))return;if(!peer.equals(NativeTransfer.connected()))fail("眼镜连接发生变化");else if(waiting!=0&&SystemClock.elapsedRealtime()>=deadline)fail("新闻回执超时");if(active()&&!phase.equals("uncertain"))NativeTransfer.MAIN.postDelayed(this,250);}};
- static void receive(String d,byte[] b){if(!active()||!peer.equals(d))return;try{NavCore.Envelope e=NavCore.decode(b);if(e==null)return;if(e.type==9){stop();return;}JSONObject j=new JSONObject(e.json);if(!did.equals(j.optString("did")))return;int action=j.optInt("action"),code=j.optInt("code",-1);
+ static void receive(String d,byte[] b){if(!active()||!peer.equals(d))return;try{DisplayCodec.Envelope e=DisplayCodec.decode(b);if(e==null)return;if(e.type==9){stop();return;}JSONObject j=new JSONObject(e.json);if(!did.equals(j.optString("did")))return;int action=j.optInt("action"),code=j.optInt("code",-1);
   if(e.type==6&&(action==1||action==2&&code==1)){if(action==1)send(6,new JSONObject().put("did",did).put("action",2).put("code",1));clear();note="眼镜已退出；新闻稿保留在手机";return;}
   if(e.type==8&&action==1){send(8,new JSONObject().put("did",did).put("action",2).put("code",1));return;}
   if(e.type==2&&action==2&&waiting==2){if(j.has("total")&&j.optInt("total")!=text.length)return;if(code!=1&&code!=7){fail("眼镜拒绝准备（"+code+"）");return;}

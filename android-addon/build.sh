@@ -13,7 +13,8 @@ node tests/PackageCliTest.mjs
 node tests/OtaHooksTest.mjs
 TURBO_OFFICIAL_LIBAPP="${TURBO_OFFICIAL_LIBAPP:-}" node tests/OfficialOtaSourceTest.mjs
 python3 tests/ApkAssemblyTest.py
-python3 tests/ReaderDemoTest.py
+python3 tests/Tmg4AssetsTest.py
+python3 tests/Tmg4SourceSelectionTest.py
 python3 tests/TtsManifestTest.py
 python3 tests/BackgroundManifestTest.py
 javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test src/com/turboio/addon/{ScadaReading,ScadaPacketCodec,ScadaReplayGuard,ScadaProximity}.java tests/scadable/*.java
@@ -35,7 +36,7 @@ java -cp build/test com.turboio.addon.LauncherMetaTest
 javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test-host-events tests/hostevents/*.java tests/musicflow/SystemClock.java src/com/turboio/addon/NativeTransfer.java
 java -cp build/test-host-events:build/test com.turboio.addon.HostEventTest
 "${TURBO_SDK_PYTHON:-python3}" tests/app_golden.py
-javac -encoding UTF-8 -source 8 -target 8 -d build/test src/com/turboio/addon/{BoundedJson,AppCodec,FocusCodec,CustomEnvelope}.java tests/AppCodecTest.java
+javac -encoding UTF-8 -source 8 -target 8 -d build/test src/com/turboio/addon/{BoundedJson,AppCodec,SharedCodec,CustomEnvelope}.java tests/AppCodecTest.java
 java -cp build/test AppCodecTest ../app-gallery build/test/app-golden
 javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test tests/CustomEnvelopeTest.java
 java -cp build/test CustomEnvelopeTest
@@ -96,7 +97,9 @@ cc -Wall -Wextra -Werror -I../official-addon/research/navigation-runtime-v1 test
 build/test/nav-golden/generate build/test/nav-golden
 javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test src/com/turboio/addon/{NativeNavCodec,NativeNavSession,NativeNavRoute}.java tests/NativeNavTest.java
 java -cp build/test NativeNavTest build/test/nav-golden
-javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar" -d build/classes src/com/turboio/addon/*.java
-jar cf build/turboio-addon.jar -C build/classes .
+python3 tmg4_sources.py build/tmg4-sources.txt
+tmg4_classes="$(mktemp -d "${TMPDIR:-/tmp}/tmg4-classes.XXXXXXXX")"
+javac -encoding UTF-8 -source 8 -target 8 -cp "$android_jar" -d "$tmg4_classes" @build/tmg4-sources.txt
+jar cf build/turboio-addon.jar -C "$tmg4_classes" .
 "$build_tools/d8" --lib "$android_jar" --min-api 29 --output build/dex build/turboio-addon.jar
 shasum -a 256 build/dex/classes.dex

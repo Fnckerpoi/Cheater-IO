@@ -10,8 +10,8 @@ public final class OfficialOtaAuthorizationTest {
    if(!diagnostic.matches("AUTH_ENTRY tokenMatches=(true|false) pending=(true|false) armed=(true|false) checking=(true|false) foreground=(true|false) legacyBusy=(true|false)"))throw new AssertionError("unbounded diagnostic");checks++;
   }
   String[] rejected={null,"","tmig1","TMIG1 ","private-device-secret","ＴＭＩＧ１"};
-  for(String input:rejected){if(OfficialOtaAuthorization.tokenMatches(input))throw new AssertionError("token weakened");String diag=OfficialOtaAuthorization.diagnostic(OfficialOtaAuthorization.tokenMatches(input),false,false,false,true,false);if(input!=null&&!input.isEmpty()&&diag.contains(input))throw new AssertionError("token leaked");checks++;}
-  if(!OfficialOtaAuthorization.tokenMatches("TMIG1"))throw new AssertionError("valid token refused");checks++;
+  for(String input:rejected){if(OfficialOtaAuthorization.tokenMatches(input,OtaProfile.TMIG1))throw new AssertionError("token weakened");String diag=OfficialOtaAuthorization.diagnostic(OfficialOtaAuthorization.tokenMatches(input,OtaProfile.TMIG1),false,false,false,true,false);if(input!=null&&!input.isEmpty()&&diag.contains(input))throw new AssertionError("token leaked");checks++;}
+  if(!OfficialOtaAuthorization.tokenMatches("TMIG1",OtaProfile.TMIG1))throw new AssertionError("valid token refused");checks++;
   System.out.println("Official OTA authorization: "+checks+" policy/boolean privacy checks passed");
  }
 }

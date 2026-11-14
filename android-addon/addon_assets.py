@@ -12,10 +12,7 @@ GALLERY = ROOT / 'app-gallery'
 
 def assets():
     result = {}
-    result['assets/turboio/reader/demo-7392.txt'] = ROOT / 'android-addon/assets/reader-demo-7392.txt'
-    result['assets/turboio/licenses/music-mit.txt'] = ROOT / 'android-addon/THIRD_PARTY_MUSIC_LICENSE.txt'
-    for name in ('hero-glass-v5','hero-sequence-v5','music','reading','navigation',
-                 'focus','focus-tomato-v2','news','settings'):
+    for name in ('hero-glass-v5','hero-sequence-v5','news','settings'):
         result[f'assets/turboio/art/{name}.png'] = ART / f'{name}.png'
     for name in ('dashboard-editor','app-gallery'):
         result[f'assets/turboio/art/{name}.png'] = HOME / f'{name}.png'

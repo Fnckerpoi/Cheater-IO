@@ -40,5 +40,26 @@
         "replacement": "http://127.0.0.1:18794/g/xxxxxxxxxxCCXhB"
       }
     ]
+  },
+  {
+    "version": "1.0.20",
+    "code": 309,
+    "hostSha256": "05089c96fff1117a0fb9fe8bdc170ba5067bae3c91f8005bbc713440eac09673",
+    "sha256": "e2b6e5ea8c2a56d56e7bce487d9a735ac0631eced381f56fa4136e0aedf3b19a",
+    "adapterId": "rayneo-1.0.20-309",
+    "slots": [
+      {
+        "offset": 9185704,
+        "pp": "0x3c640",
+        "text": "/xrlauncherapi/v1/signApi/gray/upgrade",
+        "replacement": "http://127.0.0.1:18794/g/xxxxxxxA78p2M"
+      },
+      {
+        "offset": 1005736,
+        "pp": "0x3c740",
+        "text": "/xrlauncherhwapi/v1/signApi/gray/upgrade",
+        "replacement": "http://127.0.0.1:18794/g/xxxxxxxxxxCCXhB"
+      }
+    ]
   }
 ]

@@ -7,6 +7,7 @@
 | 1.0.4 | 195 | `ef2e7dd346ca478e13d0f3f1bf31fa61412e44fb9b4ca9cf0d3e864ac608584b` | 历史/撤销 | 仅保留身份记录，不可打包 |
 | 1.0.5 | 201 | `770ba0793d31609aa1e4477db2f8a7aec2c8acc4d9c6ab43d57b0dfc720d3ab3` | 已批准静态构建基线 | 不代表本轮新增真机验收 |
 | 1.0.7 | 230 | `30239f65d910cf7008cfdf6cfacd5c068c5877068b4a637027786377a9ce4f91` | 已批准静态构建基线 | 已提取官方原始 APK，完成符号重定位、Java反射多版本解耦与 36/36 静态审计匹配；未进行新真机刷机验收 |
+| 1.0.20 | 309 | `05089c96fff1117a0fb9fe8bdc170ba5067bae3c91f8005bbc713440eac09673` | 原包静态审计与构建准入通过 | 新版 Mercury Coreconnect、事件 `o4.F` 与 OTA 队列 `y0.s` 已映射；Hook 位于 `classes3.dex`/`classes5.dex`，不代表 1.0.6.11 固件迁移或真机验收 |
 
 ## 日常命令
 
@@ -42,7 +43,9 @@ node android-addon/package.mjs C:\path\RayNeo_AI_1.0.5.apk
 
 ## 旧 OTA 来源命令的输入路径
 
-普通打包器现将全新宿主解包到 `android-addon/build/turbo-build-*/host`。若执行既有 `official-ota-source.mjs` 原生库实验步骤，应从**该次构建的收据所对应的隔离 work/host** 提取 `lib/arm64-v8a/libapp.so`，不可复用历史 `build/host-105` 目录。该原生库补丁按 `native-source-profiles.json` 选择精确 1.0.5/1.0.7 SHA、宿主身份和偏移；缺失或跨版本混用失败关闭。
+普通打包器现将全新宿主解包到 `android-addon/build/turbo-build-*/host`。若执行既有 `official-ota-source.mjs` 原生库实验步骤，应从**该次构建的收据所对应的隔离 work/host** 提取 `lib/arm64-v8a/libapp.so`，不可复用历史 `build/host-105` 目录。该原生库补丁按 `native-source-profiles.json` 选择精确 1.0.5/1.0.7/1.0.20 SHA、宿主身份和偏移；缺失或跨版本混用失败关闭。
+
+1.0.20（309）原生来源条目：官方 APK SHA-256 `05089c96fff1117a0fb9fe8bdc170ba5067bae3c91f8005bbc713440eac09673`，`libapp.so` SHA-256 `e2b6e5ea8c2a56d56e7bce487d9a735ac0631eced381f56fa4136e0aedf3b19a`，两条 URL 偏移 9185704 / 1005736，替换后 `libapp.so` SHA-256 `c8d01ef988c0d2435e675382de8e9a87e4b05bed386b43da0e222aa76ab8f879`。该条目只覆盖 URL 路由；1.0.20 静态宿主适配已登记，但固件传输仍绑定历史候选，不能据此宣称已支持 1.0.6.11 刷写。
 
 `build.sh` 在编译前还运行原生来源测试，因此首次构建前需在新的独立 fixture 目录解包原始官方 1.0.5 APK，并设置 `TURBO_OFFICIAL_LIBAPP` 指向其中的原始 `lib/arm64-v8a/libapp.so`。Bash 用 `export TURBO_OFFICIAL_LIBAPP=/absolute/path/libapp.so`，PowerShell 用 `$env:TURBO_OFFICIAL_LIBAPP='C:\path\libapp.so'`。测试会验证既有精确库哈希；缺料返回失败，不跳过测试。
 

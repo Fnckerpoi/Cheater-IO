@@ -9,7 +9,12 @@ import java.util.*;
 /** User-visible leases, no boot receiver or sticky restart, no pairing/reconnect side effects. */
 public final class BackgroundWork extends Service {
  private static Context app;private static BackgroundWork instance;private static boolean foreground=true,stopping;private static final Map<String,Integer> jobs=new LinkedHashMap<>();private static final Map<String,Runnable> stops=new HashMap<>();private static String note="后台任务未开启";
- static void init(Context c){app=c.getApplicationContext();}
+ static void init(Context c){if(app!=null)return;app=c.getApplicationContext();((Application)app).registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks(){
+  private boolean host(Activity a){return a.getClass().getName().equals("com.rayneo.venus.MainActivity");}
+  public void onActivityStopped(Activity a){if(host(a)&&!a.isChangingConfigurations()){onForeground(false);if(!held("新闻"))NewsTele.stop();if(!held("字幕"))CloudCaption.stop("离开前台，字幕已停止");VoiceSpeech.foreground(false);}}
+  public void onActivityResumed(Activity a){if(host(a)){onForeground(true);VoiceSpeech.foreground(true);}}
+  public void onActivityCreated(Activity a,Bundle b){}public void onActivityStarted(Activity a){}public void onActivityPaused(Activity a){}public void onActivitySaveInstanceState(Activity a,Bundle b){}public void onActivityDestroyed(Activity a){}
+ });}
  static void onForeground(boolean value){foreground=value;}
  static void register(String key,Runnable stop){stops.put(key,stop);}
  static boolean enabled(){return app!=null&&app.getSharedPreferences("turboio_background",0).getBoolean("enabled",false);}
@@ -29,5 +34,5 @@ public final class BackgroundWork extends Service {
  @Override public void onTaskRemoved(Intent intent){stopAll();stopSelf();}
  @Override public void onDestroy(){if(instance==this){instance=null;stopAll();}super.onDestroy();}
  @Override public void onTimeout(int id,int type){stopAll();stopSelf();}
- static void show(Activity a){EditorialUI.Screen s=new EditorialUI.Screen(a,"后台运行");s.body.addView(EditorialUI.text(a,"只维持你主动开始的任务。音乐、阅读、新闻、字幕与导航使用各自的前台服务类型；系统通知随时可停止。关闭开关会停止当前扩展任务。",15,EditorialUI.MUTED));EditorialUI.toggle(a,s.body,"允许活动任务在后台继续",enabled(),(v,on)->{app.getSharedPreferences("turboio_background",0).edit().putBoolean("enabled",on).apply();if(!on)stopAll();else if(Build.VERSION.SDK_INT>=33&&a.checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED)a.requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},7621);});TextView state=EditorialUI.text(a,note,14,EditorialUI.LIME);s.body.addView(state);EditorialUI.button(a,s.body,"刷新实际后台状态",false,()->state.setText(note+"\n服务："+(instance==null?"未启动":"运行中")));EditorialUI.button(a,s.body,"停止扩展后台任务",false,()->{stopAll();state.setText("已停止；官方 App 的其他任务不在此列表");});s.body.addView(EditorialUI.text(a,"不会自动取消电池优化、不会自动重连或重新配对。进程被杀后回到手机确认状态，再开始任务；不自动恢复收音或重传。",13,EditorialUI.MUTED));}
+ static void show(Activity a){EditorialUI.Screen s=new EditorialUI.Screen(a,"后台运行");s.body.addView(EditorialUI.text(a,"只维持你主动开始的任务。新闻、字幕和传感器任务使用各自的前台服务类型；系统通知随时可停止。关闭开关会停止当前扩展任务。",15,EditorialUI.MUTED));EditorialUI.toggle(a,s.body,"允许活动任务在后台继续",enabled(),(v,on)->{app.getSharedPreferences("turboio_background",0).edit().putBoolean("enabled",on).apply();if(!on)stopAll();else if(Build.VERSION.SDK_INT>=33&&a.checkSelfPermission("android.permission.POST_NOTIFICATIONS")!=PackageManager.PERMISSION_GRANTED)a.requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"},7621);});TextView state=EditorialUI.text(a,note,14,EditorialUI.LIME);s.body.addView(state);EditorialUI.button(a,s.body,"刷新实际后台状态",false,()->state.setText(note+"\n服务："+(instance==null?"未启动":"运行中")));EditorialUI.button(a,s.body,"停止扩展后台任务",false,()->{stopAll();state.setText("已停止；官方 App 的其他任务不在此列表");});s.body.addView(EditorialUI.text(a,"不会自动取消电池优化、不会自动重连或重新配对。进程被杀后回到手机确认状态，再开始任务；不自动恢复收音或重传。",13,EditorialUI.MUTED));}
 }

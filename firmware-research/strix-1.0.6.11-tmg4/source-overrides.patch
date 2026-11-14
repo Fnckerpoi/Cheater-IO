@@ -1,0 +1,880 @@
+diff --git a/app-runtime-v1/app_service.c b/app-runtime-v1/app_service.c
+--- a/app-runtime-v1/app_service.c
++++ b/app-runtime-v1/app_service.c
+@@ -37,7 +37,7 @@
+ TAPMenu *tap_menu_create(void *app){TAPMenu *m=stream_memalign(8,sizeof *m);if(m){memset(m,0,sizeof *m);m->app=app;}return m;}
+ void tap_menu_destroy(TAPMenu *m){if(m){tap_service_destroy(m->app);stream_free(m);}}
+ static void *ptr(void *p,unsigned o){return p?*(void **)((uint8_t *)p+o):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *slot(void *a){return a?((M8NativeTail *)((uint8_t *)a+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+ static bool home(void){const char *name=nav_top_app();if(!name||strcmp(name,"com.rayneo.liteos.launcher"))return false;void *m=nav_monitors(),*i=m?nav_input(m):NULL;return i&&!nav_folded(i)&&dots_business_idle();}
+diff --git a/camera-v1/camera_native.c b/camera-v1/camera_native.c
+--- a/camera-v1/camera_native.c
++++ b/camera-v1/camera_native.c
+@@ -32,7 +32,7 @@
+ extern uint32_t nav_always_on(const char *);
+ extern void nav_release_always_on(const char *,uint32_t),native_label_text(void *,const char *),dc_text_mode(void *,int);
+ static void *ptr(void *p,unsigned off){return p?*(void **)((uint8_t *)p+off):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *navslot(void *app){return app?((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static TCSlot *slot(void *app){TNNavSlot *n=navslot(app);return n?n->camera:NULL;}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+diff --git a/context-english-v1/coexist.S b/context-english-v1/coexist.S
+--- a/context-english-v1/coexist.S
++++ b/context-english-v1/coexist.S
+@@ -69,7 +69,7 @@
+ CEL_106d3396:
+ beq CEL_106d336e
+ CEL_106d3398:
+-ldr r1, =0x18052201
++ldr r1, =0x18052630
+ CEL_106d339a:
+ bl ce_ext_10941968
+ CEL_106d339e:
+@@ -79,7 +79,7 @@
+ CEL_106d33a2:
+ mov r0, r4
+ CEL_106d33a4:
+-ldr r1, =0x1805240d
++ldr r1, =0x18052a44
+ CEL_106d33a6:
+ bl ce_ext_10941968
+ CEL_106d33aa:
+@@ -99,7 +99,7 @@
+ CEL_106d33ba:
+ movs r2, #0x10
+ CEL_106d33bc:
+-ldr r1, =0x18177273
++ldr r1, =0x18187b3e
+ CEL_106d33be:
+ adds r0, r7, #4
+ CEL_106d33c0:
+@@ -125,7 +125,7 @@
+ CEL_106d33da:
+ cbnz r4, CEL_106d33f2
+ CEL_106d33dc:
+-ldr r3, =0x1804300a
++ldr r3, =0x18042b4a
+ CEL_106d33de:
+ mov r2, r4
+ CEL_106d33e0:
+diff --git a/context-english-v1/english_native.c b/context-english-v1/english_native.c
+--- a/context-english-v1/english_native.c
++++ b/context-english-v1/english_native.c
+@@ -48,7 +48,7 @@
+ static void entry_log(unsigned reason,unsigned flags,unsigned mode){native_log(1,0,0,0,"[TurboEnglish] enter reason=%u flags=%u head_mode=%u",reason,flags,mode);}
+ static void tick(void *);
+ static void *ptr(void *p,unsigned n){return p?*(void **)((uint8_t *)p+n):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *slot(void *p){return p?((M8NativeTail *)((uint8_t *)p+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+ static bool home(void){const char *s=nav_top_app();void *m=nav_monitors(),*i=m?nav_input(m):NULL;
+diff --git a/context-english-v1/head_lifetime_native.c b/context-english-v1/head_lifetime_native.c
+--- a/context-english-v1/head_lifetime_native.c
++++ b/context-english-v1/head_lifetime_native.c
+@@ -20,14 +20,14 @@
+ static inline void leave(uint32_t old) {
+     __asm volatile("dmb\n\tmsr primask, %0"::"r"(old):"memory");
+ }
+-static void *volatile *published(void) {return (void *volatile *)(uintptr_t)0x196c6a14;}
++static void *volatile *published(void) {return (void *volatile *)(uintptr_t)0x196dfb90;}
+ static CEHeadLifetime *tail(void *monitor) {
+     return (CEHeadLifetime *)((uint8_t *)monitor+CE_HEAD_STOCK_BYTES);
+ }
+ void *ce_native_sys_construct(void *monitor) {
+     if(!monitor)return NULL;
+     /* Called only for the expanded stock monitor allocation. */
+-    ((void (*)(void *))(uintptr_t)0x10586bf1)(monitor);
++    ((void (*)(void *))(uintptr_t)0x105ab461)(monitor);
+     ce_head_lifetime_init(tail(monitor));
+     __asm volatile("dmb":::"memory");
+     return monitor;
+diff --git a/context-english-v1/head_observer.S b/context-english-v1/head_observer.S
+--- a/context-english-v1/head_observer.S
++++ b/context-english-v1/head_observer.S
+@@ -58,5 +58,5 @@
+     b.w \resume
+ .size \name,.-\name
+ .endm
+-command_entry ce_head_start_entry,1,0x181ca732,ce_stock_head_start_resume
+-command_entry ce_head_stop_entry,2,0x181ca70d,ce_stock_head_stop_resume
++command_entry ce_head_start_entry,1,0x1820fd61,ce_stock_head_start_resume
++command_entry ce_head_stop_entry,2,0x1820fd3c,ce_stock_head_stop_resume
+diff --git a/context-english-v1/head_serial.S b/context-english-v1/head_serial.S
+--- a/context-english-v1/head_serial.S
++++ b/context-english-v1/head_serial.S
+@@ -27,8 +27,8 @@
+     b.w \resume
+ .size \name,.-\name
+ .endm
+-body ce_stock_head_start_body,0x181ca732,ce_stock_head_start_resume
+-body ce_stock_head_stop_body,0x181ca70d,ce_stock_head_stop_resume
++body ce_stock_head_start_body,0x1820fd61,ce_stock_head_start_resume
++body ce_stock_head_stop_body,0x1820fd3c,ce_stock_head_stop_resume
+ .macro save
+     push.w {r0-r3,r12,lr}
+     mrs r3,apsr
+@@ -50,7 +50,7 @@
+ ce_serial_publish_entry:
+     save
+     mov r0,r4
+-    mov r1,r6
++    mov r1,r8
+     bl ce_serial_publish
+     str r0,[sp,#72]
+     restore
+@@ -77,6 +77,6 @@
+     bl ce_serial_before_destroy
+     restore
+     push {r3,r4,r7,lr}
+-    ldr r3,=0x181e6e8c
++    ldr r3,=0x18200f48
+     b.w ce_stock_sys_destroy_resume
+ .size ce_serial_destroy_entry,.-ce_serial_destroy_entry
+diff --git a/context-english-v1/head_serial_native.c b/context-english-v1/head_serial_native.c
+--- a/context-english-v1/head_serial_native.c
++++ b/context-english-v1/head_serial_native.c
+@@ -13,7 +13,7 @@
+ extern int ce_stock_head_start_body(void),ce_stock_head_stop_body(void);
+ static inline uint32_t critical(void){uint32_t old;__asm volatile("mrs %0, primask\n cpsid i":"=r"(old)::"memory");return old;}
+ static inline void restore(uint32_t old){__asm volatile("dmb\n msr primask, %0"::"r"(old):"memory");}
+-static void *volatile *slot(void){return (void *volatile *)(uintptr_t)0x196c6a14;}
++static void *volatile *slot(void){return (void *volatile *)(uintptr_t)0x196dfb90;}
+ static CEHeadLifetime *state(void *p){return p?(CEHeadLifetime *)((uint8_t *)p+CE_HEAD_STOCK_BYTES):NULL;}
+ static bool valid(const CEHeadLifetime *s){return s&&s->magic==CE_HEAD_TAIL_MAGIC;}
+ static bool thread_context(void){uint32_t irq,mask,priority;__asm volatile("mrs %0, ipsr\n mrs %1, primask\n mrs %2, basepri":"=r"(irq),"=r"(mask),"=r"(priority));return !irq&&!mask&&!priority;}
+@@ -21,13 +21,13 @@
+     if(!thread_context())return NULL;
+     /* Pinned NuttX O_CREAT=4, SEM_FAILED=NULL. Kernel named semaphore remains
+      * linked for this boot; never sem_unlink or replace an in-use lock. */
+-    void *p=((void *(*)(const char *,int,...))(uintptr_t)0x00122829)("/turbo_ce_head",4,0600,1u);
++    void *p=((void *(*)(const char *,int,...))(uintptr_t)0x00122975)("/turbo_ce_head",4,0600,1u);
+     if(!p)return NULL;
+-    int result=((int (*)(void *))(uintptr_t)(wait?0x001217f1:0x00121805))(p);
+-    if(result<0){((int (*)(void *))(uintptr_t)0x001228a1)(p);return NULL;}
++    int result=((int (*)(void *))(uintptr_t)(wait?0x00121931:0x00121945))(p);
++    if(result<0){((int (*)(void *))(uintptr_t)0x001229ed)(p);return NULL;}
+     return p;
+ }
+-static void unlock(void *p){if(p){((int (*)(void *))(uintptr_t)0x00121a59)(p);((int (*)(void *))(uintptr_t)0x001228a1)(p);}}
++static void unlock(void *p){if(p){((int (*)(void *))(uintptr_t)0x00121b99)(p);((int (*)(void *))(uintptr_t)0x001229ed)(p);}}
+ static bool quiet(void *monitor){
+     const uint32_t *p=monitor;
+     return p&&!p[0x58/4]&&p[0x5c/4]==p[0x60/4];
+@@ -111,7 +111,7 @@
+     }restore(key);unlock(sem);return result;
+ }
+ void *ce_serial_publish(void *manager,void *replacement){
+-    if((uintptr_t)manager!=0x196c69fc)return NULL;
++    if((uintptr_t)manager!=0x196dfb78)return NULL;
+     void *sem=lock(true);if(sem)(void)drain();
+     uint32_t key=critical();void *old=*slot();CEHeadLifetime *before=state(old),*after=state(replacement);
+     if(valid(after)&&valid(before)){
+diff --git a/diagnostics-v1/diagnostics_service.c b/diagnostics-v1/diagnostics_service.c
+--- a/diagnostics-v1/diagnostics_service.c
++++ b/diagnostics-v1/diagnostics_service.c
+@@ -14,7 +14,7 @@
+ extern void *nav_ensure_menu(void *);
+ extern const char *nav_top_app(void);
+ static void *ptr(void *p,unsigned off){return p?*(void **)((uint8_t *)p+off):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+ static bool launcher(void){const char *s=nav_top_app();const char *n="com.rayneo.liteos.launcher";if(!s)return false;for(unsigned i=0;i<32;i++){if(s[i]!=n[i])return false;if(!n[i])return true;}return false;}
+ static void emit(const TDSample *sample){
+diff --git a/diagnostics-v1/native_light.c b/diagnostics-v1/native_light.c
+--- a/diagnostics-v1/native_light.c
++++ b/diagnostics-v1/native_light.c
+@@ -11,8 +11,8 @@
+  TDLightOwner *owner=context;
+  td_metric(d,TD_LV_TOTAL,0,false);td_metric(d,TD_LV_USED,0,false);td_metric(d,TD_LV_PEAK,0,false);
+  if(!owner||owner->owner_tid<0||td_gettid()!=owner->owner_tid)return;
+- const volatile uint32_t *current=(const volatile uint32_t *)(uintptr_t)0x184d45fc;
+- const volatile uint32_t *peak=(const volatile uint32_t *)(uintptr_t)0x184d4600;
++ const volatile uint32_t *current=(const volatile uint32_t *)(uintptr_t)0x1850cfd8;
++ const volatile uint32_t *peak=(const volatile uint32_t *)(uintptr_t)0x1850cfdc;
+  uint32_t a=*current,b=*peak;
+  if(a>b||b>0x1000000u)return; /* fail closed; no capacity guesses */
+  td_metric(d,TD_LV_TOTAL,0x1000000u,true); /* configured capacity, not free */
+diff --git a/didi-v1/ride_service.c b/didi-v1/ride_service.c
+--- a/didi-v1/ride_service.c
++++ b/didi-v1/ride_service.c
+@@ -27,7 +27,7 @@
+ extern unsigned native_event_code(void *),native_event_key(void *);
+ extern const M8RenderAPI m8_native_api;
+ static void *ptr(void *p,unsigned o){return p?*(void **)((uint8_t *)p+o):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *navslot(void *a){return a?((M8NativeTail *)((uint8_t *)a+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static bool home(void){const char *s=nav_top_app();static const char name[]="com.rayneo.liteos.launcher";if(!s)return false;for(unsigned i=0;i<sizeof name;i++)if(s[i]!=name[i])return false;void *m=nav_monitors(),*i=m?nav_input(m):NULL;return i&&!nav_folded(i)&&dots_business_idle();}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+diff --git a/display-runtime-v1/native_display_test.c b/display-runtime-v1/native_display_test.c
+--- a/display-runtime-v1/native_display_test.c
++++ b/display-runtime-v1/native_display_test.c
+@@ -72,8 +72,8 @@
+ uint32_t stream_stride(uint32_t w,uint8_t color){assert(color==6);return w;}
+ void *stream_display_next(void *p){return p?NULL:(void *)(uintptr_t)0x18002000;}
+ bool tdp_test_read_word(uint32_t a,uint32_t *v){
+- if(a==0x184ec384+0x124){*v=0x18001000;return true;}
+- if(a==0x18001000+12){*v=0x10440cf1;return true;}
++ if(a==0x1850ce1c+0x124){*v=0x18001000;return true;}
++ if(a==0x18001000+12){*v=0x10462225;return true;}
+  if(a==0x18001000+24){*v=busy?1:0;return true;}
+  if(a==0x18001000||a==0x18002000+0x2a0){*v=0;return true;}
+  assert(0);return false;
+diff --git a/dots-v1/dots_menu_test.c b/dots-v1/dots_menu_test.c
+--- a/dots-v1/dots_menu_test.c
++++ b/dots-v1/dots_menu_test.c
+@@ -1,32 +1,59 @@
+-/* Build against the generated, source-only 16-slot menu, never stock flash. */
++/* Host regression for the eighteen-entry launcher and its two grid layouts. */
+ #include "focus-v1/focus_menu.h"
+ #include <assert.h>
+ #include <stdio.h>
+ #include <string.h>
+-typedef struct {bool idle;unsigned made,fail,destroyed;const char *texts[16];const uint8_t *buffers[16];} Fake;
++
++typedef struct {
++ bool idle,attached;unsigned made,fail,destroyed;
++ const char *texts[32];const uint8_t *buffers[32];
++ unsigned widths[32],heights[32];bool visible[32];
++} Fake;
+ static bool idle(void *ctx){return ((Fake *)ctx)->idle;}
+-static void *create(void *ctx,void *parent){(void)parent;Fake *f=ctx;unsigned n=++f->made;return n==f->fail?NULL:(void *)(uintptr_t)n;}
++static void *create(void *ctx,void *parent){(void)parent;Fake *f=ctx;unsigned n=++f->made;assert(n<32);return n==f->fail?NULL:(void *)(uintptr_t)n;}
+ static void *label(void *ctx,void *parent,unsigned font){assert(font==18);return create(ctx,parent);}
+-static void place(void *ctx,void *object,int x,int y,int w,int h){(void)ctx;(void)object;assert(x>=0&&y>=0&&w>0&&h>0&&x+w<=540&&y+h<=180);}
+-static void buffer(void *ctx,void *object,const uint8_t *p,unsigned w,unsigned h){assert((w==64&&h==64)||(w==124&&h==122));((Fake *)ctx)->buffers[(uintptr_t)object]=p;}
++static void place(void *ctx,void *object,int x,int y,int w,int h){(void)ctx;assert(object&&x>=0&&y>=0&&w>0&&h>0&&x+w<=540&&y+h<=220);}
++static void buffer(void *ctx,void *object,const uint8_t *p,unsigned w,unsigned h){
++ Fake *f=ctx;unsigned n=(unsigned)(uintptr_t)object;assert(p&&n<32);
++ assert((w==32&&h==32)||(w==40&&h==40)||(w==52&&(h==38||h==46))||(w==36&&h==4));
++ f->buffers[n]=p;f->widths[n]=w;f->heights[n]=h;
++}
+ static void text(void *ctx,void *object,const char *p){assert(strlen(p)<48);((Fake *)ctx)->texts[(uintptr_t)object]=p;}
+-static void show(void *ctx,void *object,bool visible){(void)ctx;(void)object;(void)visible;}
++static void show(void *ctx,void *object,bool visible){((Fake *)ctx)->visible[(uintptr_t)object]=visible;}
+ static void destroy(void *ctx,void *object){assert(object);((Fake *)ctx)->destroyed++;}
+-static bool attach(void *object,void *owner){return object&&owner;}
++static bool attach(void *object,void *owner){return object&&owner&&((Fake *)owner)->attached;}
+ static FMView view;
++static const char *const expected[]={"录音","实时字幕","实时提示","待办","导航","提词器","全天智记","勿扰模式","显示测试","导航","网易云音乐","微信读书","番茄时钟","滴滴出行","我的应用","情境英语","Dots","遥控拍照"};
+ int main(void){
+-    Fake f={.idle=true};TNWidgets api={&f,idle,create,create,label,place,buffer,text,show,destroy};
+-    assert(fm_view_open(&view,&api,&f,attach,&f));assert(f.made==12);
+-    for(int i=0;i<16;i++){assert(fm_view_update(&view,i,1704067200+9*3600+41*60,75));assert(!strcmp(f.texts[(uintptr_t)view.status],"09:41   75%"));assert(f.texts[(uintptr_t)view.page][0]=='1'+i/4);}
+-    assert(!strcmp(f.texts[(uintptr_t)view.labels[0]],"滴滴出行"));
+-    assert(!strcmp(f.texts[(uintptr_t)view.labels[1]],"我的应用"));
+-    assert(!strcmp(f.texts[(uintptr_t)view.labels[2]],"情境英语"));
+-    assert(!strcmp(f.texts[(uintptr_t)view.labels[3]],"Dots"));
+-    unsigned lit=0;for(unsigned i=0;i<4096;i++)if(f.buffers[(uintptr_t)view.icons[3]][i])lit++;assert(lit>100&&lit<2000);
+-    unsigned bank=view.bank;assert(!fm_view_update(&view,16,0,0)&&!fm_view_update(&view,-1,0,0)&&view.bank==bank);
+-    f.idle=false;assert(!fm_view_update(&view,0,0,0)&&view.bank==bank&&!fm_view_close(&view));f.idle=true;
+-    assert(fm_view_update(&view,0,-1,-1)&&!strcmp(f.texts[(uintptr_t)view.status],"--:--   --%"));
+-    assert(fm_view_close(&view)&&f.destroyed==1);
+-    for(unsigned fail=1;fail<=12;fail++){f=(Fake){.idle=true,.fail=fail};assert(!fm_view_open(&view,&api,&f,attach,&f));assert(!view.root);assert(f.destroyed==(fail==1?0:1));}
+-    puts("PASS: 16 menu items / 4 cards, Dots glyph, bounds, double buffer, missing telemetry and every child allocation failure.");
++ Fake f={.idle=true,.attached=true};TNWidgets api={&f,idle,create,create,label,place,buffer,text,show,destroy};
++ assert(FM_ITEMS==18&&FM_CELLS==9);assert(fm_view_open(&view,&api,&f,attach,&f));assert(f.made==23);
++ uint32_t now=1000;uint8_t stock_nav[32*32];
++ for(unsigned rows=3;rows>=2;rows--){
++  assert(fm_view_rows(&view,rows));unsigned cells=rows*3,size=rows==3?32:40;
++  for(unsigned selected=0;selected<18;selected++){
++   now+=250;assert(fm_view_update(&view,(int)selected,1704067200+9*3600+41*60,75,now));
++   (void)fm_view_step(&view,now+200);assert(!view.moving);
++   assert(!strcmp(f.texts[(uintptr_t)view.status],"09:41   75%"));
++   unsigned first=selected/cells*cells;
++   for(unsigned i=0;i<FM_CELLS;i++){
++    bool visible=i<cells&&first+i<18;unsigned id=(unsigned)(uintptr_t)view.icons[i];
++    assert(f.visible[id]==visible&&f.visible[(uintptr_t)view.labels[i]]==visible);
++    if(visible){assert(!strcmp(f.texts[(uintptr_t)view.labels[i]],expected[first+i]));assert(f.widths[id]==size&&f.heights[id]==size);}
++   }
++   if(rows==3&&selected==4)memcpy(stock_nav,f.buffers[(uintptr_t)view.icons[4]],sizeof stock_nav);
++   if(rows==3&&selected==9)assert(!memcmp(stock_nav,f.buffers[(uintptr_t)view.icons[0]],sizeof stock_nav));
++   if(selected==16){unsigned lit=0;const uint8_t *p=f.buffers[(uintptr_t)view.icons[16%cells]];for(unsigned i=0;i<size*size;i++)lit+=p[i]!=0;assert(lit>0&&lit<size*size);}
++   assert(f.widths[(uintptr_t)view.page]==36&&f.heights[(uintptr_t)view.page]==4);
++   unsigned active=0;const uint8_t *pager=f.buffers[(uintptr_t)view.page];for(unsigned i=0;i<144;i++)active+=pager[i]==255;assert(active==12);
++  }
++ }
++ unsigned bank=view.bank;int selected=view.selected;
++ assert(!fm_view_update(&view,18,0,0,now)&&!fm_view_update(&view,-1,0,0,now)&&view.bank==bank&&view.selected==selected);
++ assert(!fm_view_rows(&view,1)&&!fm_view_rows(&view,4));
++ f.idle=false;assert(!fm_view_update(&view,0,0,0,now)&&view.bank==bank&&!fm_view_rows(&view,3)&&!fm_view_close(&view));f.idle=true;
++ assert(fm_view_update(&view,0,-1,-1,now+500)&&!strcmp(f.texts[(uintptr_t)view.status],"--:--   --%"));
++ fm_view_suspend(&view);assert(!view.moving&&view.selected==-1);assert(fm_view_close(&view)&&f.destroyed==1);
++ for(unsigned fail=1;fail<=23;fail++){f=(Fake){.idle=true,.attached=true,.fail=fail};assert(!fm_view_open(&view,&api,&f,attach,&f));assert(!view.root);assert(f.destroyed==(fail==1?0u:1u));}
++ f=(Fake){.idle=true};assert(!fm_view_open(&view,&api,&f,attach,&f)&&!view.root&&f.destroyed==1);
++ puts("PASS: eighteen entries, two/three rows, stock navigation, custom labels, glyphs, pager, idle/bounds, telemetry and allocation cleanup.");
+ }
+diff --git a/dots-v1/dots_native.c b/dots-v1/dots_native.c
+--- a/dots-v1/dots_native.c
++++ b/dots-v1/dots_native.c
+@@ -38,7 +38,7 @@
+ extern void dots_stock_notify(void *,unsigned);
+ static void tick(void *);
+ static void *ptr(void *p,unsigned offset){return p?*(void **)((uint8_t *)p+offset):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *slot(void *p){return p?((M8NativeTail *)((uint8_t *)p+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+ static bool home(void){const char *name=nav_top_app();void *m=nav_monitors(),*i=m?nav_input(m):NULL;return name&&!strcmp(name,"com.rayneo.liteos.launcher")&&i&&!nav_folded(i)&&ce_extension_idle();}
+diff --git a/firmware_profile.h b/firmware_profile.h
+--- a/firmware_profile.h
++++ b/firmware_profile.h
+@@ -2,9 +2,9 @@
+ #define TIO_FIRMWARE_1055_PROFILE_H
+ /* Confirmed from stock allocation callsites and constructors. This header
+  * describes source layout only; it does not approve function bindings. */
+-#define TIO_STOCK_MENU_BYTES 0xfcu
++#define TIO_STOCK_MENU_BYTES 0x10cu
+ #define TIO_STOCK_HEAD_BYTES 0x68u
+-#define TIO_MENU_SCROLL_POSITION_OFFSET 0xb0u
+-#define TIO_MENU_EXTERNAL_ACTION_OFFSET 0xf0u
++#define TIO_MENU_SCROLL_POSITION_OFFSET 0xc0u
++#define TIO_MENU_EXTERNAL_ACTION_OFFSET 0x100u
+ #define TIO_SYS_TIMEZONE_OFFSET 0x10u
+ #endif
+diff --git a/focus-v1/focus_menu.c b/focus-v1/focus_menu.c
+--- a/focus-v1/focus_menu.c
++++ b/focus-v1/focus_menu.c
+@@ -5,7 +5,7 @@
+ #include "focus_menu.h"
+ #include "focus_menu_icons.h"
+ #include <string.h>
+-static const char *const names[]={"录音","实时字幕","实时提示","待办","提词器","全天智记","勿扰模式","显示测试","导航","网易云音乐","微信读书","番茄时钟","滴滴出行","我的应用","情境英语","Dots","遥控拍照"};
++static const char *const names[]={"录音","实时字幕","实时提示","待办","导航","提词器","全天智记","勿扰模式","显示测试","导航","网易云音乐","微信读书","番茄时钟","滴滴出行","我的应用","情境英语","Dots","遥控拍照"};
+ _Static_assert(sizeof names/sizeof *names==FM_ITEMS,"labels match stock item count");
+ _Static_assert(sizeof fm_icon4==19584,"artwork budget");
+ static unsigned per(const FMView *v){return v->rows*3;}
+@@ -23,7 +23,8 @@
+ }
+ static void icon(uint8_t *out,unsigned index,unsigned weight,unsigned fade,unsigned canvas){
+  memset(out,0,FM_ICON*FM_ICON);unsigned size=canvas-2+2*weight/256,pad=(canvas-size)/2,gain=(175+80*weight/256)*fade/256;
+- const unsigned char *packed=fm_icon4[index];
++ unsigned artwork=index<4?index:index==4?8:index-1;
++ const unsigned char *packed=fm_icon4[artwork];
+  for(unsigned y=0;y<size;y++)for(unsigned x=0;x<size;x++){
+   unsigned pos=(y*48/size)*48+x*48/size;unsigned g=(packed[pos/2]>>(pos%2?0:4))&15;
+   out[(y+pad)*canvas+x+pad]=(uint8_t)(g*17*gain/255);
+diff --git a/focus-v1/focus_menu.h b/focus-v1/focus_menu.h
+--- a/focus-v1/focus_menu.h
++++ b/focus-v1/focus_menu.h
+@@ -1,7 +1,7 @@
+ #ifndef TURBO_FOCUS_MENU_H
+ #define TURBO_FOCUS_MENU_H
+ #include "../navigation-runtime-v1/nav_view.h"
+-enum { FM_ITEMS=17, FM_CELLS=9, FM_ICON=40, FM_FRAME_W=52, FM_FRAME_H=46 };
++enum { FM_ITEMS=18, FM_CELLS=9, FM_ICON=40, FM_FRAME_W=52, FM_FRAME_H=46 };
+ typedef struct {
+  TNWidgets api;void *root,*icons[FM_CELLS],*labels[FM_CELLS],*frame,*status,*brand,*page;
+  _Alignas(64) uint8_t pixels[2][FM_CELLS][FM_ICON*FM_ICON];
+diff --git a/focus-v1/focus_menu_native.c b/focus-v1/focus_menu_native.c
+--- a/focus-v1/focus_menu_native.c
++++ b/focus-v1/focus_menu_native.c
+@@ -39,7 +39,7 @@
+  DotsNativeSlot *dots=s?s->dots:NULL;
+  TCSlot *camera=s?s->camera:NULL;
+  void *old[]={camera?camera->row:NULL,camera?camera->icon:NULL,dots?dots->row:NULL,dots?dots->icon:NULL,english?english->row:NULL,english?english->icon:NULL,ptr(app,8),t->row,t->icon,s?s->row:NULL,s?s->icon:NULL,music?music->row:NULL,music?music->icon:NULL,reader?reader->row:NULL,reader?reader->icon:NULL,focus?focus->row:NULL,focus?focus->icon:NULL,s&&s->ride?((DRSlot *)s->ride)->row:NULL,s&&s->ride?((DRSlot *)s->ride)->icon:NULL,s&&s->apps?((TAPMenu *)s->apps)->row:NULL,s&&s->apps?((TAPMenu *)s->apps)->icon:NULL};
+- for(unsigned i=0;i<7;i++){void *row=ptr(app,0xc+4*i);if(row)m8_native_api.hidden(row,true);}
++ for(unsigned i=0;i<8;i++){void *row=ptr(app,0xc+4*i);if(row)m8_native_api.hidden(row,true);}
+  for(unsigned i=0;i<sizeof old/sizeof *old;i++)if(old[i])m8_native_api.hidden(old[i],true);
+ }
+ static void deleted(void *e){FMControl *c=stream_event_user(e);if(c){TNNavSlot *s=slot(c->app);if(s&&s->quad==c)s->quad=NULL;c->app=NULL;c->view.root=NULL;c->closing=true;}}
+@@ -57,7 +57,7 @@
+  for(unsigned i=0;i<512;i++){t=stream_timer_next(t);if(!t)return;if(*(void (**)(void *))((uint8_t *)t+8)==tick){FMControl *c=ptr(t,12);if(c&&c->timer==t&&!c->closing)c->desired_rows=rows;return;}}
+  /* No active launcher: the persisted value is loaded when it next opens. */
+ }
+-void fm_sync(void *app){TNNavSlot *s=slot(app);if(!s)return;FMControl *c=s->quad;bool inside=detail(app);void *dots=ptr(app,0x60);
++void fm_sync(void *app){TNNavSlot *s=slot(app);if(!s)return;FMControl *c=s->quad;bool inside=detail(app);void *dots=ptr(app,0x6c);
+  if(dots)m8_native_api.hidden(dots,inside||(c&&c->view.root&&!c->closing));
+  if(c&&c->view.root&&!c->closing)hide_legacy(app);
+  if(!c||c->closing||!c->view.root)return;
+@@ -65,7 +65,7 @@
+  if(!show){c->view.api.visible(c->view.api.ctx,c->view.root,false);c->selection=-1;fm_view_suspend(&c->view);return;}
+  if(!focus_screen_on())return; /* Never repaint or wake a sleeping panel. */
+  if(c->view.rows!=c->desired_rows){if(!fm_view_rows(&c->view,c->desired_rows))return;c->selection=-1;}
+- int index=(int)*(uint32_t *)((uint8_t *)app+0x88);if(index<0||index>=17)return;uint32_t now=stream_tick();
++ int index=(int)*(uint32_t *)((uint8_t *)app+0x98);if(index<0||index>=18)return;uint32_t now=stream_tick();
+  if(index==c->selection&&(uint32_t)(now-c->refreshed)<1000){(void)fm_view_step(&c->view,now);return;}
+  void *mon=nav_monitors(),*sys=mon?fm_system(mon):NULL,*battery=mon?fm_battery_monitor(mon):NULL;
+  int64_t local=sys?fm_local_time(sys):0;int level=battery?fm_battery_level(battery):-1;
+diff --git a/focus-v1/focus_service.c b/focus-v1/focus_service.c
+--- a/focus-v1/focus_service.c
++++ b/focus-v1/focus_service.c
+@@ -32,7 +32,7 @@
+ extern const M8RenderAPI m8_native_api;
+ static void tick(void *);
+ static void *ptr(void *p,unsigned o){return p?*(void **)((uint8_t *)p+o):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *navslot(void *a){return a?((M8NativeTail *)((uint8_t *)a+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+ static bool home(void){static const char name[]="com.rayneo.liteos.launcher";const char *s=nav_top_app();if(!s)return false;for(unsigned i=0;i<sizeof name;i++)if(s[i]!=name[i])return false;void *m=nav_monitors(),*i=m?nav_input(m):NULL;return i&&!nav_folded(i)&&dots_business_idle();}
+diff --git a/image-upload-test/render_idle.c b/image-upload-test/render_idle.c
+--- a/image-upload-test/render_idle.c
++++ b/image-upload-test/render_idle.c
+@@ -4,11 +4,11 @@
+ }
+ bool tio_render_graph_idle(TIOReadWord read,TIONextDisplay next){
+  uint32_t unit=0;unsigned count=0;
+- if(!read||!next||!read(0x184ec384+0x124,&unit)||!unit)return false;
++ if(!read||!next||!read(0x1850ce1c+0x124,&unit)||!unit)return false;
+  while(unit){
+   uint32_t dispatch=0,active=0,n=0;
+   if(++count>8||!ram(unit,32)||!read(unit+12,&dispatch)||
+-     (dispatch!=0x10440cf1&&dispatch!=0x1054c447)||
++     (dispatch!=0x10462225&&dispatch!=0x105700ef)||
+      !read(unit+24,&active)||active||!read(unit,&n))return false;
+   unit=n;
+  }
+diff --git a/image-upload-test/render_idle_test.c b/image-upload-test/render_idle_test.c
+--- a/image-upload-test/render_idle_test.c
++++ b/image-upload-test/render_idle_test.c
+@@ -1,17 +1,17 @@
+ #include "render_idle.h"
+ #include <assert.h>
+ #include <stdio.h>
+-static uint32_t gpu=0,sw=0,task=0,gpu_dispatch=0x10440cf1;
++static uint32_t gpu=0,sw=0,task=0,gpu_dispatch=0x10462225;
+ static bool cycle_unit,cycle_layer,cycle_display,fail_read;
+ static bool read(uint32_t p,uint32_t *v){
+  if(fail_read)return false;
+  switch(p){
+- case 0x184ec4a8:*v=0x19000000;return true;
++ case 0x1850cf40:*v=0x19000000;return true;
+  case 0x19000000:*v=0x19000100;return true;
+  case 0x1900000c:*v=gpu_dispatch;return true;
+  case 0x19000018:*v=gpu;return true;
+  case 0x19000100:*v=cycle_unit?0x19000000:0;return true;
+- case 0x1900010c:*v=0x1054c447;return true;
++ case 0x1900010c:*v=0x105700ef;return true;
+  case 0x19000118:*v=sw;return true;
+  case 0x191002a0:*v=0x19200000;return true;
+  case 0x19200038:*v=task;return true;
+@@ -25,7 +25,7 @@
+  gpu=1;assert(!tio_render_graph_idle(read,next));gpu=0;
+  sw=1;assert(!tio_render_graph_idle(read,next));sw=0;
+  task=1;assert(!tio_render_graph_idle(read,next));task=0;
+- gpu_dispatch=123;assert(!tio_render_graph_idle(read,next));gpu_dispatch=0x10440cf1;
++ gpu_dispatch=123;assert(!tio_render_graph_idle(read,next));gpu_dispatch=0x10462225;
+  cycle_unit=true;assert(!tio_render_graph_idle(read,next));cycle_unit=false;
+  cycle_layer=true;assert(!tio_render_graph_idle(read,next));cycle_layer=false;
+  cycle_display=true;assert(!tio_render_graph_idle(read,next));cycle_display=false;
+diff --git a/menu8-native-carousel.c b/menu8-native-carousel.c
+--- a/menu8-native-carousel.c
++++ b/menu8-native-carousel.c
+@@ -1,8 +1,4 @@
+-/* 1.0.4.12 ONLY. Experimental native eight-index carousel, not a proven OTA.
+- * This replaces the virtual eighth overlay. Native wheel spring, direction,
+- * snap, hide/show and seven stock launch targets are retained. All functions
+- * run on the existing Launcher/LVGL executor. No new timers or global RAM.
+- */
++/* Native carousel preserving eight stock targets and adding one custom target. */
+ #include "menu8-native-carousel.h"
+ #include "menu8-renderer.h"
+ #if TIO_DISPLAY_RUNTIME
+@@ -49,7 +45,7 @@
+ static void trace(unsigned e,unsigned r){native_log(1,0,0,0,"[TurboMenu8] event=%u result=%u",e,r);}
+ static bool eligible(void *app){
+   void *root=ptr(app,4);
+-  return root && ptr(app,8) && byte(app,0x94) && !byte(app,0xd0) &&
++  return root && ptr(app,8) && byte(app,0xa4) && !byte(app,0xd0) &&
+     !native_has_flag(root,1) && !native_wake_overlay();
+ }
+ static void hidden(void *obj,bool hide){if(obj)m8_native_api.hidden(obj,hide);}
+@@ -70,10 +66,10 @@
+ }
+ /* Assembler entry shims preserve r1-r3: stock callers use whole-unit register
+  * knowledge beyond ordinary AAPCS (snap keeps a frame in r2 across this call). */
+-int m8_impl_frame_start(int index){return 15+30*clamp(index,0,7);}
+-int m8_impl_frame_index(int frame){return clamp(frame,0,239)/30;}
++int m8_impl_frame_start(int index){return 15+30*clamp(index,0,8);}
++int m8_impl_frame_index(int frame){return clamp(frame,0,269)/30;}
+ const char *m8_hook_app_id(int index){
+-  return index==7?"TurboImageRX":stock_app_id(index);
++  return index==8?"TurboImageRX":stock_app_id(index);
+ }
+ void m8_hook_names(void *app){
+   stock_names(app);M8NativeTail *t=tail(app);
+@@ -90,15 +86,15 @@
+   t->row=row;t->label=label;trace(30,8);
+ }
+ void m8_hook_refresh_label(void *app,int index){
+-  if(index==7){if(tail(app)->label)native_label_text(tail(app)->label,"Turbo Image RX");return;}
+-  if(index>=0 && index<7)stock_refresh_label(app,index);
++  if(index==8){if(tail(app)->label)native_label_text(tail(app)->label,"Turbo Image RX");return;}
++  if(index>=0 && index<8)stock_refresh_label(app,index);
+ }
+ void m8_hook_delete_dots(void *app){
+-  /* Stock deletes the common parent, including our eighth child. */
++  /* Stock deletes the common parent, including our ninth child. */
+   tail(app)->dot=NULL;stock_delete_dots(app);
+ }
+ void m8_hook_dots(void *app){
+-  stock_dots(app);M8NativeTail *t=tail(app);void *parent=ptr(app,0x60);
++  stock_dots(app);M8NativeTail *t=tail(app);void *parent=ptr(app,0x6c);
+   if(!parent || t->dot)return;
+   t->dot=block(parent,4,4,0,0);
+   if(!t->dot){t->errors|=2;return;}
+@@ -124,23 +120,23 @@
+   t->icon=icon;
+ }
+ void m8_hook_label_frame(void *app,int frame){
+-  frame=clamp(frame,0,239);
+-  for(unsigned i=0;i<8;i++){
+-    void *row=i==7?tail(app)->row:ptr(app,0xc+4*i);
++  frame=clamp(frame,0,269);
++  for(unsigned i=0;i<9;i++){
++    void *row=i==8?tail(app)->row:ptr(app,0xc+4*i);
+     if(!row)continue;
+     int d=frame-m8_hook_frame_start((int)i),distance=d<0?-d:d;
+     if(distance>=30){hidden(row,true);continue;}
+     hidden(row,false);menu_opa(row,(uint8_t)(255*(30-distance)/30),0);
+     menu_translate(row,-55*d/30,0);
+   }
+-  *word(app,0x8c)=(uint32_t)m8_hook_frame_index(frame);
++  *word(app,0x9c)=(uint32_t)m8_hook_frame_index(frame);
+ }
+ void m8_hook_label_index(void *app,int index){m8_hook_label_frame(app,m8_hook_frame_start(index));}
+ void m8_hook_indicator(void *app,int frame,int previous){
+-  (void)previous;if(!ptr(app,0x60))return;
+-  frame=clamp(frame,15,225);
+-  for(unsigned i=0;i<8;i++){
+-    void *dot=i==7?tail(app)->dot:ptr(app,0x64+4*i);if(!dot)continue;
++  (void)previous;if(!ptr(app,0x6c))return;
++  frame=clamp(frame,15,255);
++  for(unsigned i=0;i<9;i++){
++    void *dot=i==8?tail(app)->dot:ptr(app,0x70+4*i);if(!dot)continue;
+     int d=frame-m8_hook_frame_start((int)i);if(d<0)d=-d;
+     int weight=30-clamp(d,0,30);
+     tio_lv_obj_set_size(dot,4+(8*weight+15)/30,4);
+@@ -148,14 +144,14 @@
+   }
+ }
+ bool m8_hook_frame(void *app,int frame){
+-  void *lottie=ptr(app,8);if(!lottie || frame<0 || frame>239)return false;
+-  int previous=(int)*word(app,0x90);
++  void *lottie=ptr(app,8);if(!lottie || frame<0 || frame>269)return false;
++  int previous=(int)*word(app,0xa0);
+   if(previous==frame)return false;
+-  *word(app,0x90)=(uint32_t)frame;
+-  /* Native resource contains only seven icons. Never feed it an eighth frame
++  *word(app,0xa0)=(uint32_t)frame;
++  /* Native resource contains eight icons. Never feed it a ninth frame
+    * segment: cross-fade its final stable frame with our LVGL glyph. */
+-  int mix=clamp(frame-195,0,30);
+-  menu_lottie_frame(lottie,frame<=195?frame:195);
++  int mix=clamp(frame-225,0,30);
++  menu_lottie_frame(lottie,frame<=225?frame:225);
+   menu_opa(lottie,(uint8_t)(255*(30-mix)/30),0);
+   void *icon=tail(app)->icon;
+   if(icon){hidden(icon,mix==0);menu_opa(icon,(uint8_t)(255*mix/30),0);menu_translate(icon,55*(30-mix)/30,0);}
+@@ -166,7 +162,7 @@
+   for(unsigned i=0;i<sizeof *t;i++)((volatile uint8_t *)t)[i]=0;
+   return app;
+ }
+-void m8_hook_show(void *app){retire(app);stock_show(app);m8_hook_label_index(app,(int)*word(app,0x88));}
++void m8_hook_show(void *app){retire(app);stock_show(app);m8_hook_label_index(app,(int)*word(app,0x98));}
+ void m8_hook_hide(void *app){native_unregister_wheel(app);retire(app);stock_hide(app);}
+ void m8_hook_destroy(void *app){
+   native_unregister_wheel(app);retire(app);
+@@ -181,13 +177,13 @@
+ bool m8_hook_event(void *app,void *event){
+   if(native_event_code(event)!=0xe || native_event_key(event)!=0x3a)return stock_event(app,event);
+   if(tail(app)->page)return true;
+-  /* Preserve native seven-item eligibility and keyboard behavior exactly. */
+-  if(*word(app,0x88)<7)return stock_event(app,event);
++  /* Preserve native eight-item eligibility and keyboard behavior exactly. */
++  if(*word(app,0x98)<8)return stock_event(app,event);
+   if(!eligible(app))return false;
+   native_snap(app); /* Same stock snap BEFORE deciding which item to launch. */
+-  unsigned index=*word(app,0x88);
+-  if(index<7)return stock_event(app,event);
+-  if(index!=7){trace(39,index);return true;}
++  unsigned index=*word(app,0x98);
++  if(index<8)return stock_event(app,event);
++  if(index!=8){trace(39,index);return true;}
+   M8NativeTail *t=tail(app);uint32_t sid=stream_tick();
+   if(sid<=t->last_session)sid=t->last_session+1u;
+   if(!sid){trace(38,0);return true;}
+diff --git a/menu8-native-carousel.h b/menu8-native-carousel.h
+--- a/menu8-native-carousel.h
++++ b/menu8-native-carousel.h
+@@ -9,16 +9,14 @@
+ #else
+ typedef TIONativePage M8Page;
+ #endif
+-/* Never append an element to the stock seven-element arrays. The eighth row,
+- * label, dot and icon have explicit storage in the enlarged owner's tail.
+- * Native selectedIndex at +0x88 is genuinely 0..7 in this profile. */
++/* The custom row, label, dot and icon are stored in the enlarged owner tail. */
+ typedef struct {
+   void *row, *label, *icon, *dot;
+   M8Page *page;
+   uint32_t last_session, errors, reserved;
+ } M8NativeTail;
+ #if UINTPTR_MAX == 0xffffffff
+-_Static_assert(sizeof(M8NativeTail)==32,"Expanded owner remains 252 bytes");
++_Static_assert(sizeof(M8NativeTail)==32,"Native tail size");
+ #endif
+ int m8_hook_frame_start(int index);
+ int m8_hook_frame_index(int frame);
+diff --git a/music-runtime-v1/menu10.c b/music-runtime-v1/menu10.c
+--- a/music-runtime-v1/menu10.c
++++ b/music-runtime-v1/menu10.c
+@@ -3,11 +3,7 @@
+ #include "../context-english-v1/english_native.h"
+ #include "../app-runtime-v1/app_service.h"
+ #include "../didi-v1/ride_service.h"
+-/* 1.0.4.12 ONLY. Experimental native eight-index carousel, not a proven OTA.
+- * This replaces the virtual eighth overlay. Native wheel spring, direction,
+- * snap, hide/show and seven stock launch targets are retained. All functions
+- * run on the existing Launcher/LVGL executor. No new timers or global RAM.
+- */
++/* Eighteen-item launcher retaining eight stock and ten custom targets. */
+ #include "../navigation-runtime-v1/menu9.h"
+ #include "../menu8-renderer.h"
+ #include "music_service.h"
+@@ -68,7 +64,7 @@
+ static void trace(unsigned e,unsigned r){native_log(1,0,0,0,"[TurboMenu8] event=%u result=%u",e,r);}
+ static bool eligible(void *app){
+   void *root=ptr(app,4);
+-  return root && ptr(app,8) && byte(app,0x94) && !byte(app,TIO_MENU_EXTERNAL_ACTION_OFFSET) &&
++  return root && ptr(app,8) && byte(app,0xa4) && !byte(app,TIO_MENU_EXTERNAL_ACTION_OFFSET) &&
+     !native_has_flag(root,1) && !native_wake_overlay();
+ }
+ static void hidden(void *obj,bool hide){if(obj)m8_native_api.hidden(obj,hide);}
+@@ -89,14 +85,14 @@
+ }
+ /* Assembler entry shims preserve r1-r3: stock callers use whole-unit register
+  * knowledge beyond ordinary AAPCS (snap keeps a frame in r2 across this call). */
+-int m8_impl_frame_start(int index){return 15+30*clamp(index,0,16);}
+-int m8_impl_frame_index(int frame){return clamp(frame,0,509)/30;}
++int m8_impl_frame_start(int index){return 15+30*clamp(index,0,17);}
++int m8_impl_frame_index(int frame){return clamp(frame,0,539)/30;}
+ void m8_hook_render_slide(void *app){
+- float value=*(float *)((uint8_t *)app+TIO_MENU_SCROLL_POSITION_OFFSET);if(!(value>=-1.0f))value=-1.0f;if(value>17.0f)value=17.0f;
+- int frame=(int)(value*30.0f+15.5f);(void)m8_hook_frame(app,clamp(frame,0,509));
++ float value=*(float *)((uint8_t *)app+TIO_MENU_SCROLL_POSITION_OFFSET);if(!(value>=-1.0f))value=-1.0f;if(value>18.0f)value=18.0f;
++ int frame=(int)(value*30.0f+15.5f);(void)m8_hook_frame(app,clamp(frame,0,539));
+ }
+ const char *m8_hook_app_id(int index){
+-  return index==16?"TurboCamera":index==15?"TurboDots":index==14?"TurboEnglish":index==13?"TurboApps":index==12?"TurboRide":index==11?"TurboFocus":index==10?"TurboWeRead":index==9?"TurboMusic":index==8?"TurboNavigation":index==7?"TurboDisplay":stock_app_id(index);
++  return index==17?"TurboCamera":index==16?"TurboDots":index==15?"TurboEnglish":index==14?"TurboApps":index==13?"TurboRide":index==12?"TurboFocus":index==11?"TurboWeRead":index==10?"TurboMusic":index==9?"TurboNavigation":index==8?"TurboDisplay":stock_app_id(index);
+ }
+ void m8_hook_names(void *app){
+   {TCSlot *e=camera_slot(app);if(e&&!e->row&&ptr(app,4)){e->row=tio_lv_obj_create_ex(ptr(app,4),0);if(e->row){clean_style(e->row);tio_lv_obj_set_size(e->row,260,26);native_align(e->row,5,0,-60);hidden(e->row,true);e->label=native_label_create(e->row);if(e->label){clean_style(e->label);native_label_text(e->label,"遥控拍照");void *f=menu_font(20,0);if(f)menu_text_font(e->label,f,0);native_text_color(e->label,0x00ff00,0);menu_text_align(e->label,2,0);tio_lv_obj_set_size(e->label,260,26);native_align(e->label,9,0,0);}}}}
+@@ -142,17 +138,17 @@
+   DRSlot *d=ride(app);if(!d)return;d->row=tio_lv_obj_create_ex(ptr(app,4),0);if(!d->row)return;clean_style(d->row);tio_lv_obj_set_size(d->row,260,26);native_align(d->row,5,0,-60);hidden(d->row,true);d->label=native_label_create(d->row);if(d->label){clean_style(d->label);native_label_text(d->label,"滴滴出行");if(font)menu_text_font(d->label,font,0);native_text_color(d->label,0x00ff00,0);menu_text_align(d->label,2,0);tio_lv_obj_set_size(d->label,260,26);native_align(d->label,9,0,0);}
+ }
+ void m8_hook_refresh_label(void *app,int index){
+-  if(index==16){if(camera_slot(app)&&camera_slot(app)->label)native_label_text(camera_slot(app)->label,"遥控拍照");return;}
+-  if(index==15){if(dots_menu_slot(app)&&dots_menu_slot(app)->label)native_label_text(dots_menu_slot(app)->label,"Dots");return;}
+-  if(index==14){if(ce_menu_slot(app)&&ce_menu_slot(app)->label)native_label_text(ce_menu_slot(app)->label,"情境英语");return;}
+-  if(index==13){if(apps(app)&&apps(app)->label)native_label_text(apps(app)->label,"我的应用");return;}
+-  if(index==12){if(ride(app)&&ride(app)->label)native_label_text(ride(app)->label,"滴滴出行");return;}
+-  if(index==11){if(focus(app)&&focus(app)->label)native_label_text(focus(app)->label,"番茄时钟");return;}
+-  if(index==10){if(reader(app)&&reader(app)->label)native_label_text(reader(app)->label,"微信读书");return;}
+-  if(index==9){if(music(app)&&music(app)->label)native_label_text(music(app)->label,"网易云音乐");return;}
+-  if(index==8){if(slot(app)&&slot(app)->label)native_label_text(slot(app)->label,"导航");return;}
+-  if(index==7){if(tail(app)->label)native_label_text(tail(app)->label,"Turbo Display");return;}
+-  if(index>=0 && index<7)stock_refresh_label(app,index);
++  if(index==17){if(camera_slot(app)&&camera_slot(app)->label)native_label_text(camera_slot(app)->label,"遥控拍照");return;}
++  if(index==16){if(dots_menu_slot(app)&&dots_menu_slot(app)->label)native_label_text(dots_menu_slot(app)->label,"Dots");return;}
++  if(index==15){if(ce_menu_slot(app)&&ce_menu_slot(app)->label)native_label_text(ce_menu_slot(app)->label,"情境英语");return;}
++  if(index==14){if(apps(app)&&apps(app)->label)native_label_text(apps(app)->label,"我的应用");return;}
++  if(index==13){if(ride(app)&&ride(app)->label)native_label_text(ride(app)->label,"滴滴出行");return;}
++  if(index==12){if(focus(app)&&focus(app)->label)native_label_text(focus(app)->label,"番茄时钟");return;}
++  if(index==11){if(reader(app)&&reader(app)->label)native_label_text(reader(app)->label,"微信读书");return;}
++  if(index==10){if(music(app)&&music(app)->label)native_label_text(music(app)->label,"网易云音乐");return;}
++  if(index==9){if(slot(app)&&slot(app)->label)native_label_text(slot(app)->label,"导航");return;}
++  if(index==8){if(tail(app)->label)native_label_text(tail(app)->label,"Turbo Display");return;}
++  if(index>=0 && index<8)stock_refresh_label(app,index);
+ }
+ void m8_hook_delete_dots(void *app){
+   /* Stock deletes the common parent, including our eighth child. */
+@@ -160,7 +156,7 @@
+   tail(app)->dot=NULL;if(slot(app))slot(app)->dot=NULL;if(music(app))music(app)->dot=NULL;if(reader(app))reader(app)->dot=NULL;if(focus(app))focus(app)->dot=NULL;if(ride(app))ride(app)->dot=NULL;if(apps(app))apps(app)->dot=NULL;if(ce_menu_slot(app))ce_menu_slot(app)->dot=NULL;if(dots_menu_slot(app))dots_menu_slot(app)->dot=NULL;stock_delete_dots(app);
+ }
+ void m8_hook_dots(void *app){
+-  stock_dots(app);M8NativeTail *t=tail(app);void *parent=ptr(app,0x60);
++  stock_dots(app);M8NativeTail *t=tail(app);void *parent=ptr(app,0x6c);
+   if(!parent || t->dot)return;
+   t->dot=block(parent,4,4,0,0);
+   if(!t->dot){t->errors|=2;return;}
+@@ -217,23 +213,23 @@
+   for(unsigned i=0;i<sizeof tomato/sizeof *tomato;i++)if(!block(f->icon,tomato[i][0],tomato[i][1],tomato[i][2],tomato[i][3])){tio_lv_obj_delete(f->icon);f->icon=NULL;break;}
+ }
+ void m8_hook_label_frame(void *app,int frame){
+-  frame=clamp(frame,0,509);
+-  for(unsigned i=0;i<17;i++){
+-    void *row=i==16?(camera_slot(app)?camera_slot(app)->row:NULL):i==15?(dots_menu_slot(app)?dots_menu_slot(app)->row:NULL):i==14?(ce_menu_slot(app)?ce_menu_slot(app)->row:NULL):i==13?(apps(app)?apps(app)->row:NULL):i==12?(ride(app)?ride(app)->row:NULL):i==11?(focus(app)?focus(app)->row:NULL):i==10?(reader(app)?reader(app)->row:NULL):i==9?(music(app)?music(app)->row:NULL):i==8?(slot(app)?slot(app)->row:NULL):i==7?tail(app)->row:ptr(app,0xc+4*i);
++  frame=clamp(frame,0,539);
++  for(unsigned i=0;i<18;i++){
++    void *row=i==17?(camera_slot(app)?camera_slot(app)->row:NULL):i==16?(dots_menu_slot(app)?dots_menu_slot(app)->row:NULL):i==15?(ce_menu_slot(app)?ce_menu_slot(app)->row:NULL):i==14?(apps(app)?apps(app)->row:NULL):i==13?(ride(app)?ride(app)->row:NULL):i==12?(focus(app)?focus(app)->row:NULL):i==11?(reader(app)?reader(app)->row:NULL):i==10?(music(app)?music(app)->row:NULL):i==9?(slot(app)?slot(app)->row:NULL):i==8?tail(app)->row:ptr(app,0xc+4*i);
+     if(!row)continue;
+     int d=frame-m8_hook_frame_start((int)i),distance=d<0?-d:d;
+     if(distance>=30){hidden(row,true);continue;}
+     hidden(row,false);menu_opa(row,(uint8_t)(255*(30-distance)/30),0);
+     menu_translate(row,-55*d/30,0);
+   }
+-  *word(app,0x8c)=(uint32_t)m8_hook_frame_index(frame);fm_sync(app);
++  *word(app,0x9c)=(uint32_t)m8_hook_frame_index(frame);fm_sync(app);
+ }
+ void m8_hook_label_index(void *app,int index){m8_hook_label_frame(app,m8_hook_frame_start(index));}
+ void m8_hook_indicator(void *app,int frame,int previous){
+-  (void)previous;if(!ptr(app,0x60))return;
+-  frame=clamp(frame,15,495);
+-  for(unsigned i=0;i<17;i++){
+-    void *dot=i==16?(camera_slot(app)?camera_slot(app)->dot:NULL):i==15?(dots_menu_slot(app)?dots_menu_slot(app)->dot:NULL):i==14?(ce_menu_slot(app)?ce_menu_slot(app)->dot:NULL):i==13?(apps(app)?apps(app)->dot:NULL):i==12?(ride(app)?ride(app)->dot:NULL):i==11?(focus(app)?focus(app)->dot:NULL):i==10?(reader(app)?reader(app)->dot:NULL):i==9?(music(app)?music(app)->dot:NULL):i==8?(slot(app)?slot(app)->dot:NULL):i==7?tail(app)->dot:ptr(app,0x64+4*i);if(!dot)continue;
++  (void)previous;if(!ptr(app,0x6c))return;
++  frame=clamp(frame,15,525);
++  for(unsigned i=0;i<18;i++){
++    void *dot=i==17?(camera_slot(app)?camera_slot(app)->dot:NULL):i==16?(dots_menu_slot(app)?dots_menu_slot(app)->dot:NULL):i==15?(ce_menu_slot(app)?ce_menu_slot(app)->dot:NULL):i==14?(apps(app)?apps(app)->dot:NULL):i==13?(ride(app)?ride(app)->dot:NULL):i==12?(focus(app)?focus(app)->dot:NULL):i==11?(reader(app)?reader(app)->dot:NULL):i==10?(music(app)?music(app)->dot:NULL):i==9?(slot(app)?slot(app)->dot:NULL):i==8?tail(app)->dot:ptr(app,0x70+4*i);if(!dot)continue;
+     int d=frame-m8_hook_frame_start((int)i);if(d<0)d=-d;
+     int weight=30-clamp(d,0,30);
+     tio_lv_obj_set_size(dot,4+(8*weight+15)/30,4);
+@@ -241,27 +237,27 @@
+   }
+ }
+ bool m8_hook_frame(void *app,int frame){
+-  void *lottie=ptr(app,8);if(!lottie || frame<0 || frame>509)return false;
+-  int previous=(int)*word(app,0x90);
++  void *lottie=ptr(app,8);if(!lottie || frame<0 || frame>539)return false;
++  int previous=(int)*word(app,0xa0);
+   if(previous==frame)return false;
+-  *word(app,0x90)=(uint32_t)frame;
+-  /* Native resource contains only seven icons. Never feed it an eighth frame
++  *word(app,0xa0)=(uint32_t)frame;
++  /* Native resource contains eight icons. Never feed it a ninth frame
+    * segment: cross-fade its final stable frame with our LVGL glyph. */
+-  int mix=clamp(frame-195,0,30);
+-  menu_lottie_frame(lottie,frame<=195?frame:195);
++  int mix=clamp(frame-225,0,30);
++  menu_lottie_frame(lottie,frame<=225?frame:225);
+   menu_opa(lottie,(uint8_t)(255*(30-mix)/30),0);
+   void *icon=tail(app)->icon;
+-  int navmix=clamp(frame-225,0,30),picture=mix-navmix;
++  int navmix=clamp(frame-255,0,30),picture=mix-navmix;
+   if(icon){hidden(icon,picture==0);menu_opa(icon,(uint8_t)(255*picture/30),0);menu_translate(icon,55*(30-mix)/30,0);}
+   void *nav=slot(app)?slot(app)->icon:NULL;
+-  int musicmix=clamp(frame-255,0,30),navweight=navmix-musicmix;
++  int musicmix=clamp(frame-285,0,30),navweight=navmix-musicmix;
+   if(nav){hidden(nav,navweight==0);menu_opa(nav,(uint8_t)(255*navweight/30),0);menu_translate(nav,55*(30-navmix)/30,0);}
+   void *note=music(app)?music(app)->icon:NULL;
+-  int readmix=clamp(frame-285,0,30),noteweight=musicmix-readmix;
++  int readmix=clamp(frame-315,0,30),noteweight=musicmix-readmix;
+   if(note){hidden(note,noteweight==0);menu_opa(note,(uint8_t)(255*noteweight/30),0);menu_translate(note,55*(30-musicmix)/30,0);}
+-  int focusmix=clamp(frame-315,0,30),bookweight=readmix-focusmix;
++  int focusmix=clamp(frame-345,0,30),bookweight=readmix-focusmix;
+   void *book=reader(app)?reader(app)->icon:NULL;if(book){hidden(book,bookweight==0);menu_opa(book,(uint8_t)(255*bookweight/30),0);menu_translate(book,55*(30-readmix)/30,0);}
+-  int ridemix=clamp(frame-345,0,30),appmix=clamp(frame-375,0,30);int cameramix=clamp(frame-465,0,30);void *camera_icon=camera_slot(app)?camera_slot(app)->icon:NULL;if(camera_icon){hidden(camera_icon,cameramix==0);menu_opa(camera_icon,(uint8_t)(255*cameramix/30),0);menu_translate(camera_icon,55*(30-cameramix)/30,0);}int dotsmix=clamp(frame-435,0,30);void *bubble=dots_menu_slot(app)?dots_menu_slot(app)->icon:NULL;if(bubble){hidden(bubble,dotsmix-cameramix==0);menu_opa(bubble,(uint8_t)(255*(dotsmix-cameramix)/30),0);menu_translate(bubble,55*(30-dotsmix)/30,0);}int englishmix=clamp(frame-405,0,30);void *english=ce_menu_slot(app)?ce_menu_slot(app)->icon:NULL;if(english){hidden(english,englishmix-dotsmix==0);menu_opa(english,(uint8_t)(255*(englishmix-dotsmix)/30),0);menu_translate(english,55*(30-englishmix)/30,0);}void *grid=apps(app)?apps(app)->icon:NULL;if(grid){hidden(grid,appmix-englishmix==0);menu_opa(grid,(uint8_t)(255*(appmix-englishmix)/30),0);menu_translate(grid,55*(30-appmix)/30,0);}void *car=ride(app)?ride(app)->icon:NULL;if(car){hidden(car,ridemix-appmix==0);menu_opa(car,(uint8_t)(255*(ridemix-appmix)/30),0);menu_translate(car,55*(30-ridemix)/30,0);}
++  int ridemix=clamp(frame-375,0,30),appmix=clamp(frame-405,0,30);int cameramix=clamp(frame-495,0,30);void *camera_icon=camera_slot(app)?camera_slot(app)->icon:NULL;if(camera_icon){hidden(camera_icon,cameramix==0);menu_opa(camera_icon,(uint8_t)(255*cameramix/30),0);menu_translate(camera_icon,55*(30-cameramix)/30,0);}int dotsmix=clamp(frame-465,0,30);void *bubble=dots_menu_slot(app)?dots_menu_slot(app)->icon:NULL;if(bubble){hidden(bubble,dotsmix-cameramix==0);menu_opa(bubble,(uint8_t)(255*(dotsmix-cameramix)/30),0);menu_translate(bubble,55*(30-dotsmix)/30,0);}int englishmix=clamp(frame-435,0,30);void *english=ce_menu_slot(app)?ce_menu_slot(app)->icon:NULL;if(english){hidden(english,englishmix-dotsmix==0);menu_opa(english,(uint8_t)(255*(englishmix-dotsmix)/30),0);menu_translate(english,55*(30-englishmix)/30,0);}void *grid=apps(app)?apps(app)->icon:NULL;if(grid){hidden(grid,appmix-englishmix==0);menu_opa(grid,(uint8_t)(255*(appmix-englishmix)/30),0);menu_translate(grid,55*(30-appmix)/30,0);}void *car=ride(app)?ride(app)->icon:NULL;if(car){hidden(car,ridemix-appmix==0);menu_opa(car,(uint8_t)(255*(ridemix-appmix)/30),0);menu_translate(car,55*(30-ridemix)/30,0);}
+   void *tomato=focus(app)?focus(app)->icon:NULL;if(tomato){hidden(tomato,focusmix-ridemix==0);menu_opa(tomato,(uint8_t)(255*(focusmix-ridemix)/30),0);menu_translate(tomato,55*(30-focusmix)/30,0);}
+   m8_hook_indicator(app,frame,previous);fm_sync(app);return true;
+ }
+@@ -272,7 +268,7 @@
+   if(slot(app)){slot(app)->music=tm_slot_create(app);slot(app)->reader=wr_slot_create(app);slot(app)->focus=tf_slot_create(app);slot(app)->ride=dr_slot_create(app);slot(app)->apps=tap_menu_create(app);slot(app)->english=ce_slot_create(app);slot(app)->dots=dots_slot_create(app);slot(app)->camera=tc_slot_create(app);}
+   return app;
+ }
+-void m8_hook_show(void *app){retire(app);stock_show(app);m8_hook_label_index(app,(int)*word(app,0x88));fm_show(app);}
++void m8_hook_show(void *app){retire(app);stock_show(app);m8_hook_label_index(app,(int)*word(app,0x98));fm_show(app);}
+ void m8_hook_hide(void *app){tc_slot_hidden(camera_slot(app));dots_slot_hidden(dots_menu_slot(app));ce_slot_hidden(ce_menu_slot(app));tap_service_hidden(app);fm_hide(app);native_unregister_wheel(app);retire(app);dr_slot_hidden(ride(app));tf_slot_hidden(focus(app));wr_slot_hidden(reader(app));tm_slot_hidden(music(app));tn_slot_hidden(slot(app));stock_hide(app);}
+ void m8_hook_destroy(void *app){tc_slot_destroy(camera_slot(app));if(slot(app))slot(app)->camera=NULL;dots_slot_destroy(dots_menu_slot(app));if(slot(app))slot(app)->dots=NULL;ce_slot_destroy(ce_menu_slot(app));if(slot(app))slot(app)->english=NULL;fm_destroy(app);
+   native_unregister_wheel(app);retire(app);
+@@ -306,29 +302,29 @@
+   if(dots_native_visible(app)||ce_native_visible(app)||tap_service_visible(app)||tail(app)->page)return true;
+   if(dr_slot_visible(ride(app))||tn_slot_visible(slot(app))||tf_slot_visible(focus(app)))return true;
+   if(tm_slot_visible(music(app))||wr_slot_visible(reader(app)))return true;
+-  /* Preserve native seven-item eligibility and keyboard behavior exactly. */
+-  if(*word(app,0x88)<7)return stock_event(app,event);
++  /* Preserve native eight-item eligibility and keyboard behavior exactly. */
++  if(*word(app,0x98)<8)return stock_event(app,event);
+   if(!eligible(app))return false;
+   native_snap(app); /* Same stock snap BEFORE deciding which item to launch. */
+-  unsigned index=*word(app,0x88);
+-  if(index<7)return stock_event(app,event);
+-  if(index==16){trace(120,tc_slot_open(camera_slot(app)));return true;}
+-  if(index==15){trace(110,dots_slot_open(dots_menu_slot(app)));return true;}
+-  if(index==14){trace(100,ce_slot_open(ce_menu_slot(app)));return true;}
+-  if(index==13){trace(90,tap_service_open(app));return true;}
+-  if(index==12){trace(80,dr_slot_open(ride(app)));return true;}
+-  if(index==11){trace(70,tf_slot_open(focus(app)));return true;}
+-  if(index==10){trace(60,wr_slot_open(reader(app)));return true;}
+-  if(index==9){trace(50,tm_slot_open(music(app)));return true;}
+-  if(index==8){trace(40,tn_slot_open(slot(app)));return true;}
+-  if(index!=7){trace(39,index);return true;}
++  unsigned index=*word(app,0x98);
++  if(index<8)return stock_event(app,event);
++  if(index==17){trace(120,tc_slot_open(camera_slot(app)));return true;}
++  if(index==16){trace(110,dots_slot_open(dots_menu_slot(app)));return true;}
++  if(index==15){trace(100,ce_slot_open(ce_menu_slot(app)));return true;}
++  if(index==14){trace(90,tap_service_open(app));return true;}
++  if(index==13){trace(80,dr_slot_open(ride(app)));return true;}
++  if(index==12){trace(70,tf_slot_open(focus(app)));return true;}
++  if(index==11){trace(60,wr_slot_open(reader(app)));return true;}
++  if(index==10){trace(50,tm_slot_open(music(app)));return true;}
++  if(index==9){trace(40,tn_slot_open(slot(app)));return true;}
++  if(index!=8){trace(39,index);return true;}
+   M8NativeTail *t=tail(app);uint32_t sid=stream_tick();
+   if(sid<=t->last_session)sid=t->last_session+1u;
+   if(!sid){trace(38,0);return true;}
+   t->last_session=sid;
+   bool ok=m8_page_open(ptr(app,4),sid,&t->page)!=NULL;
+   native_report_activity();trace(31,ok);
+-  return true; /* Failure NEVER launches item 6 (Do Not Disturb). */
++  return true; /* Failure consumes the custom action without launching a stock item. */
+ }
+ void tio_hook_file(const TIONativeFile *file){
+   if(dots_native_file(file,stream_queue_send)!=TIO_FOREIGN)return;
+@@ -365,8 +361,8 @@
+ #else
+   if(!tio_native_message_is_ours(message)){stock_message(handler,message);return;}
+ #endif
+-  void *launcher=*(void **)(uintptr_t)0x19989694;
+-  void *manager=launcher?ptr(launcher,0x3c):NULL;
++  void *launcher=*(void **)(uintptr_t)0x199595d4;
++  void *manager=launcher?ptr(launcher,0x15c):NULL;
+   void *app=manager?ptr(manager,0x10):NULL;
+ #if TIO_DISPLAY_RUNTIME
+   trace(21,(unsigned)tdp_native_dispatch(app?tail(app)->page:NULL,message));
+diff --git a/music-runtime-v1/music_service.c b/music-runtime-v1/music_service.c
+--- a/music-runtime-v1/music_service.c
++++ b/music-runtime-v1/music_service.c
+@@ -34,7 +34,7 @@
+ extern void nav_stop_event(void *),native_text_color(void *,uint32_t,uint32_t),menu_opa(void *,uint8_t,uint32_t);
+ static void *ptr(void *p,unsigned off){return p?*(void **)((uint8_t *)p+off):NULL;}
+ static bool same(const char *a,const char *b){if(!a)return false;for(unsigned i=0;i<96;i++){if(a[i]!=b[i])return false;if(!b[i])return true;}return false;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *navslot(void *app){return app?((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static TMMusicSlot *slot_of(void *app){TNNavSlot *n=navslot(app);return n?n->music:NULL;}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+diff --git a/navigation-runtime-v1/nav_service.c b/navigation-runtime-v1/nav_service.c
+--- a/navigation-runtime-v1/nav_service.c
++++ b/navigation-runtime-v1/nav_service.c
+@@ -41,7 +41,7 @@
+ static void *ptr(void *p,unsigned off){return p?*(void **)((uint8_t *)p+off):NULL;}
+ static uint32_t word(void *p,unsigned off){return p?*(uint32_t *)((uint8_t *)p+off):0;}
+ static bool same(const char *a,const char *b){if(!a)return false;for(unsigned i=0;i<96;i++){if(a[i]!=b[i])return false;if(!b[i])return true;}return false;}
+-static void *manager(void){void *launcher=*(void **)(uintptr_t)0x19989694;return ptr(launcher,0x3c);}
++static void *manager(void){void *launcher=*(void **)(uintptr_t)0x199595d4;return ptr(launcher,0x15c);}
+ static TNNavSlot *slot_of(void *app){return app?((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
+ static bool safe_home(void){
+diff --git a/weread-v1/reader_service.c b/weread-v1/reader_service.c
+--- a/weread-v1/reader_service.c
++++ b/weread-v1/reader_service.c
+@@ -35,7 +35,7 @@
+  if(!m8_native_api.configure_root(o,surface)){m8_native_api.delete_root(o);return NULL;}return o;
+ }
+ static void *ptr(void *p,unsigned n){return p?*(void **)((uint8_t *)p+n):NULL;}
+-static void *manager(void){return ptr(*(void **)(uintptr_t)0x19989694,0x3c);}
++static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
+ static TNNavSlot *navslot(void *app){return app?((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
+ static WRSlot *slot_of(void *app){TNNavSlot *n=navslot(app);return n?n->reader:NULL;}
+ static bool same(const char *a,const char *b){if(!a)return false;for(unsigned i=0;i<96;i++){if(a[i]!=b[i])return false;if(!b[i])return true;}return false;}

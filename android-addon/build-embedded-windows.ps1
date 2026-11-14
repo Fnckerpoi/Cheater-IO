@@ -43,9 +43,8 @@ foreach($inputFile in @($PayloadApk,$PayloadSidecar,$SourceApk,$AndroidJar,(Join
 New-Item -ItemType Directory -Path $Work | Out-Null
 $Classes=New-Item -ItemType Directory -Path (Join-Path $Work 'classes')
 $Dex=New-Item -ItemType Directory -Path (Join-Path $Work 'dex')
-$Sources=@(Get-ChildItem "$PSScriptRoot/src/com/turboio/addon" -Filter '*.java' -File | Sort-Object Name | ForEach-Object {'"'+$_.FullName.Replace('\','/')+'"'})
 $SourceList=Join-Path $Work 'sources.txt'
-[IO.File]::WriteAllLines($SourceList,[string[]]$Sources,[Text.UTF8Encoding]::new($false))
+Run $Python @((Join-Path $PSScriptRoot 'tmg4_sources.py'),$SourceList)
 Run (Join-Path $JavaHome 'bin/javac.exe') @('-encoding','UTF-8','-source','8','-target','8','-cp',$AndroidJar,'-d',$Classes.FullName,"@$SourceList")
 $Jar=Join-Path $Work 'addon.jar'
 Run $Python @((Join-Path $PSScriptRoot 'tmig1_windows.py'),'jar',$Classes.FullName,$Jar)

@@ -17,6 +17,28 @@ PROFILES = json.loads((ROOT/'native-source-profiles.json').read_text())
 
 
 class PreparationTest(unittest.TestCase):
+    def test_hook_slots_bound_to_audited_source_and_base(self):
+        with tempfile.TemporaryDirectory() as folder:
+            work = pathlib.Path(folder)
+            source, base = work/'source.apk', work/'base.apk'
+            source.write_bytes(b'source'); base.write_bytes(b'base')
+            receipt = work/'report.json'
+            report = {'sourceSha256': hashlib.sha256(b'source').hexdigest(),
+                      'outputSha256': hashlib.sha256(b'base').hexdigest(),
+                      'checks': {'admission': True, 'hostAbi': True, 'hookPlan': True, 'verifyApk': True},
+                      'hookDex': ['classes3.dex', 'classes5.dex']}
+            receipt.write_text(json.dumps(report))
+            self.assertEqual(API['audited_hook_slots'](source, base, receipt), ['classes3.dex', 'classes5.dex'])
+            for field, value in [('sourceSha256', 'wrong'), ('outputSha256', 'wrong'),
+                                 ('hookDex', []), ('hookDex', ['classes3.dex', 'classes3.dex']),
+                                 ('hookDex', ['../bad'])]:
+                invalid = dict(report); invalid[field] = value
+                receipt.write_text(json.dumps(invalid))
+                with self.assertRaises(ValueError): API['audited_hook_slots'](source, base, receipt)
+            invalid = dict(report); invalid['checks'] = dict(report['checks'], verifyApk=False)
+            receipt.write_text(json.dumps(invalid))
+            with self.assertRaises(ValueError): API['audited_hook_slots'](source, base, receipt)
+
     def test_real_native_contract(self):
         paths = [pathlib.Path(p) for p in os.environ['TURBO_NATIVE_INPUTS'].split(os.pathsep)]
         seen = []
