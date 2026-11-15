@@ -12,7 +12,6 @@
 #include "../weread-v1/reader_service.h"
 #include "../weread-v1/reader_input.h"
 #include "../focus-v1/focus_service.h"
-#include "../didi-v1/ride_service.h"
 #include <string.h>
 #define TAP_MESSAGE_ID 0x54415031u
 #define TAP_SERVICE_MAGIC 0x54415331u
@@ -27,7 +26,7 @@ extern uint32_t stream_tick(void),tap_random(void);
 extern void stream_timer_period(void *,uint32_t);
 extern void *nav_monitors(void),*nav_link(void *),*nav_input(void *),*nav_ensure_menu(void *);
 extern const char *nav_top_app(void);
-extern bool nav_bonded(void *),nav_folded(void *),dots_business_idle(void),focus_screen_on(void);
+extern bool nav_bonded(void *),nav_folded(void *),ce_extension_idle(void),focus_screen_on(void);
 extern int nav_connection(unsigned),tdp_rnlink_send(unsigned,const uint8_t *,unsigned,void *);
 extern void nav_set_state(void *,unsigned),nav_screen_on(bool),nav_stop_event(void *),native_report_activity(void);
 extern uint32_t nav_always_on(const char *);
@@ -40,8 +39,8 @@ static void *ptr(void *p,unsigned o){return p?*(void **)((uint8_t *)p+o):NULL;}
 static void *manager(void){return ptr(*(void **)(uintptr_t)0x199595d4,0x15c);}
 static TNNavSlot *slot(void *a){return a?((M8NativeTail *)((uint8_t *)a+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
 static bool paired(void){void *m=nav_monitors(),*l=m?nav_link(m):NULL;return l&&nav_bonded(l)&&nav_connection(0x80)!=0;}
-static bool home(void){const char *name=nav_top_app();if(!name||strcmp(name,"com.rayneo.liteos.launcher"))return false;void *m=nav_monitors(),*i=m?nav_input(m):NULL;return i&&!nav_folded(i)&&dots_business_idle();}
-static bool available(void *app){TNNavSlot *s=slot(app);return app&&s&&home()&&ptr(manager(),0x10)==app&&!dr_slot_visible(s->ride)&&!((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->page;}
+static bool home(void){const char *name=nav_top_app();if(!name||strcmp(name,"com.rayneo.liteos.launcher"))return false;void *m=nav_monitors(),*i=m?nav_input(m):NULL;return i&&!nav_folded(i)&&ce_extension_idle();}
+static bool available(void *app){TNNavSlot *s=slot(app);return app&&s&&home()&&ptr(manager(),0x10)==app&&!((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->page;}
 static bool owns(TAPControl *c){return c->app&&ptr(manager(),0x10)==c->app&&home();}
 static TAPControl *control(bool create){
  void *t=NULL;for(unsigned i=0;i<512;i++){

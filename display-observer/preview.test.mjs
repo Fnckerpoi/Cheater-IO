@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {menuApps,menuFromPage,previewModel} from './public/app.js';
 const state = page => ({connected:true,phase:'disabled',page});
 test('seven apps match user order; no business message is a menu ID',()=>{
-  assert.deepEqual(menuApps.map(a=>a.name),['录音','实时字幕','实时提示','待办','提词器','全天智记','勿扰模式']);
+  assert.deepEqual(menuApps.map(a=>a.name),['录音','实时字幕','有问必答','待办','提词器','全天智记','勿扰模式']);
   assert.equal(menuFromPage({scene:1,index:7,app:'未知应用'}).index,6);
   assert.equal(menuFromPage({scene:2,business:14,type:1}).index,-1);
 });

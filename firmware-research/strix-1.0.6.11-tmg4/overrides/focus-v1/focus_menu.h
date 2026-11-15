@@ -1,7 +1,7 @@
 #ifndef TURBO_FOCUS_MENU_H
 #define TURBO_FOCUS_MENU_H
 #include "../navigation-runtime-v1/nav_view.h"
-enum { FM_ITEMS=14, FM_CELLS=9, FM_ICON=40, FM_FRAME_W=52, FM_FRAME_H=46 };
+enum { FM_ITEMS=10, FM_CELLS=9, FM_ICON=40, FM_FRAME_W=52, FM_FRAME_H=46 };
 typedef struct {
  TNWidgets api;void *root,*icons[FM_CELLS],*labels[FM_CELLS],*frame,*status,*brand,*page;
  _Alignas(64) uint8_t pixels[2][FM_CELLS][FM_ICON*FM_ICON];

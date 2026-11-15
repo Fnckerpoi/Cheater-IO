@@ -14,7 +14,7 @@ import java.util.*;
 public final class OfficialOtaBridge {
  private static final Handler MAIN=new Handler(Looper.getMainLooper());
  private static final Set<String> INTERACTIVE=new HashSet<>(Arrays.asList("APP_MARKET","MARS_STREAMING","MARS_PHOTO_TRANSFER","LOG_REPORT","VOICE_ASSISTANT","RECORDING_SERVICE","LAUNCHER","FILE_TRANSFER","AI_SUBTITLE","TELEPROMPTER","NOTIFICATION","SCHEDULE_TODO","PROACTIVE_AI","AI_WIDGET","NAVIGATION","FILE_TRANSFER_LAUNCHER"));
- private static final OtaProfile PROFILE=OtaProfile.TMG4_10611;
+ private static final OtaProfile PROFILE=OtaProfile.TMG4_1_10611;
  private static Boolean mode;private static Context app;private static SharedPreferences journal;
  private static OfficialOtaFeed feed;private static OfficialOtaGate gate;
  private static volatile boolean pending,armed,foreground;private static boolean checking,initialized;

@@ -2,18 +2,19 @@ param(
  [Parameter(Mandatory=$true)][string]$JavaBin,
  [Parameter(Mandatory=$true)][string]$Tmg4Zip,
  [Parameter(Mandatory=$true)][string]$StockZip,
- [Parameter(Mandatory=$true)][string]$Tmg3Zip
+ [Parameter(Mandatory=$true)][string]$Tmg3Zip,
+ [Parameter(Mandatory=$true)][string]$Tmg41Zip
 )
 $ErrorActionPreference='Stop'
 $otaOut=Join-Path $env:TEMP ('turboio-tmg4-'+[guid]::NewGuid())
 New-Item -ItemType Directory $otaOut | Out-Null
 $sources=@('BoundedJson','OtaFrame','OtaPackage','OtaProfile','OfficialOtaAuthorization','OfficialOtaFeed','OfficialOtaGate','OfficialOtaPreflightPoll','OtaRecoveryGuard') | ForEach-Object {Join-Path $PSScriptRoot ('src/com/turboio/addon/'+$_+'.java')}
-$tests=@('OfficialOtaAuthorizationTest','OfficialOtaPreflightPollTest','OtaRecoveryGuardTest','OtaProfileHistoryTest','OfficialOtaUnmeasuredProfileTest','Stock10611ProfileTest','Tmg4OtaProfileTest')
+$tests=@('OfficialOtaAuthorizationTest','OfficialOtaPreflightPollTest','OtaRecoveryGuardTest','OtaProfileHistoryTest','OfficialOtaUnmeasuredProfileTest','Stock10611ProfileTest','Tmg4OtaProfileTest','Tmg41OtaProfileTest')
 $testSources=$tests | ForEach-Object {Join-Path $PSScriptRoot ('tests/'+$_+'.java')}
 & (Join-Path $JavaBin 'javac.exe') -encoding UTF-8 -d $otaOut @sources @testSources
 if($LASTEXITCODE -ne 0){throw 'OTA javac failed'}
 foreach($suite in $tests){
- $fixture=if($suite -eq 'Tmg4OtaProfileTest'){$Tmg4Zip}else{$StockZip}
+ $fixture=if($suite -eq 'Tmg4OtaProfileTest'){$Tmg4Zip}elseif($suite -eq 'Tmg41OtaProfileTest'){$Tmg41Zip}else{$StockZip}
  & (Join-Path $JavaBin 'java.exe') -cp $otaOut ('com.turboio.addon.'+$suite) $fixture $Tmg3Zip
  if($LASTEXITCODE -ne 0){throw ('Failed suite: '+$suite)}
 }

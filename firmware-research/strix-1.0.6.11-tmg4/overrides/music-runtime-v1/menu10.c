@@ -1,9 +1,5 @@
-#include "../camera-v1/camera_native.h"
-#include "../dots-v1/dots_native.h"
-#include "../context-english-v1/english_native.h"
 #include "../app-runtime-v1/app_service.h"
-#include "../didi-v1/ride_service.h"
-/* Fourteen-item launcher retaining eight stock and six custom targets. */
+/* Ten-item launcher retaining eight stock and two custom targets. */
 #include "../navigation-runtime-v1/menu9.h"
 #include "../menu8-renderer.h"
 #include "../focus-v1/focus_menu.h"
@@ -46,10 +42,6 @@ extern int stream_queue_send(unsigned,const TIONativeMessage *);
 
 static M8NativeTail *tail(void *app){return (M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES);}
 static TNNavSlot *slot(void *app){return tail(app)->navigation;}
-static DRSlot *ride(void *app){return slot(app)?slot(app)->ride:NULL;}
-static DotsNativeSlot *dots_menu_slot(void *app){return app&&slot(app)?slot(app)->dots:NULL;}
-CENativeSlot *ce_menu_slot(void *app){return app&&slot(app)?slot(app)->english:NULL;}
-static TCSlot *camera_slot(void *app){return slot(app)?slot(app)->camera:NULL;}
 static TAPMenu *apps(void *app){return slot(app)?slot(app)->apps:NULL;}
 static void *ptr(void *app,unsigned off){return *(void **)((uint8_t *)app+off);}
 static uint32_t *word(void *app,unsigned off){return (uint32_t *)((uint8_t *)app+off);}
@@ -79,19 +71,16 @@ static void *block(void *parent,int w,int h,int x,int y){
 }
 /* Assembler entry shims preserve r1-r3: stock callers use whole-unit register
  * knowledge beyond ordinary AAPCS (snap keeps a frame in r2 across this call). */
-int m8_impl_frame_start(int index){return 15+30*clamp(index,0,13);}
-int m8_impl_frame_index(int frame){return clamp(frame,0,419)/30;}
+int m8_impl_frame_start(int index){return 15+30*clamp(index,0,9);}
+int m8_impl_frame_index(int frame){return clamp(frame,0,299)/30;}
 void m8_hook_render_slide(void *app){
- float value=*(float *)((uint8_t *)app+TIO_MENU_SCROLL_POSITION_OFFSET);if(!(value>=-1.0f))value=-1.0f;if(value>14.0f)value=14.0f;
- int frame=(int)(value*30.0f+15.5f);(void)m8_hook_frame(app,clamp(frame,0,419));
+ float value=*(float *)((uint8_t *)app+TIO_MENU_SCROLL_POSITION_OFFSET);if(!(value>=-1.0f))value=-1.0f;if(value>10.0f)value=10.0f;
+ int frame=(int)(value*30.0f+15.5f);(void)m8_hook_frame(app,clamp(frame,0,299));
 }
 const char *m8_hook_app_id(int index){
-  return index==13?"TurboCamera":index==12?"TurboDots":index==11?"TurboEnglish":index==10?"TurboApps":index==9?"TurboRide":index==8?"TurboDisplay":stock_app_id(index);
+  return index==9?"TurboApps":index==8?"TurboDisplay":stock_app_id(index);
 }
 void m8_hook_names(void *app){
-  {TCSlot *e=camera_slot(app);if(e&&!e->row&&ptr(app,4)){e->row=tio_lv_obj_create_ex(ptr(app,4),0);if(e->row){clean_style(e->row);tio_lv_obj_set_size(e->row,260,26);native_align(e->row,5,0,-60);hidden(e->row,true);e->label=native_label_create(e->row);if(e->label){clean_style(e->label);native_label_text(e->label,"遥控拍照");void *f=menu_font(20,0);if(f)menu_text_font(e->label,f,0);native_text_color(e->label,0x00ff00,0);menu_text_align(e->label,2,0);tio_lv_obj_set_size(e->label,260,26);native_align(e->label,9,0,0);}}}}
-  {DotsNativeSlot *e=dots_menu_slot(app);if(e&&!e->row&&ptr(app,4)){e->row=tio_lv_obj_create_ex(ptr(app,4),0);if(e->row){clean_style(e->row);tio_lv_obj_set_size(e->row,260,26);native_align(e->row,5,0,-60);hidden(e->row,true);e->label=native_label_create(e->row);if(e->label){clean_style(e->label);native_label_text(e->label,"Dots");void *f=menu_font(20,0);if(f)menu_text_font(e->label,f,0);native_text_color(e->label,0x00ff00,0);menu_text_align(e->label,2,0);tio_lv_obj_set_size(e->label,260,26);native_align(e->label,9,0,0);}}}}
-  CENativeSlot *e=ce_menu_slot(app);if(e&&!e->row&&ptr(app,4)){e->row=tio_lv_obj_create_ex(ptr(app,4),0);if(e->row){clean_style(e->row);tio_lv_obj_set_size(e->row,260,26);native_align(e->row,5,0,-60);hidden(e->row,true);e->label=native_label_create(e->row);if(e->label){clean_style(e->label);native_label_text(e->label,"情境英语");void *f=menu_font(20,0);if(f)menu_text_font(e->label,f,0);native_text_color(e->label,0x00ff00,0);menu_text_align(e->label,2,0);tio_lv_obj_set_size(e->label,260,26);native_align(e->label,9,0,0);}}}
   TAPMenu *a=apps(app);if(a&&!a->row&&ptr(app,4)){a->row=tio_lv_obj_create_ex(ptr(app,4),0);if(a->row){clean_style(a->row);tio_lv_obj_set_size(a->row,260,26);native_align(a->row,5,0,-60);hidden(a->row,true);a->label=native_label_create(a->row);if(a->label){clean_style(a->label);native_label_text(a->label,"我的应用");void *f=menu_font(20,0);if(f)menu_text_font(a->label,f,0);native_text_color(a->label,0x00ff00,0);menu_text_align(a->label,2,0);tio_lv_obj_set_size(a->label,260,26);native_align(a->label,9,0,0);}}}
   stock_names(app);M8NativeTail *t=tail(app);
   if(t->row || !ptr(app,4))return;
@@ -105,21 +94,15 @@ void m8_hook_names(void *app){
   native_text_color(label,0x00ff00,0);menu_text_align(label,2,0);
   tio_lv_obj_set_size(label,260,26);native_align(label,9,0,0);
   t->row=row;t->label=label;trace(30,8);
-  DRSlot *d=ride(app);if(!d)return;d->row=tio_lv_obj_create_ex(ptr(app,4),0);if(!d->row)return;clean_style(d->row);tio_lv_obj_set_size(d->row,260,26);native_align(d->row,5,0,-60);hidden(d->row,true);d->label=native_label_create(d->row);if(d->label){clean_style(d->label);native_label_text(d->label,"滴滴出行");if(font)menu_text_font(d->label,font,0);native_text_color(d->label,0x00ff00,0);menu_text_align(d->label,2,0);tio_lv_obj_set_size(d->label,260,26);native_align(d->label,9,0,0);}
 }
 void m8_hook_refresh_label(void *app,int index){
-  if(index==13){if(camera_slot(app)&&camera_slot(app)->label)native_label_text(camera_slot(app)->label,"遥控拍照");return;}
-  if(index==12){if(dots_menu_slot(app)&&dots_menu_slot(app)->label)native_label_text(dots_menu_slot(app)->label,"Dots");return;}
-  if(index==11){if(ce_menu_slot(app)&&ce_menu_slot(app)->label)native_label_text(ce_menu_slot(app)->label,"情境英语");return;}
-  if(index==10){if(apps(app)&&apps(app)->label)native_label_text(apps(app)->label,"我的应用");return;}
-  if(index==9){if(ride(app)&&ride(app)->label)native_label_text(ride(app)->label,"滴滴出行");return;}
+  if(index==9){if(apps(app)&&apps(app)->label)native_label_text(apps(app)->label,"我的应用");return;}
   if(index==8){if(tail(app)->label)native_label_text(tail(app)->label,"Turbo Display");return;}
   if(index>=0 && index<8)stock_refresh_label(app,index);
 }
 void m8_hook_delete_dots(void *app){
   /* Stock deletes the common parent, including our eighth child. */
-  if(camera_slot(app))camera_slot(app)->dot=NULL;
-  tail(app)->dot=NULL;if(ride(app))ride(app)->dot=NULL;if(apps(app))apps(app)->dot=NULL;if(ce_menu_slot(app))ce_menu_slot(app)->dot=NULL;if(dots_menu_slot(app))dots_menu_slot(app)->dot=NULL;stock_delete_dots(app);
+  tail(app)->dot=NULL;if(apps(app))apps(app)->dot=NULL;stock_delete_dots(app);
 }
 void m8_hook_dots(void *app){
   stock_dots(app);M8NativeTail *t=tail(app);void *parent=ptr(app,0x6c);
@@ -128,18 +111,10 @@ void m8_hook_dots(void *app){
   if(!t->dot){t->errors|=2;return;}
   /* Native flex parent owns positioning; clear explicit alignment offset. */
   native_align(t->dot,0,0,0);tio_lv_obj_set_style_bg_opa(t->dot,127,0);
-  DRSlot *d=ride(app);if(d&&!d->dot){d->dot=block(parent,4,4,0,0);if(d->dot){native_align(d->dot,0,0,0);tio_lv_obj_set_style_bg_opa(d->dot,127,0);}}
   TAPMenu *a=apps(app);if(a&&!a->dot){a->dot=block(parent,4,4,0,0);if(a->dot){native_align(a->dot,0,0,0);tio_lv_obj_set_style_bg_opa(a->dot,127,0);}}
-  CENativeSlot *e=ce_menu_slot(app);if(e&&!e->dot){e->dot=block(parent,4,4,0,0);if(e->dot){native_align(e->dot,0,0,0);tio_lv_obj_set_style_bg_opa(e->dot,127,0);}}
-  {DotsNativeSlot *e=dots_menu_slot(app);if(e&&!e->dot){e->dot=block(parent,4,4,0,0);if(e->dot){native_align(e->dot,0,0,0);tio_lv_obj_set_style_bg_opa(e->dot,127,0);}}}
-  TCSlot *camera=camera_slot(app);if(camera&&!camera->dot){camera->dot=block(parent,4,4,0,0);if(camera->dot){native_align(camera->dot,0,0,0);tio_lv_obj_set_style_bg_opa(camera->dot,127,0);}}
 }
 void m8_hook_lottie(void *app){
-  {TCSlot *e=camera_slot(app);if(e&&!e->icon&&ptr(app,4)){e->icon=tio_lv_obj_create_ex(ptr(app,4),0);if(e->icon){clean_style(e->icon);tio_lv_obj_set_size(e->icon,65,65);native_align(e->icon,2,0,52);hidden(e->icon,true);const int lines[][4]={{48,3,8,18},{48,3,8,50},{3,35,8,18},{3,35,53,18},{25,3,20,10},{3,10,20,10},{3,10,43,10},{20,3,23,27},{20,3,23,42},{3,18,23,27},{3,18,40,27}};for(unsigned i=0;i<sizeof lines/sizeof *lines;i++)if(!block(e->icon,lines[i][0],lines[i][1],lines[i][2],lines[i][3])){tio_lv_obj_delete(e->icon);e->icon=NULL;break;}}}}
-  {DotsNativeSlot *e=dots_menu_slot(app);if(e&&!e->icon&&ptr(app,4)){e->icon=tio_lv_obj_create_ex(ptr(app,4),0);if(e->icon){clean_style(e->icon);tio_lv_obj_set_size(e->icon,65,65);native_align(e->icon,2,0,52);hidden(e->icon,true);const int lines[][4]={{48,3,8,10},{3,36,8,10},{3,36,53,10},{36,3,17,43},{3,10,17,43},{4,4,19,25},{4,4,30,25},{4,4,41,25}};for(unsigned i=0;i<sizeof lines/sizeof *lines;i++)if(!block(e->icon,lines[i][0],lines[i][1],lines[i][2],lines[i][3])){tio_lv_obj_delete(e->icon);e->icon=NULL;break;}}}}
-  CENativeSlot *e=ce_menu_slot(app);if(e&&!e->icon&&ptr(app,4)){e->icon=tio_lv_obj_create_ex(ptr(app,4),0);if(e->icon){clean_style(e->icon);tio_lv_obj_set_size(e->icon,65,65);native_align(e->icon,2,0,52);hidden(e->icon,true);const int lines[][4]={{3,42,8,10},{3,42,32,10},{3,42,55,10},{47,3,8,10},{47,3,8,50},{15,3,13,22},{15,3,37,22},{15,3,13,32},{15,3,37,32}};for(unsigned i=0;i<sizeof lines/sizeof *lines;i++)if(!block(e->icon,lines[i][0],lines[i][1],lines[i][2],lines[i][3])){tio_lv_obj_delete(e->icon);e->icon=NULL;break;}}}
   TAPMenu *a=apps(app);if(a&&!a->icon&&ptr(app,4)){a->icon=tio_lv_obj_create_ex(ptr(app,4),0);if(a->icon){clean_style(a->icon);tio_lv_obj_set_size(a->icon,65,65);native_align(a->icon,2,0,52);hidden(a->icon,true);for(unsigned i=0;i<4;i++)if(!block(a->icon,18,18,10+25*(i%2),10+25*(i/2))){tio_lv_obj_delete(a->icon);a->icon=NULL;break;}}}
-  DRSlot *d=ride(app);if(d&&!d->icon&&ptr(app,4)){d->icon=tio_lv_obj_create_ex(ptr(app,4),0);if(d->icon){clean_style(d->icon);tio_lv_obj_set_size(d->icon,65,65);native_align(d->icon,2,0,52);hidden(d->icon,true);const int car[][4]={{40,3,12,18},{3,22,8,28},{3,22,55,28},{47,3,9,48},{9,4,15,38},{9,4,41,38},{24,3,20,10},{3,10,18,15},{3,10,44,15}};for(unsigned i=0;i<sizeof car/sizeof *car;i++)if(!block(d->icon,car[i][0],car[i][1],car[i][2],car[i][3])){tio_lv_obj_delete(d->icon);d->icon=NULL;break;}}}
   stock_lottie(app);M8NativeTail *t=tail(app);
   if(t->icon || !ptr(app,4))return;
   void *icon=tio_lv_obj_create_ex(ptr(app,4),0);if(!icon){t->errors|=4;return;}
@@ -158,9 +133,9 @@ void m8_hook_lottie(void *app){
   t->icon=icon;
 }
 void m8_hook_label_frame(void *app,int frame){
-  frame=clamp(frame,0,419);
-  for(unsigned i=0;i<14;i++){
-    void *row=i==13?(camera_slot(app)?camera_slot(app)->row:NULL):i==12?(dots_menu_slot(app)?dots_menu_slot(app)->row:NULL):i==11?(ce_menu_slot(app)?ce_menu_slot(app)->row:NULL):i==10?(apps(app)?apps(app)->row:NULL):i==9?(ride(app)?ride(app)->row:NULL):i==8?tail(app)->row:ptr(app,0xc+4*i);
+  frame=clamp(frame,0,299);
+  for(unsigned i=0;i<10;i++){
+    void *row=i==9?(apps(app)?apps(app)->row:NULL):i==8?tail(app)->row:ptr(app,0xc+4*i);
     if(!row)continue;
     int d=frame-m8_hook_frame_start((int)i),distance=d<0?-d:d;
     if(distance>=30){hidden(row,true);continue;}
@@ -172,9 +147,9 @@ void m8_hook_label_frame(void *app,int frame){
 void m8_hook_label_index(void *app,int index){m8_hook_label_frame(app,m8_hook_frame_start(index));}
 void m8_hook_indicator(void *app,int frame,int previous){
   (void)previous;if(!ptr(app,0x6c))return;
-  frame=clamp(frame,15,405);
-  for(unsigned i=0;i<14;i++){
-    void *dot=i==13?(camera_slot(app)?camera_slot(app)->dot:NULL):i==12?(dots_menu_slot(app)?dots_menu_slot(app)->dot:NULL):i==11?(ce_menu_slot(app)?ce_menu_slot(app)->dot:NULL):i==10?(apps(app)?apps(app)->dot:NULL):i==9?(ride(app)?ride(app)->dot:NULL):i==8?tail(app)->dot:ptr(app,0x70+4*i);if(!dot)continue;
+  frame=clamp(frame,15,285);
+  for(unsigned i=0;i<10;i++){
+    void *dot=i==9?(apps(app)?apps(app)->dot:NULL):i==8?tail(app)->dot:ptr(app,0x70+4*i);if(!dot)continue;
     int d=frame-m8_hook_frame_start((int)i);if(d<0)d=-d;
     int weight=30-clamp(d,0,30);
     tio_lv_obj_set_size(dot,4+(8*weight+15)/30,4);
@@ -182,7 +157,7 @@ void m8_hook_indicator(void *app,int frame,int previous){
   }
 }
 bool m8_hook_frame(void *app,int frame){
-  void *lottie=ptr(app,8);if(!lottie || frame<0 || frame>419)return false;
+  void *lottie=ptr(app,8);if(!lottie || frame<0 || frame>299)return false;
   int previous=(int)*word(app,0xa0);
   if(previous==frame)return false;
   *word(app,0xa0)=(uint32_t)frame;
@@ -192,27 +167,24 @@ bool m8_hook_frame(void *app,int frame){
   menu_lottie_frame(lottie,frame<=225?frame:225);
   menu_opa(lottie,(uint8_t)(255*(30-mix)/30),0);
   void *icon=tail(app)->icon;
-  int displayweight=mix-clamp(frame-255,0,30);
+  int appmix=clamp(frame-255,0,30),displayweight=mix-appmix;
   if(icon){hidden(icon,displayweight==0);menu_opa(icon,(uint8_t)(255*displayweight/30),0);menu_translate(icon,55*(30-mix)/30,0);}
-  int ridemix=clamp(frame-255,0,30),appmix=clamp(frame-285,0,30),englishmix=clamp(frame-315,0,30),dotsmix=clamp(frame-345,0,30),cameramix=clamp(frame-375,0,30);
-  void *icons[]={ride(app)?ride(app)->icon:NULL,apps(app)?apps(app)->icon:NULL,ce_menu_slot(app)?ce_menu_slot(app)->icon:NULL,dots_menu_slot(app)?dots_menu_slot(app)->icon:NULL,camera_slot(app)?camera_slot(app)->icon:NULL};
-  int weights[]={ridemix-appmix,appmix-englishmix,englishmix-dotsmix,dotsmix-cameramix,cameramix};int starts[]={ridemix,appmix,englishmix,dotsmix,cameramix};
-  for(unsigned i=0;i<5;i++)if(icons[i]){hidden(icons[i],weights[i]==0);menu_opa(icons[i],(uint8_t)(255*weights[i]/30),0);menu_translate(icons[i],55*(30-starts[i])/30,0);}
+  void *apps_icon=apps(app)?apps(app)->icon:NULL;
+  if(apps_icon){hidden(apps_icon,appmix==0);menu_opa(apps_icon,(uint8_t)(255*appmix/30),0);menu_translate(apps_icon,55*(30-appmix)/30,0);}
   m8_hook_indicator(app,frame,previous);fm_sync(app);return true;
 }
 void *m8_hook_ctor(void *app){
   stock_ctor(app);M8NativeTail *t=tail(app);
   for(unsigned i=0;i<sizeof *t;i++)((volatile uint8_t *)t)[i]=0;
   t->navigation=tn_slot_create(app);
-  if(slot(app)){slot(app)->ride=dr_slot_create(app);slot(app)->apps=tap_menu_create(app);slot(app)->english=ce_slot_create(app);slot(app)->dots=dots_slot_create(app);slot(app)->camera=tc_slot_create(app);}
+  if(slot(app))slot(app)->apps=tap_menu_create(app);
   return app;
 }
 void m8_hook_show(void *app){retire(app);stock_show(app);m8_hook_label_index(app,(int)*word(app,0x98));fm_show(app);}
-void m8_hook_hide(void *app){tc_slot_hidden(camera_slot(app));dots_slot_hidden(dots_menu_slot(app));ce_slot_hidden(ce_menu_slot(app));tap_service_hidden(app);fm_hide(app);native_unregister_wheel(app);retire(app);dr_slot_hidden(ride(app));stock_hide(app);}
-void m8_hook_destroy(void *app){tc_slot_destroy(camera_slot(app));if(slot(app))slot(app)->camera=NULL;dots_slot_destroy(dots_menu_slot(app));if(slot(app))slot(app)->dots=NULL;ce_slot_destroy(ce_menu_slot(app));if(slot(app))slot(app)->english=NULL;fm_destroy(app);
+void m8_hook_hide(void *app){tap_service_hidden(app);fm_hide(app);native_unregister_wheel(app);retire(app);stock_hide(app);}
+void m8_hook_destroy(void *app){fm_destroy(app);
   native_unregister_wheel(app);retire(app);
   tap_menu_destroy(apps(app));if(slot(app))slot(app)->apps=NULL;
-  dr_slot_destroy(ride(app));if(slot(app))slot(app)->ride=NULL;
   td_slot_destroy(slot(app));
   tn_slot_destroy(slot(app));tail(app)->navigation=NULL;
   /* Only the stock parent destructor owns row/icon/dot. Do not double-delete. */
@@ -220,30 +192,20 @@ void m8_hook_destroy(void *app){tc_slot_destroy(camera_slot(app));if(slot(app))s
   stock_destroy(app);
 }
 void m8_hook_wheel(void *app,int delta){
-  if(tc_native_visible(app)){tc_native_wheel(app,delta);return;}
-  if(dots_native_visible(app)){dots_native_wheel(app,delta);return;}
-  if(ce_native_visible(app))return;
   if(tap_service_visible(app)){tap_service_wheel(app,delta);return;}
-  if(dr_slot_visible(ride(app))){dr_slot_wheel(ride(app),delta);return;}
   if(tail(app)->page)return;
   stock_wheel(app,delta);
 }
 bool m8_hook_event(void *app,void *event){
   if(native_event_code(event)!=0xe || native_event_key(event)!=0x3a)return stock_event(app,event);
-  if(tc_native_visible(app))return true;
-  if(dots_native_visible(app)||ce_native_visible(app)||tap_service_visible(app)||tail(app)->page)return true;
-  if(dr_slot_visible(ride(app)))return true;
+  if(tap_service_visible(app)||tail(app)->page)return true;
   /* Preserve native eight-item eligibility and keyboard behavior exactly. */
   if(*word(app,0x98)<8)return stock_event(app,event);
   if(!eligible(app))return false;
   native_snap(app); /* Same stock snap BEFORE deciding which item to launch. */
   unsigned index=*word(app,0x98);
   if(index<8)return stock_event(app,event);
-  if(index==13){trace(120,tc_slot_open(camera_slot(app)));return true;}
-  if(index==12){trace(110,dots_slot_open(dots_menu_slot(app)));return true;}
-  if(index==11){trace(100,ce_slot_open(ce_menu_slot(app)));return true;}
-  if(index==10){trace(90,tap_service_open(app));return true;}
-  if(index==9){trace(80,dr_slot_open(ride(app)));return true;}
+  if(index==9){trace(90,tap_service_open(app));return true;}
   if(index!=8){trace(39,index);return true;}
   M8NativeTail *t=tail(app);uint32_t sid=stream_tick();
   if(sid<=t->last_session)sid=t->last_session+1u;
@@ -254,10 +216,7 @@ bool m8_hook_event(void *app,void *event){
   return true; /* Failure consumes the custom action without launching a stock item. */
 }
 void tio_hook_file(const TIONativeFile *file){
-  if(dots_native_file(file,stream_queue_send)!=TIO_FOREIGN)return;
-  if(ce_native_file_receive(file,stream_queue_send)!=TIO_FOREIGN)return;
   TIOImageResult apps=tap_service_file(file,stream_queue_send);if(apps!=TIO_FOREIGN)return;
-  TIOImageResult ride=dr_file_receive(file,stream_queue_send);if(ride!=TIO_FOREIGN)return;
   TIOImageResult diag=td_file_receive(file,stream_queue_send);if(diag!=TIO_FOREIGN)return;
 #if TIO_DISPLAY_RUNTIME
   TIOImageResult r=tdp_native_file_receive(file,stream_queue_send);
@@ -268,12 +227,8 @@ void tio_hook_file(const TIONativeFile *file){
 }
 extern void tgr_native_message(const TIONativeMessage *);
 void m8_hook_message(void *handler,const TIONativeMessage *message){
-  tc_native_message(message);
   tgr_native_message(message); /* borrowed bytes; stock handler still disposes */
-  if(dots_message_is_ours(message)){dots_native_message(message);return;}
-  if(ce_message_is_ours(message)){ce_native_message_dispatch(message);return;}
   if(tap_service_ours(message)){tap_service_message(message);return;}
-  if(dr_message_is_ours(message)){dr_message_dispatch(message);return;}
   if(td_message_is_ours(message)){td_message_dispatch(message);return;}
 #if TIO_DISPLAY_RUNTIME
   if(!tdp_native_message_is_ours(message)){stock_message(handler,message);return;}

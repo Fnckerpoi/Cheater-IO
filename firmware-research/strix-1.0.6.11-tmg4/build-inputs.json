@@ -48,74 +48,6 @@
       "sha256": "23efdf443697eceb7fa435957017224db9f5faba7dc1871e55846fb723670b72"
     },
     {
-      "source": "context-english-v1/english_carrier.c",
-      "sha256": "b967ddd8a536db403fa29f30651b752dac563c9eddf0a3c86f5d7d2184e09436"
-    },
-    {
-      "source": "context-english-v1/english_files.c",
-      "sha256": "443f3b2fd3eb5818018123f844d7d4616c254b145f97f0565132a7e621cfdfb8"
-    },
-    {
-      "source": "context-english-v1/english_files_native.c",
-      "sha256": "0f1f962fd6df0b0496e88eb159b71eb31bfde333aa0ace235feb276a87c2ad8f"
-    },
-    {
-      "source": "context-english-v1/english_flow.c",
-      "sha256": "e63b059d7e2d0bdadf7aa84db303a5ea45416c908e263415a830d53aac1b2b90"
-    },
-    {
-      "source": "context-english-v1/english_lvgl.c",
-      "sha256": "acc5bd14a1ba53cfaa9c4c0a7bcae75005ddbca8c4e96eaf8d3d8d5ce40df57f"
-    },
-    {
-      "source": "context-english-v1/english_native.c",
-      "sha256": "490698176774024e27c198294ee939655d1cbbd7f7bc94ae845a69eecf22ae15"
-    },
-    {
-      "source": "context-english-v1/english_progress.c",
-      "sha256": "17ac669ce0dd9701e6a96c51a27ab8f585a727c3d33513f92106f7d1596d0ee7"
-    },
-    {
-      "source": "context-english-v1/english_schedule.c",
-      "sha256": "ba7e24b7af73e1e7dec98f990ddca596088a7af06e7f0660797e84252dc5151c"
-    },
-    {
-      "source": "context-english-v1/english_service.c",
-      "sha256": "8e6f456aa1f9400164ee30b667325f820d08978f09d19fb35d2d930d5f48e0fd"
-    },
-    {
-      "source": "context-english-v1/english_session.c",
-      "sha256": "01bc99bb44445f2ff5d9fe3b63d7761ed8903e88981f35eb7ee3e6d365204b2e"
-    },
-    {
-      "source": "context-english-v1/english_store.c",
-      "sha256": "a2f0b56d6bdb44851ba30b32a8620551982ee1c05ca951b7ed1da88856ce1b0c"
-    },
-    {
-      "source": "context-english-v1/english_view.c",
-      "sha256": "dea8206787628d928734f0a1b52cc30f163b22726bb5df3e39c31c602e24cae8"
-    },
-    {
-      "source": "context-english-v1/english_wire.c",
-      "sha256": "2ae22aaa91a23c715227635e982215f916b4343342b7117ce01af3c60368600b"
-    },
-    {
-      "source": "context-english-v1/head_gate.c",
-      "sha256": "f844c2268f8509b1782d8c36617223bf23b5db4001fb5f651f384586d3e605d6"
-    },
-    {
-      "source": "context-english-v1/head_lifetime.c",
-      "sha256": "f77c1e508fc4fea8f08ead70473352305af3a3f82db8849999bae337059a8f6b"
-    },
-    {
-      "source": "context-english-v1/head_lifetime_native.c",
-      "sha256": "9c58f0e41898c861520055ac47115c5674db68b65d3a61e784bf19c2e5d03fb1"
-    },
-    {
-      "source": "context-english-v1/head_serial_native.c",
-      "sha256": "46d09c9b77963fb83763956861cf440d4959b6c6bfe3ed4a7c7d786fbf19de50"
-    },
-    {
       "source": "dashboard-editor-v1/editor.c",
       "sha256": "e28f033276ecc3ac9a10461bd7e35d07558e42a3fcfe44c599ac482171be4b91"
     },
@@ -148,18 +80,6 @@
       "sha256": "732fe4447ea08bfe24b474fd6828de1f73bcd5f3638c8931d5db99265fa962e7"
     },
     {
-      "source": "didi-v1/ride.c",
-      "sha256": "7d1076945ce5a8ae6b02847b6e73a15889bfa87deef6230e7528030ddbff4333"
-    },
-    {
-      "source": "didi-v1/ride_service.c",
-      "sha256": "af3b7e60d0c691806acf4aab6ca2cb062ce5db91f1e3dd0d9db06da4c5596774"
-    },
-    {
-      "source": "didi-v1/ride_view.c",
-      "sha256": "2e19a23525bf8eb9c0ec5fa71812007d9bc2d162dc43832b588d6ee16856d97d"
-    },
-    {
       "source": "display-runtime-v1/display_carrier.c",
       "sha256": "bc2ee8205c4b34f2265cb952a0307548bbe4a8073ba91fbc1f11c2ede19ae308"
     },
@@ -174,26 +94,6 @@
     {
       "source": "display-runtime-v1/native_display_page.c",
       "sha256": "08f926bba7ad54aab1ab25ef7c10a43727597ed862188d47e6ecb2d953bb85ca"
-    },
-    {
-      "source": "dots-v1/dots_carrier.c",
-      "sha256": "4c46af94d1d837b0a5198e92e1002ab4f2a87a4aee8bf6a8f617e67dcb8bf506"
-    },
-    {
-      "source": "dots-v1/dots_native.c",
-      "sha256": "0820b4ebe649d90589418f933d39c0432021a67bbbfa79915aaed50eaa9db956"
-    },
-    {
-      "source": "dots-v1/dots_service.c",
-      "sha256": "18637f7d2c0e96bd85bfe0fc71d7c5035f9f993e5f4e315b12171d605eb9788f"
-    },
-    {
-      "source": "dots-v1/dots_view.c",
-      "sha256": "7e54de954dd0dd16cfd4771e017b063e8591efafb7b7418fe7bc7e02e7d90ed3"
-    },
-    {
-      "source": "dots-v1/dots_wire.c",
-      "sha256": "c42d4011bb67cb2d556ffd56a3e1be3599494347466294eb9dee37e241dfd1ea"
     },
     {
       "source": "focus-v1/focus.c",
@@ -278,14 +178,6 @@
     {
       "source": "weread-v1/reader_view.c",
       "sha256": "196708a8d84a51dd792901e78e5606338a0324b47177516e0be3da2cacd38cb5"
-    },
-    {
-      "source": "camera-v1/camera.c",
-      "sha256": "561d788d5f094c5dfca5cd949c4306b9ee3e508499aedf51553b2750c8fc5cb0"
-    },
-    {
-      "source": "camera-v1/camera_native.c",
-      "sha256": "95b4456c64085d8656f18becb4269583421ad73c3d08ed12f0fef552e3b8a53f"
     }
   ],
   "edits": [
@@ -475,9 +367,9 @@
     },
     {
       "offset": "0x5144b0",
-      "role": "New stock carousel item count 8 to 14",
+      "role": "New stock carousel item count 8 to 10",
       "before": "0821",
-      "after": "0e21"
+      "after": "0a21"
     },
     {
       "offset": "0x418482",
@@ -486,76 +378,6 @@
       "kind": "BL",
       "symbol": "stream_register_shim",
       "tail": "00bf00bf00bf"
-    },
-    {
-      "offset": "0x427d50",
-      "role": "Head state 104 to 136 bytes",
-      "before": "6820",
-      "after": "8820"
-    },
-    {
-      "offset": "0x427d5a",
-      "role": "Head state constructor",
-      "before": "f3f781fb",
-      "kind": "BL",
-      "symbol": "ce_native_sys_construct",
-      "tail": ""
-    },
-    {
-      "offset": "0x41a84c",
-      "role": "ce_serial_destroy_entry",
-      "before": "98b50b4b",
-      "kind": "B.W",
-      "symbol": "ce_serial_destroy_entry",
-      "tail": ""
-    },
-    {
-      "offset": "0x41bc98",
-      "role": "ce_head_notify_entry",
-      "before": "2de9f043",
-      "kind": "B.W",
-      "symbol": "ce_head_notify_entry",
-      "tail": ""
-    },
-    {
-      "offset": "0x4d3a88",
-      "role": "ce_serial_start_entry",
-      "before": "b0b5204a",
-      "kind": "B.W",
-      "symbol": "ce_serial_start_entry",
-      "tail": ""
-    },
-    {
-      "offset": "0x4d3b2c",
-      "role": "ce_serial_stop_entry",
-      "before": "b0b5204a",
-      "kind": "B.W",
-      "symbol": "ce_serial_stop_entry",
-      "tail": ""
-    },
-    {
-      "offset": "0x427d5e",
-      "role": "ce_serial_publish_entry",
-      "before": "a069c4f81880",
-      "kind": "BL",
-      "symbol": "ce_serial_publish_entry",
-      "tail": "00bf"
-    },
-    {
-      "offset": "0x42782c",
-      "role": "ce_serial_retire_entry",
-      "before": "a069a361",
-      "kind": "BL",
-      "symbol": "ce_serial_retire_entry",
-      "tail": ""
-    },
-    {
-      "offset": "0x42a916",
-      "role": "dots_link_notify",
-      "before": "eef7e9f9",
-      "kind": "BL",
-      "symbol": "dots_link_notify",
-      "tail": ""
     }
   ],
   "archive": {}

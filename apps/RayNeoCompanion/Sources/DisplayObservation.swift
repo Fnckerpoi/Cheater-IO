@@ -23,7 +23,7 @@ import Combine
     }
     func newUtterance() { guard enabled else { return }; question = ""; answer = ""; round = nil }
     private let apps = ["com.rayneo.liteos.recorder":"录音", "com.rayneo.liteos.aiSubtitle":"字幕",
-        "com.rayneo.liteos.conversationAssist":"实时提示", "com.rayneo.liteos.todo":"待办",
+        "com.rayneo.liteos.conversationAssist":"有问必答", "com.rayneo.liteos.todo":"待办",
         "com.rayneo.liteos.prompter":"提词器", "com.rayneo.liteos.ai_memory":"全天智记"]
     func reset() {
         page = [:]; screen = nil; question = ""; answer = ""; round = nil

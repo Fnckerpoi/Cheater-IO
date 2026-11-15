@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 let current = null, filter = 'all', previewMode = 'live', menuIndex = 0;
 export const menuApps = [
-  {name:'录音',icon:'record'}, {name:'实时字幕',icon:'caption'}, {name:'实时提示',icon:'hint'},
+  {name:'录音',icon:'record'}, {name:'实时字幕',icon:'caption'}, {name:'有问必答',icon:'hint'},
   {name:'待办',icon:'todo'}, {name:'提词器',icon:'prompter'}, {name:'全天智记',icon:'memory'}, {name:'勿扰模式',icon:'moon'}
 ];
 const aliases = {'字幕':'实时字幕'};

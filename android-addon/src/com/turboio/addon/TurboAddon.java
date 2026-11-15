@@ -169,7 +169,7 @@ public final class TurboAddon {
             try { config=McpConnectionStore.snapshot(app); }
             catch(Exception unavailable) {
                 try { invokeTyped(source,"onProactiveHint",new Class<?>[]{hint.getClass()},new Object[]{hint}); }
-                catch(Exception failed) { diagnostic="官方实时提示分发失败";return; }
+                catch(Exception failed) { diagnostic="官方有问必答分发失败";return; }
                 diagnostic="知识库配置不可用，已放行云端原回答";return;
             }
             final String endpoint=prefs==null?"":prefs.getString("endpoint","https://api.deepseek.com/v1/");
@@ -178,14 +178,14 @@ public final class TurboAddon {
             try { key=SecretStore.get(app); }
             catch(Exception unavailable) {
                 try { invokeTyped(source,"onProactiveHint",new Class<?>[]{hint.getClass()},new Object[]{hint}); }
-                catch(Exception failed) { diagnostic="官方实时提示分发失败";return; }
+                catch(Exception failed) { diagnostic="官方有问必答分发失败";return; }
                 diagnostic="模型密钥不可用，已放行云端原回答";return;
             }
             final ProactiveHintRegenerator regenerator=new ProactiveHintRegenerator(endpoint,model,key);
             hintAugmentor().interceptAndRegenerateAsync(hint,config,generation,sequence,regenerator,
                 (value,status)->{
                     try { invokeTyped(source,"onProactiveHint",new Class<?>[]{value.getClass()},new Object[]{value});diagnostic=status; }
-                    catch(Exception failed) { diagnostic="官方实时提示分发失败"; }
+                    catch(Exception failed) { diagnostic="官方有问必答分发失败"; }
                 });
         });
     }

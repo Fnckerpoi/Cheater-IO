@@ -1,8 +1,4 @@
-#include "../camera-v1/camera_native.h"
-#include "../dots-v1/dots_native.h"
-#include "../context-english-v1/english_native.h"
 #include "../app-runtime-v1/app_service.h"
-#include "../didi-v1/ride_service.h"
 /* UI-thread-only launcher decoration. Allocation failure retains native menu.
  * Detach before app destruction, retire after renderer idle, no flash writes. */
 #include "focus_menu.h"
@@ -32,13 +28,10 @@ _Static_assert(offsetof(TNNavSlot,quad)==44,"never overlap existing slot fields"
 _Static_assert(sizeof(TNNavSlot)==68,"quad extends only separately allocated slot");
 static void *ptr(void *p,unsigned o){return p?*(void **)((uint8_t *)p+o):NULL;}
 static TNNavSlot *slot(void *a){return a?((M8NativeTail *)((uint8_t *)a+TIO_STOCK_MENU_BYTES))->navigation:NULL;}
-static bool detail(void *app){TNNavSlot *s=slot(app);return tc_native_visible(app)||dots_native_visible(app)||ce_native_visible(app)||tap_service_visible(app)||(s&&(dr_slot_visible(s->ride)||((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->page));}
+static bool detail(void *app){TNNavSlot *s=slot(app);return tap_service_visible(app)||(s&&((M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES))->page);}
 static void hide_legacy(void *app){
  M8NativeTail *t=(M8NativeTail *)((uint8_t *)app+TIO_STOCK_MENU_BYTES);TNNavSlot *s=slot(app);
- CENativeSlot *english=s?s->english:NULL;
- DotsNativeSlot *dots=s?s->dots:NULL;
- TCSlot *camera=s?s->camera:NULL;
- void *old[]={camera?camera->row:NULL,camera?camera->icon:NULL,dots?dots->row:NULL,dots?dots->icon:NULL,english?english->row:NULL,english?english->icon:NULL,ptr(app,8),t->row,t->icon,s&&s->ride?((DRSlot *)s->ride)->row:NULL,s&&s->ride?((DRSlot *)s->ride)->icon:NULL,s&&s->apps?((TAPMenu *)s->apps)->row:NULL,s&&s->apps?((TAPMenu *)s->apps)->icon:NULL};
+ void *old[]={ptr(app,8),t->row,t->icon,s&&s->apps?((TAPMenu *)s->apps)->row:NULL,s&&s->apps?((TAPMenu *)s->apps)->icon:NULL};
  for(unsigned i=0;i<8;i++){void *row=ptr(app,0xc+4*i);if(row)m8_native_api.hidden(row,true);}
  for(unsigned i=0;i<sizeof old/sizeof *old;i++)if(old[i])m8_native_api.hidden(old[i],true);
 }
@@ -65,7 +58,7 @@ void fm_sync(void *app){TNNavSlot *s=slot(app);if(!s)return;FMControl *c=s->quad
  if(!show){c->view.api.visible(c->view.api.ctx,c->view.root,false);c->selection=-1;fm_view_suspend(&c->view);return;}
  if(!focus_screen_on())return; /* Never repaint or wake a sleeping panel. */
  if(c->view.rows!=c->desired_rows){if(!fm_view_rows(&c->view,c->desired_rows))return;c->selection=-1;}
- int index=(int)*(uint32_t *)((uint8_t *)app+0x98);if(index<0||index>=14)return;uint32_t now=stream_tick();
+ int index=(int)*(uint32_t *)((uint8_t *)app+0x98);if(index<0||index>=FM_ITEMS)return;uint32_t now=stream_tick();
  if(index==c->selection&&(uint32_t)(now-c->refreshed)<1000){(void)fm_view_step(&c->view,now);return;}
  void *mon=nav_monitors(),*sys=mon?fm_system(mon):NULL,*battery=mon?fm_battery_monitor(mon):NULL;
  int64_t local=sys?fm_local_time(sys):0;int level=battery?fm_battery_level(battery):-1;
