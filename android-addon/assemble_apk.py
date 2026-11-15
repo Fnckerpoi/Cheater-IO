@@ -13,9 +13,10 @@ source, assembled, addon, destination = map(pathlib.Path, sys.argv[1:5])
 flags = sys.argv[5:]
 extra = {}
 if '--public-assets' in flags:
-    from addon_assets import assets
-    from dsh_manifest import shared_patch as patch_manifest
-    extra = assets()
+    from addon_assets import assets, aa_assets, manifest_patch
+    aa = aa_assets()
+    patch_manifest = manifest_patch(bool(aa))
+    extra = {**assets(), **aa}
     flags.remove('--public-assets')
 slots = []
 while flags:

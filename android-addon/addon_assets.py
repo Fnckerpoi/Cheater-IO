@@ -10,6 +10,42 @@ ART = ROOT / 'android-addon/assets/art'
 HOME = ROOT / 'android-addon/assets/art'
 GALLERY = ROOT / 'app-gallery'
 
+AA_PAYLOAD = 'assets/turboio/aa/aa-embedded-payload.apk'
+AA_SIDECAR = 'assets/turboio/aa/payload.json'
+AA_ENTRY = 'com.agentsanywhere.embedded.PayloadEntry'
+
+def aa_assets(directory=None):
+    """Embedded AA workbench payload from TURBOIO_AA_PAYLOAD_DIR, else android-addon/assets/aa.
+
+    Kept outside assets(): the ~20 MB payload does not count against the public asset budget.
+    An absent directory yields no payload; a present one must validate completely.
+    """
+    import hashlib, io, os, zipfile
+    directory = Path(directory or os.environ.get('TURBOIO_AA_PAYLOAD_DIR') or ROOT / 'android-addon/assets/aa')
+    payload, sidecar = directory / 'aa-embedded-payload.apk', directory / 'payload.json'
+    if not payload.exists() and not sidecar.exists():
+        return {}
+    data = payload.read_bytes()
+    doc = json.loads(sidecar.read_text(encoding='utf-8'))
+    if doc != {'schemaVersion': 1, 'abiVersion': 1, 'entry': AA_ENTRY, 'sha256': hashlib.sha256(data).hexdigest()}:
+        raise ValueError('AA payload sidecar mismatch')
+    with zipfile.ZipFile(io.BytesIO(data)) as apk:
+        names = apk.namelist()
+        if len(names) != len(set(names)):
+            raise ValueError('Duplicate AA payload members')
+        if 'resources.arsc' not in names or 'classes.dex' not in names:
+            raise ValueError('AA payload lacks resources or DEX')
+        if any(n.startswith('lib/') and n.endswith('.so') for n in names):
+            raise ValueError('AA payload native libraries are unsupported')
+    return {AA_PAYLOAD: payload, AA_SIDECAR: sidecar}
+
+def manifest_patch(embedded):
+    from dsh_manifest import shared_patch
+    if not embedded:
+        return shared_patch
+    from embed_manifest import patch as embed
+    return lambda data: embed(shared_patch(data))
+
 def assets():
     result = {}
     for name in ('hero-glass-v5','hero-sequence-v5','settings'):
