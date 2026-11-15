@@ -5,18 +5,22 @@ public class HostEventTest {
  static int checks,launcher;static byte[] received;
  static void ok(boolean b){checks++;if(!b)throw new AssertionError("callback "+checks);}
  static Map<String,Object> message(Object business,Object data){Map<String,Object> m=new HashMap<>();m.put("businessId",business);m.put("deviceId","test-peer");m.put("payload",data);return Collections.singletonMap("message",m);}
- public static void main(String[] args){
+ public static void main(String[] args)throws Exception{
   NativeTransfer.receive((peer,b)->{throw new IllegalArgumentException("broken observer must not block others");});
   NativeTransfer.receive((peer,b)->{ok(peer.equals("test-peer"));launcher++;received=b;});
   byte[] data={8,1,16,6};
   for(Object business:new Object[]{"LAUNCHER","15",15,15L}){int before=launcher;NativeTransfer.event("messageReceived",message(business,data));ok(launcher==before+1);ok(received!=data&&Arrays.equals(received,data));}
-  for(Object business:new Object[]{"TELEPROMPTER","20",20}){int before=NewsTele.count;NativeTransfer.event("messageReceived",message(business,data));ok(NewsTele.count==before+1);}
+  for(Object business:new Object[]{"TELEPROMPTER","20",20}){int before=NewsTele.count;NativeTransfer.event("messageReceived",message(business,data));ok(NewsTele.count==before);}
   int before=launcher;
   for(Object business:new Object[]{null,15.0,"launcher","LAUNCHER_EXTRA","MARS_FOTA",9})NativeTransfer.event("messageReceived",message(business,data));
   NativeTransfer.event("messageReceived",message("LAUNCHER",new byte[8193]));
   NativeTransfer.event("messageReceived",message("LAUNCHER",Arrays.asList(8,1)));
   NativeTransfer.event("messageReceived",null);NativeTransfer.event(null,message("LAUNCHER",data));
-  ok(launcher==before);ok(NewsTele.count==3);
+  ok(launcher==before);ok(NewsTele.count==0);
+  java.lang.reflect.Field field=NativeTransfer.class.getDeclaredField("external");field.setAccessible(true);Map<?,?> external=(Map<?,?>)field.get(null);
+  Map<String,Object> file=new HashMap<>();file.put("device",Collections.singletonMap("id","test-peer"));file.put("taskId","file-task");file.put("role","sender");
+  NativeTransfer.event("fileShareStart",file);ok(external.containsKey("test-peer:file-task"));
+  NativeTransfer.event("fileShareSuccess",file);ok(!external.containsKey("test-peer:file-task"));
   System.out.println("HostEventTest: "+checks+" production callback checks; no device/file/network I/O");
  }
 }

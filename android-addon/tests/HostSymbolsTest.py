@@ -85,9 +85,9 @@ with tempfile.TemporaryDirectory(prefix="host-symbols-") as temp:
         subprocess.run([java, "-cp", str(out), "com.turboio.addon.Probe", expected, "accept" if accepted else "reject"], check=True)
         print(label + " OK", flush=True)
 
-for name in ["NavGlasses", "OfficialOtaBridge", "OtaController", "NativeTransfer", "EntryProbe", "NewsTele"]:
+for name in ["NavGlasses", "OfficialOtaBridge", "OtaController", "NativeTransfer", "EntryProbe"]:
     text = (ROOT / "src/com/turboio/addon" / (name + ".java")).read_text(encoding="utf-8")
     import re
     assert not re.search(r'NavReflect.call\((?:manager|sdkManager),"[uv]",', text), name
     assert "HostSymbols.METHOD_SEND_PACKET" in text, name
-print("All six packet senders use mapped methods OK")
+print("All five packet senders use mapped methods OK")

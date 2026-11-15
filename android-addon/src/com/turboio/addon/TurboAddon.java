@@ -74,7 +74,7 @@ public final class TurboAddon {
         OtaController.init(app);
         OfficialOtaPreparation.init(app);
         OfficialOtaBridge.init(app);
-        BackgroundWork.init(app);ScadaSensorController.init(app);CloudCaption.init(app);BackgroundWork.register("新闻",NewsTele::stop);
+        BackgroundWork.init(app);ScadaSensorController.init(app);CloudCaption.init(app);
         NativeTransfer.init(app);AppController.init(app);CardTransport.init();
         ViewGroup root = host.findViewById(android.R.id.content);
         if (root.findViewWithTag("turboio-entry") != null) return;

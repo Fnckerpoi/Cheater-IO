@@ -12,7 +12,7 @@ GALLERY = ROOT / 'app-gallery'
 
 def assets():
     result = {}
-    for name in ('hero-glass-v5','hero-sequence-v5','news','settings'):
+    for name in ('hero-glass-v5','hero-sequence-v5','settings'):
         result[f'assets/turboio/art/{name}.png'] = ART / f'{name}.png'
     for name in ('dashboard-editor','app-gallery'):
         result[f'assets/turboio/art/{name}.png'] = HOME / f'{name}.png'

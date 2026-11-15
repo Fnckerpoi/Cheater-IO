@@ -17,6 +17,7 @@ python3 tests/Tmg4AssetsTest.py
 python3 tests/Tmg4SourceSelectionTest.py
 python3 tests/TtsManifestTest.py
 python3 tests/BackgroundManifestTest.py
+python3 tests/NewsRemovalTest.py
 javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test src/com/turboio/addon/{ScadaReading,ScadaPacketCodec,ScadaReplayGuard,ScadaProximity}.java tests/scadable/*.java
 java -cp build/test com.turboio.addon.ScadaPacketCodecTest
 java -cp build/test com.turboio.addon.ScadaReplayGuardTest
@@ -33,7 +34,7 @@ java -cp build/test TransferGateTest
 mkdir -p build/test-host-events
 javac -encoding UTF-8 -d build/test src/com/turboio/addon/LauncherMeta.java tests/LauncherMetaTest.java
 java -cp build/test com.turboio.addon.LauncherMetaTest
-javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test-host-events tests/hostevents/*.java tests/musicflow/SystemClock.java src/com/turboio/addon/NativeTransfer.java
+javac -encoding UTF-8 -source 8 -target 8 -cp build/test -d build/test-host-events tests/hostevents/*.java tests/musicflow/SystemClock.java src/com/turboio/addon/NativeTransfer.java src/com/turboio/addon/HostSymbols.java
 java -cp build/test-host-events:build/test com.turboio.addon.HostEventTest
 "${TURBO_SDK_PYTHON:-python3}" tests/app_golden.py
 javac -encoding UTF-8 -source 8 -target 8 -d build/test src/com/turboio/addon/{BoundedJson,AppCodec,SharedCodec,CustomEnvelope}.java tests/AppCodecTest.java
