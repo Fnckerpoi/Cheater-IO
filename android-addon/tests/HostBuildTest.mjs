@@ -125,6 +125,7 @@ try {
    const file = descriptor.slice(1, -1) + '.smali';
    files120[file] = (files120[file] || '.class public ' + descriptor + '\n') + (line.startsWith('"') ? 'const-string v0, ' + line : line) + '\n' + (line.startsWith('.method') ? '    .locals 0\n    return-void\n.end method\n' : '');
  }
+ files120['vl0/g$b.smali']='.class public Lvl0/g$b;\n.method public final onProactiveHint(Lcom/rayneo/airuntime/controller/RayNeoProactiveHint;)V\n    .locals 0\n    return-void\n.end method\n';
  fixtures=files120;
  slotForFile=file=>file==='wl0/d$c.smali'?'smali_classes4':file==='com/rayneo/venus/MainActivity.smali'?'smali_classes5':file==='com/rayneo/rayneo_venus_sdk_plugin/o4.smali'?'smali_classes3':file==='com/ffalconxr/mercury/coreconnect/y0.smali'?'smali_classes6':file==='com/ffalconxr/mercury/coreconnect/w.smali'?'smali_classes7':'smali_classes2';
  calls=[];
@@ -132,7 +133,10 @@ try {
  assert.match(fs.readFileSync(path.join(build120.work,'host/smali_classes3/com/rayneo/rayneo_venus_sdk_plugin/o4.smali'),'utf8'),/turboioOriginal_F/);
  assert.match(fs.readFileSync(path.join(build120.work,'host/smali_classes6/com/ffalconxr/mercury/coreconnect/y0.smali'),'utf8'),/turboioOriginal_s/);
  assert.match(fs.readFileSync(path.join(build120.work,'host/smali_classes7/com/ffalconxr/mercury/coreconnect/w.smali'),'utf8'),/turboioOriginal_v/);
- const expectedSlots=['classes3.dex','classes4.dex','classes5.dex','classes6.dex','classes7.dex'];
+ const hint120=fs.readFileSync(path.join(build120.work,'host/smali_classes2/vl0/g$b.smali'),'utf8');
+ assert.match(hint120,/turboioOriginal_onProactiveHint/);
+ assert.match(hint120,/TurboAddon;->dispatchProactiveHint/);
+ const expectedSlots=['classes2.dex','classes3.dex','classes4.dex','classes5.dex','classes6.dex','classes7.dex'];
  assert.deepEqual(build120.report.hookDex,expectedSlots);
  for(const script of ['assemble_apk.py','verify_apk.py']){
    const args=calls.find(([,args])=>path.basename(args[0])===script)[1];

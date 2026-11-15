@@ -38,3 +38,6 @@
 **/local.properties
 /Agents-Anywhere/
 /harmony-sdk/build-profile.json5
+
+# Accidental literal %SystemDrive% expansion artifacts
+%SystemDrive%/

@@ -24,7 +24,7 @@ function wrapText(text,name,signature,args) {
   const className=text.match(/^\.class[^\n]* (L[^;]+;)$/m)?.[1];
   if(!className)throw new Error('Class header missing');
   const invoke='invoke-virtual/range {'+args+'}, '+className+'->'+original+signature;
-  const map={onAsrResult:'dispatchAsr(Ljava/lang/Object;Ljava/lang/String;ZLjava/lang/String;)V',onNlpResult:'dispatchNlp(Ljava/lang/Object;Ljava/lang/Object;)V',onResponseComplete:'dispatchComplete(Ljava/lang/Object;)V',onPostResume:'install(Landroid/app/Activity;)V'};
+  const map={onAsrResult:'dispatchAsr(Ljava/lang/Object;Ljava/lang/String;ZLjava/lang/String;)V',onNlpResult:'dispatchNlp(Ljava/lang/Object;Ljava/lang/Object;)V',onResponseComplete:'dispatchComplete(Ljava/lang/Object;)V',onPostResume:'install(Landroid/app/Activity;)V',onProactiveHint:'dispatchProactiveHint(Ljava/lang/Object;Ljava/lang/Object;)V'};
   const bridge='invoke-static/range {'+args+'}, Lcom/turboio/addon/TurboAddon;->'+map[name];
   const body=name!=='onPostResume'? '    :turboio_try\n    '+bridge+'\n    :turboio_try_end\n    return-void\n    :turboio_error\n    move-exception v0\n    '+invoke+'\n    return-void' : '    '+invoke+'\n    :turboio_try\n    '+bridge+'\n    :turboio_try_end\n    return-void\n    :turboio_error\n    move-exception v0\n    return-void';
   return text+'\n'+header+'\n    .locals 1\n'+body+'\n    .catch Ljava/lang/Throwable; {:turboio_try .. :turboio_try_end} :turboio_error\n.end method\n';
@@ -36,6 +36,7 @@ export function planHookWrites(abi, profile = { version: '1.0.5' }) {
   transform(abi.listener,t=>wrapText(t,'onNlpResult','(Lcom/rayneo/airuntime/controller/NlpResult;)V','p0 .. p1'));
   transform(abi.listener,t=>wrapText(t,'onResponseComplete','()V','p0 .. p0'));
   transform(abi.activity,t=>wrapText(t,'onPostResume','()V','p0 .. p0'));
+  if(abi.proactiveHintListener)transform(abi.proactiveHintListener,t=>wrapText(t,'onProactiveHint','(Lcom/rayneo/airuntime/controller/RayNeoProactiveHint;)V','p0 .. p1'));
   const eventName=abi.eventMethod||'z';
   const eventHeader='.method public final '+eventName+'(Ljava/lang/String;Ljava/util/Map;)V';
   transform(abi.event,source=>{

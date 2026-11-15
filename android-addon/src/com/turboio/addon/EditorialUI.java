@@ -72,6 +72,7 @@ final class EditorialUI {
     }
     static void home(Activity a){Screen s=new Screen(a,"turbo io");LinearLayout content=s.body;TextView brand=text(a,"Turbo这个IO",32,INK);brand.setTypeface(null,Typeface.BOLD);content.addView(brand);content.addView(text(a,"声音与灵感，随你出发。",14,MUTED));EditorialArt hero=new EditorialArt(a,"hero-sequence-v5",true);content.addView(hero,new LinearLayout.LayoutParams(-1,dp(a,190)));
         button(a,content,"模型与对话  ›",false,TurboAddon::showSettings);
+        button(a,content,"Cortrix MCP · 知识库连接",false,()->McpSettings.show(a));
         button(a,content,"Agent-Anywhere设置",false,()->DshSettings.show(a));
         if(AaPayloadLoader.available(a))button(a,content,"AA 工作台",false,()->a.startActivity(new android.content.Intent(a,AaEmbeddedActivity.class)));
         button(a,content,"SCADA 传感器 · 本机实验",false,()->ScadaSensorController.show(a));

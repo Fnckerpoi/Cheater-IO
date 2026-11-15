@@ -254,6 +254,7 @@ export function verifyHost(root, profile) {
       activity: file("Lcom/rayneo/venus/MainActivity;"),
       event: file("Lcom/rayneo/rayneo_venus_sdk_plugin/o4;"),
       eventMethod: "F",
+      proactiveHintListener: file("Lvl0/g$b;"),
       ota: {
         queue: file("Lcom/ffalconxr/mercury/coreconnect/y0;"),
         sender: file("Lcom/ffalconxr/mercury/coreconnect/w;"),

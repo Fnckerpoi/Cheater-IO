@@ -8,7 +8,9 @@ import java.util.List;
 public final class ChatPolicy {
     private ChatPolicy() {}
     public static boolean eligible(String domain, String intent, String sub, boolean offline, boolean command) {
-        return "chat".equals(domain) && "chat".equals(intent) && "workflow".equals(sub) && !offline && !command;
+        boolean isChat = "chat".equals(domain) && "chat".equals(intent) && "workflow".equals(sub) && !offline && !command;
+        boolean isAskAi = "agent".equals(domain) && "askai".equals(intent) && "workflow".equals(sub) && !offline;
+        return isChat || isAskAi;
     }
     public static boolean endpoint(String value) {
         try { completionEndpoint(value); return true; }
