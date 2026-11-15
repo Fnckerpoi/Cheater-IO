@@ -11,6 +11,15 @@ class AaPayloadAssemblyTest(unittest.TestCase):
         self.assertEqual(sorted(found), [a.AA_PAYLOAD, a.AA_SIDECAR])
         self.assertTrue(all(p.is_file() for p in found.values()))
 
+    def test_payload_and_source_are_tracked_by_git(self):
+        import subprocess
+        root = pathlib.Path(__file__).resolve().parents[2]
+        out = subprocess.run(['git', 'ls-files', 'android-addon/assets/aa', 'android-addon/aa-embedded/source'],
+                             cwd=root, capture_output=True, text=True, check=True).stdout.split()
+        self.assertIn('android-addon/assets/aa/aa-embedded-payload.apk', out)
+        self.assertIn('android-addon/assets/aa/payload.json', out)
+        self.assertIn('android-addon/aa-embedded/source/android/app/src/embeddedDebug/java/com/agentsanywhere/embedded/PayloadEntry.kt', out)
+
     def test_sidecar_mismatch_is_rejected(self):
         with tempfile.TemporaryDirectory() as d:
             d = pathlib.Path(d)

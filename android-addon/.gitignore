@@ -12,3 +12,4 @@ node_modules/
 *.jsonl
 *.log
 *PrivateBootstrap*
+!assets/aa/aa-embedded-payload.apk
