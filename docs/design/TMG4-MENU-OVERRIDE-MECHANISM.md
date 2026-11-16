@@ -204,7 +204,37 @@ v->api.text_static(v->api.ctx, v->labels[i], names[index]);
 
 **因此三张表（`names[]`、`map[]`、功能绑定表）各说各话，靠下标相等隐式对齐，没有任何断言。**
 
-## 7. 已核实的防护与缺口
+## 7. 自定义项逐项说明
+
+自定义段（下标 8 起）的每项都由 `m8_hook_event()`（`overrides/music-runtime-v1/menu10.c:199`）的显式分支启动。启动前统一经过 `eligible()`（`:51-55`）门禁，检查父容器、lottie、业务状态、外部动作开关与 overlay；不满足时返回 `false`，不进入启动流程。
+
+### 显示测试（Turbo Display / TDP1）
+
+`docs/TURBO_DISPLAY_NAVIGATION.md:7` 定位为**传图与显示测试工具（Test）**：
+
+> 眼镜第八项菜单为 **Turbo Display**，专门用于开发调试与验收，不作为日常显示应用。
+
+**作用：** 手机侧选择或生成内容，经蓝牙传输到眼镜，眼镜端 LVGL 页面把内容画到镜片上，用于验证整条显示链路（手机生成 → 蓝牙传输 → 眼镜解析渲染），每环都能单独确认。
+
+**显示规格：** 画布 512×128、8 位灰度，眼镜呈绿色单色；普通彩色图需先缩放转灰度，不是彩色显示器。支持局部更新（只传变化区域，用于验证测试图片、文字布局与显示原型），但首次整图及大范围变化仍有传输开销，不承诺无撕裂，不是视频投屏，也不是任意分辨率传图。
+
+**代码路径：**
+
+- 打开（`menu10.c:210-215`）：取会话 ID → `m8_page_open(ptr(app,4), sid, &t->page)`，句柄存入 `M8NativeTail->page`。TMG4 编译带 `-DTIO_DISPLAY_RUNTIME=1`（`build.py:76`），故映射为 `tdp_native_open`（`menu10.c:9`）。
+- 退出回收：`retire()`（`menu10.c:57-61`）调 `m8_page_retire(t->page)` 并置空，在菜单再次显示（`:183`）、隐藏（`:184`）、销毁（`:186`）三个时机触发。
+- 消息分发：`m8_hook_message`（`:229-245`）先判 `tdp_native_message_is_ours`，命中才走 `tdp_native_dispatch` 到该页面。
+
+**定位边界：** 它是开发测试工具，不是面向用户的日常显示应用。需求文档将其列为 AP 侧保留功能（`TMG4-10611-requirements.md:51`），要求共享重构不得改变其协议与实际操作语义。改动点集中在 `display-runtime-v1/native_display_page.c` 的画布尺寸与传输逻辑。
+
+### 其余自定义项
+
+| 下标 | 名称 | 启动函数 | 位置 |
+|---|---|---|---|
+| 9 | 我的应用 | `tap_service_open(app)` | `menu10.c:208` |
+
+各项共用同一套门禁与退出回收路径，差异只在启动函数。下标不属于 8–9 的项走 `trace(39, index)` 记录后直接返回，不启动任何功能——这是避免无效下标误触原厂项的保护。
+
+## 8. 已核实的防护与缺口
 
 ### 已有的防护
 
@@ -221,12 +251,12 @@ v->api.text_static(v->api.ctx, v->labels[i], names[index]);
 - **宿主测试未接入。** `tests/menu_render_test.c` 用 `#include TMG4_MENU_SOURCE`，该宏全仓无定义，编译不过；补丁后的 `dots-v1/dots_menu_test.c` 仍断言 18 项，与出货 14 项不符，会失败。两者都不在 CI 范围内（`.github/workflows/` 仅覆盖 `official-addon/research/**` 与 dashboard-service）。
 - **真机无眼镜端菜单证据。** `artifacts/tmg4-device-acceptance-20261114/` 中 `connection-result.md` 明确"当前镜片菜单及功能仍待刷写后人工核对"；现有 XML dump 均为手机侧 `uiautomator` 输出，无眼镜端菜单截图。
 
-## 8. 未确认项
+## 9. 未确认项
 
 **原厂函数地址与结构体偏移的来源过程未在仓库中找到记录。** `link.ld`、`firmware_profile.h`、`metadata/symbols.json`（含 flash 基址 `0x10190000`、段表、入口点）记录了结果，但没有逆向过程文档。用何种工具（IDA / Ghidra / 其他）反汇编得出，属于推断，未核实。
 
 **核实方法：** 用反汇编工具打开原厂 `nuttx_ap.bin`，基址设 `0x10190000`，跳到 `0x106a5200`，检查开头 4 字节是否为 `90 b5 83 b0`。对上即说明入口劫持的定位正确。
 
-## 9. 备注：工作区状态
+## 10. 备注：工作区状态
 
 调研期间 `overrides/focus-v1/focus_menu.c` 正从 14 项改为 10 项（新增"有问必答"、删除 4 项自定义），`map[]`、`FM_ITEMS`、`m8_impl_frame_start` 上限、`m8_hook_label_frame` 循环次数等随之改动。本文档描述的是机制本身，不绑定具体项数；改动任一项数时，第 3、4 节涉及的常量需同步核对。
