@@ -22,7 +22,7 @@ public final class HintCoordinatorTest {
   void finish(){work.remove().run();while(!main.isEmpty())main.remove().run();}
  }
  public static void main(String[] args)throws Exception {
-  orderedAndCache(); fallbacks(); watchdog(); stale(); mutable(); http(); hookDispatch();
+  orderedAndCache(); fallbacks(); watchdog(); stale(); mutable(); http(); answerBudget(); hookDispatch();
   System.out.println("HintCoordinatorTest: ALL PASS (coordinator + real HTTP + hook dispatch)");
  }
  static void orderedAndCache()throws Exception {
@@ -75,6 +75,25 @@ public final class HintCoordinatorTest {
    if(failure.get()!=null)throw new AssertionError(failure.get());
   }finally {server.stop(0);((java.util.concurrent.ExecutorService)server.getExecutor()).shutdownNow();}
  }
+ static void answerBudget()throws Exception {
+  com.sun.net.httpserver.HttpServer server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
+  server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
+  server.createContext("/v1/chat/completions",x->{try{
+   java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();byte[] b=new byte[1024];int n;while((n=x.getRequestBody().read(b))!=-1)bytes.write(b,0,n);
+   JSONObject req=new JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
+   check(req.getJSONArray("messages").getJSONObject(0).getString("content").contains("120"),"display budget in prompt");
+   byte[] body=new JSONObject().put("choices",new JSONArray().put(new JSONObject().put("message",new JSONObject().put("content",longAnswer())))).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+   x.sendResponseHeaders(200,body.length);x.getResponseBody().write(body);
+  }catch(Throwable t){throw new RuntimeException(t);}finally{x.close();}});
+  server.start();String endpoint="http://127.0.0.1:"+server.getAddress().getPort()+"/v1";
+  try{
+   ProactiveHintRegenerator model=new ProactiveHintRegenerator(endpoint,"model","test-key");
+   String answer=model.regenerate("q","c",hit(1),2200);
+   check(answer.length()<=120,"answer clipped to display budget: "+answer.length());
+   check(answer.indexOf('\n')<0 && answer.indexOf('\r')<0,"no control characters in answer");
+  }finally{server.stop(0);((java.util.concurrent.ExecutorService)server.getExecutor()).shutdownNow();}
+ }
+ static String longAnswer(){StringBuilder sb=new StringBuilder();for(int i=0;i<300;i++)sb.append("很长的回答内容");return sb.append("\n\r").toString();}
  static class SourceDouble {
   final List<Hint> delivered=Collections.synchronizedList(new ArrayList<Hint>());
   public void turboioOriginal_onProactiveHint(Hint hint){

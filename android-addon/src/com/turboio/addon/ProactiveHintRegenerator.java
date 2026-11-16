@@ -21,6 +21,7 @@ public final class ProactiveHintRegenerator implements ProactiveHintAugmentor.Re
         thread.setDaemon(true);
         return thread;
     });
+    private static final int MODEL_OUTPUT_BUDGET=120;
     private final String endpoint, model, apiKey;
 
     public ProactiveHintRegenerator(String endpoint, String model, String apiKey) {
@@ -48,10 +49,10 @@ public final class ProactiveHintRegenerator implements ProactiveHintAugmentor.Re
             try (OutputStream out=connection.getOutputStream()) { out.write(payload); }
             connection.setReadTimeout(remainingMs(deadline));
             if (connection.getResponseCode()/100!=2) throw new IOException("http_"+connection.getResponseCode());
-            String content=new JSONObject(readFully(connection.getInputStream(),deadline))
-                .getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content","").trim();
+            String content=sanitize(new JSONObject(readFully(connection.getInputStream(),deadline))
+                .getJSONArray("choices").getJSONObject(0).getJSONObject("message").optString("content",""));
             if (content.isEmpty()) throw new IOException("empty_completion");
-            return content;
+            return clip(content,MODEL_OUTPUT_BUDGET);
         } finally {
             cancel.cancel(false);
             connection.disconnect();
@@ -98,6 +99,17 @@ public final class ProactiveHintRegenerator implements ProactiveHintAugmentor.Re
     }
     private static String clip(String text, int limit) {
         String clean=text==null?"":text.trim();
-        return clean.length()<=limit?clean:clean.substring(0,limit)+"...";
+        return clean.length()<=limit?clean:clean.substring(0,limit);
+    }
+
+    /** Drops control characters the glasses display cannot render. */
+    private static String sanitize(String text) {
+        StringBuilder out=new StringBuilder(text==null?0:text.length());
+        for (int i=0;text!=null && i<text.length();i++) {
+            char c=text.charAt(i);
+            if (c<0x20 || c==0x7F) continue;
+            out.append(c);
+        }
+        return out.toString().trim();
     }
 }
