@@ -110,7 +110,7 @@ bool fm_view_open(FMView *v, const TNWidgets *api, void *parent, bool (*attach)(
         goto failed;
     api->place(api->ctx, v->status, 14, 0, 300, 24);
     api->place(api->ctx, v->brand, 426, 0, 100, 24);
-    api->text_static(api->ctx, v->brand, "Turbo IO");
+    api->text_static(api->ctx, v->brand, "Cheater IO");
     api->place(api->ctx, v->page, 252, 214, 36, 4);
     for (unsigned i = 0; i < FM_CELLS; i++)
     {
