@@ -1,25 +1,21 @@
 package com.turboio.addon;
 
+import java.lang.reflect.Constructor;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
+
 public final class ProactiveHintAugmentorTest {
     public static void main(String[] args) throws Exception {
-        testPreserveExtraFields();
         testExtractQuestionAndAnswerJson();
         testExtractQuestionPlainText();
-        testAssembleAugmentedJson();
-        testTruncationBudget();
-        testFallbackWhenEmptyEvidence();
+        testInterceptHoldsThenDeliversRegeneratedAnswer();
+        testInterceptCachesSameQuestionUnderSameRevision();
+        testInterceptFallbacksWhenRetrievalFails();
         testFormatContextIncludesCoverageInfo();
         testSynthesizeIncludesCoverageNote();
-        testAsyncWorkerUsesClientAndReturnsOriginalOnFailure();
         HintCoordinatorTest.main(args);
         System.out.println("ProactiveHintAugmentorTest: ALL PASS");
-    }
-
-    private static void testPreserveExtraFields() {
-        String original = "{\"question\":\"q\",\"answer\":\"a\",\"meta\":{\"id\":7},\"isFinish\":true}";
-        org.json.JSONObject result = new org.json.JSONObject(ProactiveHintAugmentor.augment(original, "evidence"));
-        if (!result.has("meta") || result.getJSONObject("meta").getInt("id") != 7 || !result.getBoolean("isFinish"))
-            throw new AssertionError("augmentation must preserve JSON extra fields");
     }
 
     private static void testExtractQuestionAndAnswerJson() {
@@ -36,52 +32,92 @@ public final class ProactiveHintAugmentorTest {
         if (parsed.answer != null) throw new AssertionError("answer should be null for plain text");
     }
 
-    private static void testAssembleAugmentedJson() {
-        String originalJson = "{\"question\":\"产品保修期多久？\",\"answer\":\"整机保修一年。\"}";
-        String evidence = "雷鸟X2享有专属延长质保2年服务。";
-        String augmented = ProactiveHintAugmentor.augment(originalJson, evidence);
-        if (!augmented.contains("\"question\":\"产品保修期多久？\"")) throw new AssertionError("question missing");
-        if (!augmented.contains("【知识库】雷鸟X2享有专属延长质保2年服务。")) throw new AssertionError("kb prefix missing");
-        if (!augmented.contains("【推荐】整机保修一年。")) throw new AssertionError("rec prefix missing");
+    private static McpConnectionStore.Snapshot config(long revision) throws Exception {
+        Constructor<McpConnectionStore.Snapshot> c = McpConnectionStore.Snapshot.class
+            .getDeclaredConstructor(boolean.class, String.class, String.class, long.class);
+        c.setAccessible(true);
+        return c.newInstance(true, "http://127.0.0.1/mcp", "", revision);
     }
 
-    private static void testTruncationBudget() {
-        String originalJson = "{\"question\":\"问答\",\"answer\":\"答案\"}";
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < 100; i++) sb.append("超长内容");
-        String evidence = sb.toString();
-        String augmented = ProactiveHintAugmentor.augment(originalJson, evidence);
-        if (augmented.length() > 300) throw new AssertionError("augmented payload too long: " + augmented.length());
-        if (!augmented.contains("...")) throw new AssertionError("expected truncation marker ...");
+    private static KnowledgeRetrieval.Result hit(long revision) {
+        return new KnowledgeRetrieval.Result(KnowledgeRetrieval.Status.HIT,
+            java.util.Collections.singletonList(new KnowledgeRetrieval.Evidence("kb", "doc-a", "faq.md", "{}", 0.9d, "evidence", "命中证据")),
+            revision);
     }
 
-    private static void testAsyncWorkerUsesClientAndReturnsOriginalOnFailure() {
-        String original = "{\"question\":\"异步问题\",\"answer\":\"官方答案\"}";
-        final java.util.ArrayDeque<Runnable> work = new java.util.ArrayDeque<>();
-        final java.util.ArrayDeque<Runnable> main = new java.util.ArrayDeque<>();
-        final String[] result = new String[1];
-        final boolean[] queried = new boolean[1];
-        ProactiveHintAugmentor.augmentAsync(original, question -> {
-            queried[0] = true;
-            if (!"异步问题".equals(question)) throw new AssertionError("wrong query");
-            throw new IllegalStateException("secret-token-must-not-escape");
-        }, work::add, main::add, value -> result[0] = value);
-        if (queried[0]) throw new AssertionError("lookup ran inline");
-        if (result[0] != null) throw new AssertionError("completion ran inline");
-        work.remove().run();
-        if (!queried[0]) throw new AssertionError("lookup did not run on worker");
-        if (result[0] != null) throw new AssertionError("result callback must be dispatched separately");
-        main.remove().run();
-        if (!original.equals(result[0])) throw new AssertionError("failure must preserve original hint");
+    private static String textOf(HintCoordinatorTest.Hint hint) throws Exception {
+        return (String) ProactiveHintAugmentor.textField(hint).get(hint);
     }
 
-    private static void testFallbackWhenEmptyEvidence() {
-        String originalJson = "{\"question\":\"未命中问题\",\"answer\":\"官方答案\"}";
-        String augmented = ProactiveHintAugmentor.augment(originalJson, null);
-        if (!augmented.equals(originalJson)) throw new AssertionError("should fallback to original when evidence is null");
+    private static final class Fixture implements ProactiveHintAugmentor.State, ProactiveHintAugmentor.MainScheduler {
+        final ArrayDeque<Runnable> workerTasks = new ArrayDeque<>();
+        final ArrayDeque<Runnable> mainTasks = new ArrayDeque<>();
+        final List<Runnable> timers = new ArrayList<>();
+        long now;
+        long generation = 1, sequence = 1, revision = 3;
+        int retrieves, models, deliveries;
+        String diagnostic;
+        ProactiveHintAugmentor.Retrieval retrieval = (question, snapshot, budgetMs) -> { retrieves++; return hit(snapshot.revision); };
+        ProactiveHintAugmentor.Regenerator model = (question, cloud, result, budgetMs) -> { models++; return "重生成回答"; };
+        ProactiveHintAugmentor augmentor() { return new ProactiveHintAugmentor(workerTasks::add, this, () -> now, this, retrieval); }
+        void deliver(Object hint, String value) { deliveries++; diagnostic = value; }
+        public long generation() { return generation; }
+        public long sequence() { return sequence; }
+        public long revision() { return revision; }
+        public void execute(Runnable task) { mainTasks.add(task); }
+        public ProactiveHintAugmentor.Cancellation schedule(Runnable task, long delayMs) {
+            timers.add(task);
+            return () -> timers.remove(task);
+        }
+        void runWorker() { while (!workerTasks.isEmpty()) workerTasks.remove().run(); }
+        void runMain() { while (!mainTasks.isEmpty()) mainTasks.remove().run(); }
+    }
 
-        String augmentedEmpty = ProactiveHintAugmentor.augment(originalJson, "   ");
-        if (!augmentedEmpty.equals(originalJson)) throw new AssertionError("should fallback to original when evidence is blank");
+    private static void testInterceptHoldsThenDeliversRegeneratedAnswer() throws Exception {
+        Fixture f = new Fixture();
+        String original = "{\"question\":\"产品保修期多久？\",\"answer\":\"整机保修一年。\"}";
+        HintCoordinatorTest.Hint hint = new HintCoordinatorTest.Hint(original);
+        f.augmentor().interceptAndRegenerateAsync(hint, config(f.revision), f.generation, f.sequence, f.model, f::deliver);
+        if (!textOf(hint).equals(original)) throw new AssertionError("must hold hint before retrieval");
+        if (f.deliveries != 0 || f.retrieves != 0) throw new AssertionError("work must be deferred");
+        f.runWorker();
+        if (f.deliveries != 0) throw new AssertionError("worker must not deliver");
+        if (!textOf(hint).equals(original)) throw new AssertionError("worker must not mutate hint");
+        f.runMain();
+        if (!new org.json.JSONObject(textOf(hint)).getString("answer").equals("重生成回答")) throw new AssertionError("answer not rewritten: " + textOf(hint));
+        if (f.deliveries != 1) throw new AssertionError("exactly one delivery");
+        if (!"提醒知识库回答已准备".equals(f.diagnostic)) throw new AssertionError("diagnostic mismatch: " + f.diagnostic);
+    }
+
+    private static void testInterceptCachesSameQuestionUnderSameRevision() throws Exception {
+        Fixture f = new Fixture();
+        ProactiveHintAugmentor augmentor = f.augmentor();
+        HintCoordinatorTest.Hint first = new HintCoordinatorTest.Hint("{\"question\":\"缓存问题\",\"answer\":\"云端一\"}");
+        augmentor.interceptAndRegenerateAsync(first, config(f.revision), f.generation, f.sequence, f.model, f::deliver);
+        f.runWorker(); f.runMain();
+        f.sequence++;
+        HintCoordinatorTest.Hint second = new HintCoordinatorTest.Hint("{\"question\":\"缓存问题\",\"answer\":\"云端二\"}");
+        augmentor.interceptAndRegenerateAsync(second, config(f.revision), f.generation, f.sequence, f.model, f::deliver);
+        if (f.retrieves != 1 || f.models != 1) throw new AssertionError("same question and revision must reuse cache");
+        if (!new org.json.JSONObject(textOf(second)).getString("answer").equals("重生成回答")) throw new AssertionError("cache must replay answer");
+        if (!"提醒已复用重生成回答".equals(f.diagnostic)) throw new AssertionError("cache diagnostic mismatch: " + f.diagnostic);
+        f.revision++; f.sequence++;
+        HintCoordinatorTest.Hint third = new HintCoordinatorTest.Hint("{\"question\":\"缓存问题\",\"answer\":\"云端三\"}");
+        augmentor.interceptAndRegenerateAsync(third, config(f.revision), f.generation, f.sequence, f.model, f::deliver);
+        f.runWorker(); f.runMain();
+        if (f.retrieves != 2) throw new AssertionError("revision change must re-retrieve");
+    }
+
+    private static void testInterceptFallbacksWhenRetrievalFails() throws Exception {
+        Fixture f = new Fixture();
+        f.retrieval = (question, snapshot, budgetMs) -> { f.retrieves++; return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.TIMEOUT, snapshot.revision); };
+        String original = "{\"question\":\"回退问题\",\"answer\":\"云端原回答\"}";
+        HintCoordinatorTest.Hint hint = new HintCoordinatorTest.Hint(original);
+        f.augmentor().interceptAndRegenerateAsync(hint, config(f.revision), f.generation, f.sequence, f.model, f::deliver);
+        f.runWorker(); f.runMain();
+        if (!textOf(hint).equals(original)) throw new AssertionError("fallback must keep cloud answer");
+        if (f.models != 0 || f.deliveries != 1) throw new AssertionError("fallback must skip regeneration and deliver once");
+        if (!f.diagnostic.startsWith("提醒知识库") || !f.diagnostic.contains("timeout") || !f.diagnostic.contains("已放行云端原回答")) throw new AssertionError("fallback diagnostic mismatch: " + f.diagnostic);
     }
 
     private static void testFormatContextIncludesCoverageInfo() {

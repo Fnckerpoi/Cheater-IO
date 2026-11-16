@@ -39,10 +39,6 @@ public final class CortrixClient {
             return new JSONObject().put("jsonrpc","2.0").put("id",id).put("method","tools/call").put("params",new JSONObject().put("name","cortrix_query").put("arguments",args)).toString();
         }catch(JSONException e){throw new IllegalArgumentException(e);}
     }
-    public String queryBestEvidenceSync(String query) {
-        KnowledgeRetrieval.Result r=retrieve(query,Math.max(1,connectTimeoutMs)+Math.max(1,readTimeoutMs),0,false);
-        return r.isHit()?r.evidences.get(0).text:null;
-    }
     private static final class Failure extends Exception {
         final KnowledgeRetrieval.Status status;
         Failure(KnowledgeRetrieval.Status status){this.status=status;}

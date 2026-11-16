@@ -84,6 +84,14 @@ Android非Root设备已有用户实机可用确认；但换签仍不能直接覆
 
 “让Claude Code/Codex帮我搭建”与“眼镜通过Tools调用电脑Agent”是两件事。后者需要单独的bridge、网络与权限配置，各平台的实现/验收不同；不能因用Claude Code编译成功就标记Claude Code后端已接通。
 
+## 有问必答接入知识库
+
+有问必答不新建显示通道，沿用官方原厂的 voiceAssistant 业务（13）与 AssistantType=5（app_asr_text / CaptionMsg）帧，只改写下发提示里的 answer 文本后回注官方回调。链路：手机 onProactiveHint 先挂起云端提示 → 按 McpConnectionStore 的 endpoint 调用 Cortrix 检索（预算 1800ms）→ 命中后把真实返回的 doc_id、source_path、metadata 和证据片段连同覆盖注记（coverage_ratio / namespaces_failed / truncated）交给手机模型重生成（预算 2200ms，单次投递 watchdog 4000ms）→ 把模型答案写入原提示并投递眼镜。模型只能引用检索实际返回的来源，不得编造；输出裁剪到 120 字并清理控制字符。
+
+检索未命中、知识库未启用或未配置、检索或重生成超时与异常时，放行云端原回答并记录诊断，不阻塞原厂提示。重生成缓存以 McpConnectionStore 的 revision 为准：问题和 revision 都不变才复用上一条回答，revision 变化即重新检索。
+
+实现集中在 android-addon/src/com/turboio/addon/ 的 KnowledgeRetrieval、CortrixClient、ProactiveHintRegenerator、ProactiveHintAugmentor；端到端用 android-addon/tests/RunProactiveHintTests.ps1 验证，覆盖假 MCP 命中证据、假模型返回、revision 失效与未启用回退。
+
 ## 最后应拿到什么
 
 助手应给出：源码目录/版本、可重现命令、产物或预览地址、测试结果、用户配置项、尚未验收项和清理自己启动进程的方法。停在证书、兼容输入或物理确认上时应精确说明，不说“全部搞定”。有能力继续的本机步骤可以继续做，但不替用户确认镜片、签名或登录。

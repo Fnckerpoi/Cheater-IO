@@ -138,22 +138,4 @@ public final class ProactiveHintAugmentor {
         }
         throw new NoSuchFieldException("text");
     }
-    public static String augment(String original,String evidence) {
-        HintPayload payload=parseHintText(original);
-        if(evidence==null || evidence.trim().isEmpty() || payload.question.isEmpty()) return original;
-        String clipped=evidence.trim();if(clipped.length()>80)clipped=clipped.substring(0,80)+"...";
-        return replaceAnswer(original,"【知识库】"+clipped+(payload.answer==null?"":"\n【推荐】"+payload.answer.trim()));
-    }
-    public static String process(String original,CortrixClient client) {
-        if(client==null || parseHintText(original).question.isEmpty())return original;
-        return augment(original,client.queryBestEvidenceSync(parseHintText(original).question));
-    }
-    interface EvidenceLookup { String query(String question); }
-    interface Completion { void accept(String result); }
-    static void augmentAsync(String original,EvidenceLookup lookup,Executor worker,Executor main,Completion completion) {
-        worker.execute(() -> {String value=original;try {value=augment(original,lookup.query(parseHintText(original).question));}catch(Exception ignored){}final String result=value;main.execute(()->completion.accept(result));});
-    }
-    public static void augmentHintObject(Object hint,CortrixClient client) {
-        try {Field field=textField(hint);Object value=field.get(hint);if(value instanceof String)field.set(hint,process((String)value,client));}catch(Exception ignored){}
-    }
 }
