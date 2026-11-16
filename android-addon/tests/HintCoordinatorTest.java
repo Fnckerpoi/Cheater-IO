@@ -22,7 +22,7 @@ public final class HintCoordinatorTest {
   void finish(){work.remove().run();while(!main.isEmpty())main.remove().run();}
  }
  public static void main(String[] args)throws Exception {
-  orderedAndCache(); fallbacks(); watchdog(); stale(); mutable(); http(); answerBudget(); hookDispatch();
+  orderedAndCache(); fallbacks(); watchdog(); stale(); mutable(); http(); answerBudget(); hookDispatch(); endToEnd();
   System.out.println("HintCoordinatorTest: ALL PASS (coordinator + real HTTP + hook dispatch)");
  }
  static void orderedAndCache()throws Exception {
@@ -189,6 +189,96 @@ public final class HintCoordinatorTest {
    server.stop(0);
    ((java.util.concurrent.ExecutorService)server.getExecutor()).shutdownNow();
   }
+ }
+ static void endToEnd()throws Exception {
+  ProactiveHintHookHarness.NETWORK=java.util.concurrent.Executors.newFixedThreadPool(2);
+  com.sun.net.httpserver.HttpServer server=com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1",0),0);
+  final java.util.concurrent.atomic.AtomicInteger mcpCalls=new java.util.concurrent.atomic.AtomicInteger();
+  final java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CountDownLatch> enterGate=new java.util.concurrent.atomic.AtomicReference<>();
+  final java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CountDownLatch> releaseGate=new java.util.concurrent.atomic.AtomicReference<>();
+  final java.util.concurrent.atomic.AtomicReference<Throwable> serverFailure=new java.util.concurrent.atomic.AtomicReference<>();
+  server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
+  server.createContext("/mcp",x->{try{
+   java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();byte[] b=new byte[1024];int n;while((n=x.getRequestBody().read(b))!=-1)bytes.write(b,0,n);
+   JSONObject req=new JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
+   String method=req.getString("method"); long id=req.optLong("id",1L);
+   if("initialize".equals(method)){
+    x.getResponseHeaders().set("Mcp-Session-Id","sess-e2e");
+    byte[] out=new JSONObject().put("jsonrpc","2.0").put("id",id).put("result",new JSONObject().put("protocolVersion","2024-11-05")).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    x.sendResponseHeaders(200,out.length);x.getResponseBody().write(out);
+   }else if("notifications/initialized".equals(method)){
+    x.sendResponseHeaders(202,-1);
+   }else if("tools/list".equals(method)){
+    byte[] out=new JSONObject().put("jsonrpc","2.0").put("id",id).put("result",new JSONObject().put("tools",new JSONArray().put(new JSONObject().put("name","cortrix_query")))).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    x.sendResponseHeaders(200,out.length);x.getResponseBody().write(out);
+   }else if("tools/call".equals(method)){
+    mcpCalls.incrementAndGet();
+    java.util.concurrent.CountDownLatch enter=enterGate.get();if(enter!=null)enter.countDown();
+    java.util.concurrent.CountDownLatch release=releaseGate.get();if(release!=null)release.await(5,java.util.concurrent.TimeUnit.SECONDS);
+    JSONArray docs=new JSONArray().put(new JSONObject().put("namespace","kb").put("doc_id","doc-e2e").put("source_path","specs/e2e.md").put("score",0.98).put("evidence",new JSONArray().put(new JSONObject().put("kind","parent").put("text","E2E_EVIDENCE"))));
+    JSONObject envelope=new JSONObject().put("data",new JSONObject().put("results",docs));
+    byte[] out=new JSONObject().put("jsonrpc","2.0").put("id",id).put("result",new JSONObject().put("structuredContent",envelope)).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    x.sendResponseHeaders(200,out.length);x.getResponseBody().write(out);
+   }
+  }catch(Throwable t){serverFailure.set(t);}finally{x.close();}});
+  server.createContext("/v1/chat/completions",x->{try{
+   byte[] out="{\"choices\":[{\"message\":{\"content\":\"E2E_MODEL_ANSWER\"}}]}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+   x.sendResponseHeaders(200,out.length);x.getResponseBody().write(out);
+  }catch(Throwable t){serverFailure.set(t);}finally{x.close();}});
+  server.start();
+  String base="http://127.0.0.1:"+server.getAddress().getPort();
+  try {
+   ProactiveHintHookHarness.reset();
+   ProactiveHintHookHarness.endpoint=base+"/v1";
+   ProactiveHintHookHarness.model="deepseek-flash";
+   ProactiveHintHookHarness.secretKey="e2e-secret";
+   ProactiveHintHookHarness.mcpConfig=configWithUrl(true,base+"/mcp",5L);
+   java.util.concurrent.CountDownLatch enter1=new java.util.concurrent.CountDownLatch(1);
+   java.util.concurrent.CountDownLatch release1=new java.util.concurrent.CountDownLatch(1);
+   enterGate.set(enter1);releaseGate.set(release1);
+   SourceDouble sourceA=new SourceDouble();
+   Hint hintA=new Hint("{\"question\":\"same question?\",\"answer\":\"cloud first\"}");
+   ProactiveHintHookHarness.dispatchProactiveHint(sourceA,hintA);
+   check(enter1.await(5,java.util.concurrent.TimeUnit.SECONDS),"async MCP retrieval must start");
+   check(sourceA.delivered.isEmpty(),"pre-display hold before retrieval");
+   enterGate.set(null);releaseGate.set(null);release1.countDown();
+   waitForDelivery();
+   check(sourceA.delivered.size()==1&&sourceA.delivered.get(0)==hintA,"single hit delivery");
+   check("E2E_MODEL_ANSWER".equals(new JSONObject(hintA.text).getString("answer")),"model answer delivered");
+   check("提醒知识库回答已准备".equals(ProactiveHintHookHarness.diagnostic),"hit diagnostic");
+   java.util.concurrent.CountDownLatch enter2=new java.util.concurrent.CountDownLatch(1);
+   java.util.concurrent.CountDownLatch release2=new java.util.concurrent.CountDownLatch(1);
+   enterGate.set(enter2);releaseGate.set(release2);
+   ProactiveHintHookHarness.mcpConfig=configWithUrl(true,base+"/mcp",9L);
+   SourceDouble sourceB=new SourceDouble();
+   Hint hintB=new Hint("{\"question\":\"same question?\",\"answer\":\"cloud second\"}");
+   ProactiveHintHookHarness.dispatchProactiveHint(sourceB,hintB);
+   check(enter2.await(5,java.util.concurrent.TimeUnit.SECONDS),"revision change must trigger retrieval");
+   check(mcpCalls.get()==2,"revision change must not reuse cache: "+mcpCalls.get());
+   enterGate.set(null);releaseGate.set(null);release2.countDown();
+   waitForDelivery();
+   check("E2E_MODEL_ANSWER".equals(new JSONObject(hintB.text).getString("answer")),"revision change re-retrieved");
+   check("提醒知识库回答已准备".equals(ProactiveHintHookHarness.diagnostic),"revision retrieval diagnostic");
+   ProactiveHintHookHarness.reset();
+   ProactiveHintHookHarness.mcpConfig=configWithUrl(false,base+"/mcp",11L);
+   SourceDouble sourceC=new SourceDouble();
+   Hint hintC=new Hint("{\"question\":\"miss question?\",\"answer\":\"cloud miss\"}");
+   ProactiveHintHookHarness.dispatchProactiveHint(sourceC,hintC);
+   check(sourceC.delivered.size()==1&&sourceC.delivered.get(0)==hintC,"disabled config delivers once (synchronous)");
+   check("cloud miss".equals(new JSONObject(hintC.text).getString("answer")),"disabled config passes cloud answer through");
+   check("提醒知识库未启用或问题为空，已放行云端原回答".equals(ProactiveHintHookHarness.diagnostic),"disabled diagnostic");
+   if(serverFailure.get()!=null)throw new AssertionError(serverFailure.get());
+  } finally {
+   ProactiveHintHookHarness.NETWORK.shutdownNow();
+   server.stop(0);
+   ((java.util.concurrent.ExecutorService)server.getExecutor()).shutdownNow();
+  }
+ }
+ static void waitForDelivery()throws Exception {
+  long deadline=System.currentTimeMillis()+5000;
+  while(ProactiveHintHookHarness.MAIN.queue.isEmpty()&&System.currentTimeMillis()<deadline)Thread.sleep(10);
+  check(!ProactiveHintHookHarness.MAIN.queue.isEmpty(),"delivery must post to MAIN looper");
+  ProactiveHintHookHarness.MAIN.drain();
  }
  static McpConnectionStore.Snapshot configWithUrl(boolean enabled,String url,long revision)throws Exception {
   java.lang.reflect.Constructor<McpConnectionStore.Snapshot> c=McpConnectionStore.Snapshot.class.getDeclaredConstructor(boolean.class,String.class,String.class,long.class);
