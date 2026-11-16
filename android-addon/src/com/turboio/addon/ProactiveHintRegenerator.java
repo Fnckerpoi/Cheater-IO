@@ -63,6 +63,9 @@ public final class ProactiveHintRegenerator implements ProactiveHintAugmentor.Re
         out.append(clip(first.text,80));
         String source=!first.sourcePath.isEmpty()?first.sourcePath:first.docId;
         if (!source.isEmpty()) out.append("（").append(source).append("）");
+        out.append("\n【知识库覆盖】coverage_ratio=").append(result.coverageRatio)
+            .append("; namespaces_failed=").append(result.namespacesFailed)
+            .append("; truncated=").append(result.truncated);
         if (cloudAnswer!=null && !cloudAnswer.trim().isEmpty()) out.append("\n【云端原回答】").append(cloudAnswer.trim());
         return out.toString();
     }

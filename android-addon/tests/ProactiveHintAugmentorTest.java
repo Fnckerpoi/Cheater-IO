@@ -8,6 +8,8 @@ public final class ProactiveHintAugmentorTest {
         testAssembleAugmentedJson();
         testTruncationBudget();
         testFallbackWhenEmptyEvidence();
+        testFormatContextIncludesCoverageInfo();
+        testSynthesizeIncludesCoverageNote();
         testAsyncWorkerUsesClientAndReturnsOriginalOnFailure();
         HintCoordinatorTest.main(args);
         System.out.println("ProactiveHintAugmentorTest: ALL PASS");
@@ -80,5 +82,32 @@ public final class ProactiveHintAugmentorTest {
 
         String augmentedEmpty = ProactiveHintAugmentor.augment(originalJson, "   ");
         if (!augmentedEmpty.equals(originalJson)) throw new AssertionError("should fallback to original when evidence is blank");
+    }
+
+    private static void testFormatContextIncludesCoverageInfo() {
+        KnowledgeRetrieval.Evidence evidence = new KnowledgeRetrieval.Evidence(
+            "team", "doc-1", "plan.md", "{\"kind\":\"plan\"}", 0.91, "evidence", "覆盖信息必须传给模型。");
+        KnowledgeRetrieval.Result hit = new KnowledgeRetrieval.Result(
+            KnowledgeRetrieval.Status.HIT, java.util.Collections.singletonList(evidence), 7L,
+            0.8d, java.util.Collections.singletonList("team-failed"), 123L, true);
+        String context = KnowledgeRetrieval.formatContext(hit);
+        if (!context.contains("coverage_ratio")) throw new AssertionError("coverage_ratio missing: " + context);
+        if (!context.contains("0.8")) throw new AssertionError("coverage ratio value missing: " + context);
+        if (!context.contains("namespaces_failed")) throw new AssertionError("namespaces_failed missing: " + context);
+        if (!context.contains("team-failed")) throw new AssertionError("failed namespace missing: " + context);
+        if (!context.contains("truncated")) throw new AssertionError("truncated missing: " + context);
+        if (!context.contains("true")) throw new AssertionError("truncated value missing: " + context);
+        if (!context.contains("doc-1")) throw new AssertionError("evidence doc_id missing: " + context);
+    }
+
+    private static void testSynthesizeIncludesCoverageNote() {
+        KnowledgeRetrieval.Evidence evidence = new KnowledgeRetrieval.Evidence(
+            "team", "doc-2", "guide.md", "", 0.5d, "evidence", "合成路径也要带覆盖注记。");
+        KnowledgeRetrieval.Result hit = new KnowledgeRetrieval.Result(
+            KnowledgeRetrieval.Status.HIT, java.util.Collections.singletonList(evidence), 3L,
+            0.5d, java.util.Collections.singletonList("legacy"), 20L, false);
+        String synthesized = ProactiveHintRegenerator.synthesize("云端答案", hit);
+        if (!synthesized.contains("覆盖")) throw new AssertionError("coverage note missing: " + synthesized);
+        if (!synthesized.contains("云端原回答")) throw new AssertionError("cloud answer missing: " + synthesized);
     }
 }
