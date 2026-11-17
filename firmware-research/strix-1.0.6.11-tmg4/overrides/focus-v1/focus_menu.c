@@ -5,7 +5,7 @@
 #include "focus_menu.h"
 #include "focus_menu_icons.h"
 #include <string.h>
-static const char *const names[] = {"录音", "实时字幕", "有问必答", "待办", "导航", "提词器", "全天智记", "勿扰模式", "显示测试", "我的应用"};
+static const char *const names[] = {"录音", "实时字幕", "有问必答", "待办", "导航", "提词器", "全天智记", "勿扰模式", "我的应用"};
 _Static_assert(sizeof names / sizeof *names == FM_ITEMS, "labels match stock item count");
 _Static_assert(sizeof fm_icon4 == 19584, "artwork budget");
 static unsigned per(const FMView *v) { return v->rows * 3; }
@@ -39,7 +39,7 @@ static void icon(uint8_t *out, unsigned index, unsigned weight, unsigned fade, u
 {
     memset(out, 0, FM_ICON * FM_ICON);
     unsigned size = canvas - 2 + 2 * weight / 256, pad = (canvas - size) / 2, gain = (175 + 80 * weight / 256) * fade / 256;
-    static const unsigned map[] = {0, 1, 2, 3, 8, 4, 5, 6, 7, 13};
+    static const unsigned map[] = {0, 1, 2, 3, 8, 4, 5, 6, 13};
     unsigned artwork = map[index];
     const unsigned char *packed = fm_icon4[artwork];
     for (unsigned y = 0; y < size; y++)

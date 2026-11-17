@@ -143,6 +143,7 @@ public final class TurboAddon {
         synchronized(TurboAddon.class) {
             if(hintAugmentor==null) {
                 ProactiveHintAugmentor.trace=TurboAddon::chatLog;
+                CortrixClient.trace=TurboAddon::chatLog;
                 hintAugmentor=new ProactiveHintAugmentor(NETWORK,
                     new ProactiveHintAugmentor.MainScheduler() {
                         public void execute(Runnable task) { MAIN.post(task); }

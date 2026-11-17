@@ -86,7 +86,7 @@ Android非Root设备已有用户实机可用确认；但换签仍不能直接覆
 
 ## 有问必答接入知识库
 
-有问必答不新建显示通道，沿用官方原厂的 voiceAssistant 业务（13）与 AssistantType=5（app_asr_text / CaptionMsg）帧，只改写下发提示里的 answer 文本后回注官方回调。链路：手机 onProactiveHint 先挂起云端提示 → 按 McpConnectionStore 的 endpoint 调用 Cortrix 检索（预算 1800ms）→ 命中后把真实返回的 doc_id、source_path、metadata 和证据片段连同覆盖注记（coverage_ratio / namespaces_failed / truncated）交给手机模型重生成（预算 2200ms，单次投递 watchdog 4000ms）→ 把模型答案写入原提示并投递眼镜。模型只能引用检索实际返回的来源，不得编造；输出裁剪到 120 字并清理控制字符。
+有问必答不新建显示通道，沿用官方原厂的 voiceAssistant 业务（13）与 AssistantType=5（app_asr_text / CaptionMsg）帧，只改写下发提示里的 answer 文本后回注官方回调。链路：手机 onProactiveHint 先挂起云端提示 → 按 McpConnectionStore 的 endpoint 调用 Cortrix 检索（预算 15000ms，检索请求固定传 rerank=false 以避开服务端默认跨命名空间重排的 5–9.6s 高耗时；CortrixClient 按 endpoint+token 缓存 MCP 会话，会话在 initialize 校验通过后立即落库，重检索只发 tools/call，404 会话过期或 keep-alive 连接失效自动重协商一次；同一握手内的多个请求复用同一条 HttpURLConnection（连接复用），并记录 init_ms/list_ms/call_ms 分段耗时）→ 命中后把真实返回的 doc_id、source_path、metadata 和证据片段连同覆盖注记（coverage_ratio / namespaces_failed / truncated）交给手机模型重生成（预算 2200ms，单次投递 watchdog 18000ms）→ 把模型答案写入原提示并投递眼镜。模型只能引用检索实际返回的来源，不得编造；输出裁剪到 120 字并清理控制字符。
 
 检索未命中、知识库未启用或未配置、检索或重生成超时与异常时，放行云端原回答并记录诊断，不阻塞原厂提示。重生成缓存以 McpConnectionStore 的 revision 为准：问题和 revision 都不变才复用上一条回答，revision 变化即重新检索。
 

@@ -77,13 +77,13 @@ public final class ProactiveHintAugmentor {
         if (config.revision==cachedRevision && payload.question.equals(cachedQuestion)) {
             pending.accept(cachedAnswer,"提醒已复用重生成回答"); return;
         }
-        pending.watchdog=main.schedule(() -> pending.accept(null,"提醒流水线超时，已放行云端原回答"),4000);
+        pending.watchdog=main.schedule(() -> pending.accept(null,"提醒流水线超时，已放行云端原回答"),18000);
         try { worker.execute(() -> {
             String answer=null, diagnostic="提醒检索失败，已放行云端原回答";
             try {
                 if (!pending.active()) return;
                 long retrievalStart=clock.nowMs();
-                long budget=Math.min(1800,pending.deadline-retrievalStart);
+                long budget=Math.min(15000,pending.deadline-retrievalStart);
                 if (budget<=0) throw new java.net.SocketTimeoutException();
                 KnowledgeRetrieval.Result result=retrieval.retrieve(payload.question,config,budget);
                 trace.log("hint retrieval seq="+sequence+" status="+(result==null?"null":result.status)+" ms="+(clock.nowMs()-retrievalStart));
@@ -114,7 +114,7 @@ public final class ProactiveHintAugmentor {
         final Delivery delivery; final AtomicBoolean delivered=new AtomicBoolean();
         Cancellation watchdog;
         Pending(Object hint,Field field,String original,McpConnectionStore.Snapshot config,long generation,long sequence,Delivery delivery) {
-            this.hint=hint;this.field=field;this.original=original;this.config=config;this.generation=generation;this.sequence=sequence;this.delivery=delivery;deadline=clock.nowMs()+4000;
+            this.hint=hint;this.field=field;this.original=original;this.config=config;this.generation=generation;this.sequence=sequence;this.delivery=delivery;deadline=clock.nowMs()+18000;
         }
         boolean valid() { return state.generation()==generation && state.sequence()==sequence && (config==null || state.revision()==config.revision); }
         boolean active() { return !delivered.get() && valid() && clock.nowMs()<deadline; }

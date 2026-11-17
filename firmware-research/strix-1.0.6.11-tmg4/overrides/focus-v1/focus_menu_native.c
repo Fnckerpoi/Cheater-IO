@@ -38,8 +38,7 @@ static void *ptr(void *p, unsigned o) { return p ? *(void **)((uint8_t *)p + o) 
 static TNNavSlot *slot(void *a) { return a ? ((M8NativeTail *)((uint8_t *)a + TIO_STOCK_MENU_BYTES))->navigation : NULL; }
 static bool detail(void *app)
 {
-    TNNavSlot *s = slot(app);
-    return tap_service_visible(app) || (s && ((M8NativeTail *)((uint8_t *)app + TIO_STOCK_MENU_BYTES))->page);
+    return tap_service_visible(app);
 }
 static void hide_legacy(void *app)
 {

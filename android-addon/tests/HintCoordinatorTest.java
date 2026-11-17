@@ -14,9 +14,9 @@ public final class HintCoordinatorTest {
   long now=0,gen=1,seq=1,rev=1; int retrieves,models,deliveries; String status;
   ArrayDeque<Runnable> work=new ArrayDeque<>(),main=new ArrayDeque<>(); ArrayList<Runnable> timers=new ArrayList<>();
   KnowledgeRetrieval.Status retrievalStatus=KnowledgeRetrieval.Status.HIT;
-  ProactiveHintAugmentor a=new ProactiveHintAugmentor(work::add,this,()->now,this,(q,c,b)->{check(b<=1800,"retrieval budget");retrieves++;return retrievalStatus==KnowledgeRetrieval.Status.HIT?hit(c.revision):KnowledgeRetrieval.result(retrievalStatus,c.revision);});
+  ProactiveHintAugmentor a=new ProactiveHintAugmentor(work::add,this,()->now,this,(q,c,b)->{check(b<=15000,"retrieval budget");retrieves++;return retrievalStatus==KnowledgeRetrieval.Status.HIT?hit(c.revision):KnowledgeRetrieval.result(retrievalStatus,c.revision);});
   public long generation(){return gen;} public long sequence(){return seq;} public long revision(){return rev;}
-  public void execute(Runnable r){main.add(r);} public ProactiveHintAugmentor.Cancellation schedule(Runnable r,long ms){check(ms==4000,"watchdog deadline");timers.add(r);return ()->timers.remove(r);}
+  public void execute(Runnable r){main.add(r);} public ProactiveHintAugmentor.Cancellation schedule(Runnable r,long ms){check(ms==18000,"watchdog deadline");timers.add(r);return ()->timers.remove(r);}
   ProactiveHintAugmentor.Regenerator model=(q,cloud,r,b)->{check(b<=2200,"model budget");models++;return "regenerated";};
   void start(Hint h)throws Exception {a.interceptAndRegenerateAsync(h,config(rev),gen,seq,model,(v,s)->{check(v==h,"same hint object");check(h.metadata==42,"object metadata");deliveries++;status=s;});}
   void finish(){work.remove().run();while(!main.isEmpty())main.remove().run();}
@@ -39,9 +39,9 @@ public final class HintCoordinatorTest {
   Fixture empty=new Fixture();empty.model=(q,c,r,b)->" ";Hint eh=new Hint("q");empty.start(eh);empty.finish();check(eh.text.equals("q"),"empty regeneration original");
  }
  static void watchdog()throws Exception {
-  Fixture f=new Fixture();Hint h=new Hint("original");f.start(h);f.now=4000;f.timers.get(0).run();check(f.deliveries==1&&h.text.equals("original"),"watchdog original");f.finish();check(f.deliveries==1&&f.models==0,"late result suppressed");
-  Fixture g=new Fixture();g.model=(q,c,r,b)->{g.now=4001;return "late";};Hint late=new Hint("original");g.start(late);g.finish();check(late.text.equals("original")&&g.deliveries==1,"late model original even before timer runs");
-  Fixture r=new Fixture();r.a=new ProactiveHintAugmentor(r.work::add,r,()->r.now,r,(q,c,b)->{r.now=1801;return hit(1);});Hint rh=new Hint("q");r.start(rh);r.finish();check(r.models==0&&rh.text.equals("q"),"retrieval stage expiration");
+  Fixture f=new Fixture();Hint h=new Hint("original");f.start(h);f.now=18000;f.timers.get(0).run();check(f.deliveries==1&&h.text.equals("original"),"watchdog original");f.finish();check(f.deliveries==1&&f.models==0,"late result suppressed");
+  Fixture g=new Fixture();g.model=(q,c,r,b)->{g.now=2201;return "late";};Hint late=new Hint("original");g.start(late);g.finish();check(late.text.equals("original")&&g.deliveries==1,"late model original even before timer runs");
+  Fixture r=new Fixture();r.a=new ProactiveHintAugmentor(r.work::add,r,()->r.now,r,(q,c,b)->{r.now=15001;return hit(1);});Hint rh=new Hint("q");r.start(rh);r.finish();check(r.models==0&&rh.text.equals("q"),"retrieval stage expiration");
  }
  static void stale()throws Exception {
   for(int which=0;which<3;which++){Fixture f=new Fixture();Hint h=new Hint("q");f.start(h);if(which==0)f.seq++;if(which==1)f.gen++;if(which==2)f.rev++;f.timers.get(0).run();f.finish();check(f.deliveries==0&&h.text.equals("q"),"stale state suppresses all delivery");}
@@ -163,6 +163,7 @@ public final class HintCoordinatorTest {
    check("提醒知识库回答已准备".equals(ProactiveHintHookHarness.diagnostic),"diagnostic updated on main delivery: "+ProactiveHintHookHarness.diagnostic);
    String trace=String.join("\n",ProactiveHintHookHarness.chatLines);
    check(trace.contains("hint enter seq=")&&trace.contains("hint parse ")&&trace.contains("question_len=14")&&trace.contains("hint retrieval ")&&trace.contains("status=HIT")&&trace.contains("regenerated=true"),"stage trace logged: "+trace);
+    check(trace.contains("hint mcp warm=false")&&trace.contains("call_ms="),"mcp stage trace logged: "+trace);
    check(!trace.contains("hook question")&&!trace.contains("regenerated via hook")&&!trace.contains("cloud original"),"trace omits hint text");
 
    // (c.1) Single fallback delivery of original hint when McpConnectionStore.snapshot(app) throws

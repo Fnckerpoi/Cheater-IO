@@ -17,8 +17,9 @@ public final class CortrixClientTest {
     static final class Server implements AutoCloseable {
         final HttpServer server; final ExecutorService pool=Executors.newCachedThreadPool();
         final List<String> methods = Collections.synchronizedList(new ArrayList<String>());
-        volatile Throwable failure; String mode;
+        volatile Throwable failure; String mode; final java.util.concurrent.atomic.AtomicInteger calls=new java.util.concurrent.atomic.AtomicInteger();
         Server(String mode) throws Exception {
+            CortrixClient.resetSessions();
             this.mode=mode; server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0); server.setExecutor(pool);
             server.createContext("/mcp", e -> { try { handle(e); } catch(Throwable t) { failure=t; e.close(); } }); server.start();
         }
@@ -39,7 +40,9 @@ public final class CortrixClientTest {
             if(method.equals("initialize")) { e.getResponseHeaders().set("Mcp-Session-Id","session-test"); result=new JSONObject().put("protocolVersion",mode.equals("version")?"bad":"2024-11-05"); }
             else if(method.equals("tools/list")) result=new JSONObject().put("tools",new JSONArray(mode.equals("missing")?"[]":"[{\"name\":\"cortrix_query\"}]"));
             else {
+                if(mode.equals("expire")&&calls.incrementAndGet()==2){e.sendResponseHeaders(404,-1);e.close();return;}
                 check(req.getJSONObject("params").getJSONObject("arguments").getString("query").equals("问题"),"query");
+                check(!req.getJSONObject("params").getJSONObject("arguments").getBoolean("rerank"),"rerank disabled for time budget");
                 if(mode.equals("namespaces")) {
                     JSONArray ns = req.getJSONObject("params").getJSONObject("arguments").getJSONArray("namespaces");
                     check(ns.length() == 2 && ns.getString(0).equals("ns1") && ns.getString(1).equals("ns2"), "namespaces in args");
@@ -155,6 +158,29 @@ public final class CortrixClientTest {
         try(Server s=new Server("namespaces")) {
             KnowledgeRetrieval.Result r = KnowledgeRetrieval.retrieve("问题", Arrays.asList("ns1", "ns2"), snapshot(true, s.url()), 1000);
             check(r.isHit(), "namespaces retrieve HIT");
+        }
+
+        // Session reuse: a second retrieval on the same endpoint sends only tools/call.
+        try(Server s=new Server("normal")) {
+            List<String> stages=Collections.synchronizedList(new ArrayList<String>());
+            CortrixClient.trace=stages::add;
+            try {
+                KnowledgeRetrieval.Result first=KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000);
+                check(first.isHit(),"reuse first HIT");
+                KnowledgeRetrieval.Result second=KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000);
+                check(second.isHit(),"reuse second HIT");
+                check(s.methods.equals(Arrays.asList("initialize","notifications/initialized","tools/list","tools/call","tools/call")),"warm sequence "+s.methods);
+                boolean cold=false,warm=false;
+                for(String line:stages){if(line.contains("warm=false")&&line.contains("call_ms="))cold=true;if(line.contains("warm=true"))warm=true;}
+                check(cold&&warm,"stage trace warm/cold: "+stages);
+            } finally { CortrixClient.trace=ev->{}; }
+        }
+        // Session expiry: a warm tools/call rejected with 404 re-handshakes once and retries.
+        try(Server s=new Server("expire")) {
+            check(KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000).isHit(),"expire setup HIT");
+            KnowledgeRetrieval.Result retried=KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000);
+            check(retried.isHit(),"404 session retry HIT: "+retried.status);
+            check(s.methods.equals(Arrays.asList("initialize","notifications/initialized","tools/list","tools/call","tools/call","initialize","notifications/initialized","tools/list","tools/call")),"expire sequence "+s.methods);
         }
 
         String settings=new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(args[0])),StandardCharsets.UTF_8);

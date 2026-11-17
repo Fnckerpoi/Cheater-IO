@@ -110,6 +110,7 @@ final class ProactiveHintHookHarness {
   snapshotFailure = null;
   secretFailure = null;
   chatLines.clear();
+  com.turboio.addon.CortrixClient.resetSessions();
  }
 '@
 
