@@ -142,6 +142,7 @@ public final class TurboAddon {
         if(current!=null)return current;
         synchronized(TurboAddon.class) {
             if(hintAugmentor==null) {
+                ProactiveHintAugmentor.trace=TurboAddon::chatLog;
                 hintAugmentor=new ProactiveHintAugmentor(NETWORK,
                     new ProactiveHintAugmentor.MainScheduler() {
                         public void execute(Runnable task) { MAIN.post(task); }
@@ -164,13 +165,14 @@ public final class TurboAddon {
     public static void dispatchProactiveHint(Object source, Object hint) {
         serial(() -> {
             final long sequence=++hintSequence;
+            chatLog("hint enter seq="+sequence+" hint="+(hint==null?"null":hint.getClass().getName()));
             if(source==null||hint==null)return;
             final McpConnectionStore.Snapshot config;
             try { config=McpConnectionStore.snapshot(app); }
             catch(Exception unavailable) {
                 try { invokeTyped(source,"onProactiveHint",new Class<?>[]{hint.getClass()},new Object[]{hint}); }
                 catch(Exception failed) { diagnostic="官方有问必答分发失败";return; }
-                diagnostic="知识库配置不可用，已放行云端原回答";return;
+                diagnostic="知识库配置不可用，已放行云端原回答";chatLog("hint fallback config_unavailable");return;
             }
             final String endpoint=prefs==null?"":prefs.getString("endpoint","https://api.deepseek.com/v1/");
             final String model=prefs==null?"":prefs.getString("model","deepseek-flash");
@@ -179,13 +181,13 @@ public final class TurboAddon {
             catch(Exception unavailable) {
                 try { invokeTyped(source,"onProactiveHint",new Class<?>[]{hint.getClass()},new Object[]{hint}); }
                 catch(Exception failed) { diagnostic="官方有问必答分发失败";return; }
-                diagnostic="模型密钥不可用，已放行云端原回答";return;
+                diagnostic="模型密钥不可用，已放行云端原回答";chatLog("hint fallback key_unavailable");return;
             }
             final ProactiveHintRegenerator regenerator=new ProactiveHintRegenerator(endpoint,model,key);
             hintAugmentor().interceptAndRegenerateAsync(hint,config,generation,sequence,regenerator,
                 (value,status)->{
                     try { invokeTyped(source,"onProactiveHint",new Class<?>[]{value.getClass()},new Object[]{value});diagnostic=status; }
-                    catch(Exception failed) { diagnostic="官方有问必答分发失败"; }
+                    catch(Exception failed) { diagnostic="官方有问必答分发失败";chatLog("hint vendor_dispatch_failed"); }
                 });
         });
     }

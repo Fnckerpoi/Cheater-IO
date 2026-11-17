@@ -161,6 +161,9 @@ public final class HintCoordinatorTest {
    JSONObject deliveredJson=new JSONObject(hintA.text);
    check("regenerated via hook".equals(deliveredJson.getString("answer"))&&deliveredJson.getInt("keep")==99,"regenerated answer and preserved fields");
    check("提醒知识库回答已准备".equals(ProactiveHintHookHarness.diagnostic),"diagnostic updated on main delivery: "+ProactiveHintHookHarness.diagnostic);
+   String trace=String.join("\n",ProactiveHintHookHarness.chatLines);
+   check(trace.contains("hint enter seq=")&&trace.contains("hint parse ")&&trace.contains("question_len=14")&&trace.contains("hint retrieval ")&&trace.contains("status=HIT")&&trace.contains("regenerated=true"),"stage trace logged: "+trace);
+   check(!trace.contains("hook question")&&!trace.contains("regenerated via hook")&&!trace.contains("cloud original"),"trace omits hint text");
 
    // (c.1) Single fallback delivery of original hint when McpConnectionStore.snapshot(app) throws
    ProactiveHintHookHarness.reset();
@@ -171,6 +174,7 @@ public final class HintCoordinatorTest {
    check(sourceB.delivered.size()==1&&sourceB.delivered.get(0)==hintB,"single fallback delivery when snapshot throws");
    check("cloud fallback 1".equals(new JSONObject(hintB.text).getString("answer")),"original hint preserved when snapshot throws");
    check("知识库配置不可用，已放行云端原回答".equals(ProactiveHintHookHarness.diagnostic),"snapshot failure diagnostic: "+ProactiveHintHookHarness.diagnostic);
+   check(ProactiveHintHookHarness.chatLines.contains("hint fallback config_unavailable"),"config fallback logged");
 
    // (c.2) Single fallback delivery of original hint when SecretStore.get(app) throws
    ProactiveHintHookHarness.reset();

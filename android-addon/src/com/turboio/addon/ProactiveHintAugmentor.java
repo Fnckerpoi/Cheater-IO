@@ -14,6 +14,9 @@ public final class ProactiveHintAugmentor {
     public interface Retrieval { KnowledgeRetrieval.Result retrieve(String question, McpConnectionStore.Snapshot config, long budgetMs); }
     public interface Regenerator { String regenerate(String question, String cloudAnswer, KnowledgeRetrieval.Result result, long budgetMs) throws Exception; }
     public interface Delivery { void deliver(Object hint, String diagnostic); }
+    /** Stage trace sink; receives lengths and statuses only, never hint text. */
+    public interface Trace { void log(String event); }
+    static volatile Trace trace = event -> {};
 
     private final Executor worker;
     private final MainScheduler main;
@@ -67,6 +70,7 @@ public final class ProactiveHintAugmentor {
         } catch (Exception inaccessible) { delivery.deliver(hint,"提醒文本不可用，已放行云端原回答"); return; }
         if (!pending.valid()) return;
         HintPayload payload=parseHintText(pending.original);
+        trace.log("hint parse seq="+sequence+" json="+payload.isJson+" question_len="+payload.question.length()+" enabled="+(config!=null&&config.enabled));
         if (config==null || !config.enabled || config.endpoint.trim().isEmpty() || payload.question.trim().isEmpty()) {
             pending.accept(null,"提醒知识库未启用或问题为空，已放行云端原回答"); return;
         }
@@ -82,6 +86,7 @@ public final class ProactiveHintAugmentor {
                 long budget=Math.min(1800,pending.deadline-retrievalStart);
                 if (budget<=0) throw new java.net.SocketTimeoutException();
                 KnowledgeRetrieval.Result result=retrieval.retrieve(payload.question,config,budget);
+                trace.log("hint retrieval seq="+sequence+" status="+(result==null?"null":result.status)+" ms="+(clock.nowMs()-retrievalStart));
                 if (!pending.active()) return;
                 if (clock.nowMs()-retrievalStart>budget) {
                     diagnostic="提醒检索超时，已放行云端原回答";
@@ -126,6 +131,7 @@ public final class ProactiveHintAugmentor {
                 catch (Exception immutable) { answer=null; diagnostic="提醒文本更新失败，已放行云端原回答"; }
                 if (answer!=null) { cachedQuestion=parseHintText(original).question;cachedAnswer=answer;cachedRevision=config.revision; }
             }
+            trace.log("hint deliver seq="+sequence+" regenerated="+(answer!=null)+" status="+diagnostic);
             delivery.deliver(hint,diagnostic);
         }
         void retire() { delivered.set(true);if(watchdog!=null)watchdog.cancel(); }

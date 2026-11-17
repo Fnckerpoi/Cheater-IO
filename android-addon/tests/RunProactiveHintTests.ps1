@@ -34,7 +34,7 @@ if ($serialStart -lt 0 -or $dispatchStart -lt 0 -or $dispatchEnd -lt 0 -or $invo
     throw 'ProactiveHintHookHarness boundaries not found in TurboAddon.java'
 }
 $serialBlock = $addonSource.Substring($serialStart, $addonSource.IndexOf('    public static void dispatchAsr(', $serialStart) - $serialStart)
-$dispatchBlock = $addonSource.Substring($dispatchStart, $dispatchEnd - $dispatchStart).Replace('synchronized(TurboAddon.class)', 'synchronized(ProactiveHintHookHarness.class)')
+$dispatchBlock = $addonSource.Substring($dispatchStart, $dispatchEnd - $dispatchStart).Replace('synchronized(TurboAddon.class)', 'synchronized(ProactiveHintHookHarness.class)').Replace('TurboAddon::chatLog', 'ProactiveHintHookHarness::chatLog')
 $invokeBlock = $addonSource.Substring($invokeStart, $invokeEnd - $invokeStart)
 
 $harnessPrefix = @'
@@ -86,6 +86,8 @@ final class ProactiveHintHookHarness {
   }
  }
  static Prefs prefs = new Prefs();
+ static final List<String> chatLines = Collections.synchronizedList(new ArrayList<String>());
+ static void chatLog(String kv) { chatLines.add(kv); }
  static final class McpConnectionStore {
   static com.turboio.addon.McpConnectionStore.Snapshot snapshot(Object a) {
    if (snapshotFailure != null) throw snapshotFailure;
@@ -107,6 +109,7 @@ final class ProactiveHintHookHarness {
   hintAugmentor = null;
   snapshotFailure = null;
   secretFailure = null;
+  chatLines.clear();
  }
 '@
 
