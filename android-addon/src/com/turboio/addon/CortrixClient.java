@@ -123,10 +123,19 @@ public final class CortrixClient {
         FutureTask<KnowledgeRetrieval.Result> task=new FutureTask<>(()->{
             boolean warm=false;long initMs=0,listMs=0;
             try {
-                Session cached=probe?null:SESSIONS.get(sessionKey());
+                Session cached=SESSIONS.get(sessionKey());
                 if(cached!=null) {
                     warm=true;exchange.session=cached.id;exchange.version=cached.version;
                     try {
+                        if(probe) {
+                            // Reuse the cached session but still verify tool discovery.
+                            long t1=System.nanoTime();
+                            JSONObject list=exchange.post("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}",2);
+                            boolean found=false;JSONArray tools=list.getJSONArray("tools");for(int i=0;i<tools.length();i++)if("cortrix_query".equals(tools.getJSONObject(i).optString("name")))found=true;
+                            if(!found)throw protocol();
+                            listMs=elapsed(t1);
+                            return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.NO_MATCH,revision,elapsed(startNs));
+                        }
                         return call(query,namespaces,revision,probe,exchange,startNs,true,initMs,listMs);
                     } catch(SessionExpired stale) {
                         SESSIONS.remove(sessionKey());

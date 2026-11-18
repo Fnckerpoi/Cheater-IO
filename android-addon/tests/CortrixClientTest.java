@@ -110,6 +110,13 @@ public final class CortrixClientTest {
             check(KnowledgeRetrieval.probe(s.url(),"secret",1000).status==KnowledgeRetrieval.Status.NO_MATCH,"probe succeeds");
             check(s.methods.equals(Arrays.asList("initialize","notifications/initialized","tools/list")),"probe never queries");
         }
+        // Warm probe: a cached session is reused and only tool discovery is re-verified.
+        try(Server s=new Server("normal")) {
+            check(KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000).isHit(),"warm probe setup");
+            s.methods.clear();
+            check(KnowledgeRetrieval.probe(s.url(),"secret",1000).status==KnowledgeRetrieval.Status.NO_MATCH,"warm probe succeeds");
+            check(s.methods.equals(Arrays.asList("tools/list")),"warm probe reuses session: "+s.methods);
+        }
         check(KnowledgeRetrieval.retrieve("问题",snapshot(true,"http://127.0.0.1:1/mcp"),500).status==KnowledgeRetrieval.Status.TRANSPORT_ERROR,"connection failure");
 
         // Test structured_partial: coverage_ratio, namespaces_failed, and updated timestamp

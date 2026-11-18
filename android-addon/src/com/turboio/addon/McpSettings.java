@@ -46,7 +46,7 @@ public final class McpSettings {
                     McpConnectionStore.Snapshot current = McpConnectionStore.snapshot(host.getApplicationContext());
                     if (!current.enabled) message = "知识库已停用";
                     else {
-                        KnowledgeRetrieval.Result result = KnowledgeRetrieval.probe(current.endpoint, current.token, 2500);
+                        KnowledgeRetrieval.Result result = KnowledgeRetrieval.probe(current.endpoint, current.token, 30000);
                         message = probeStatus(result.status);
                     }
                 } catch (IllegalStateException e) { message = "凭据读取失败，请检查本机密钥存储"; }
