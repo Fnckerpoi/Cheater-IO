@@ -86,11 +86,11 @@ Android非Root设备已有用户实机可用确认；但换签仍不能直接覆
 
 ## 有问必答接入知识库
 
-有问必答不新建显示通道，沿用官方原厂的 voiceAssistant 业务（13）与 AssistantType=5（app_asr_text / CaptionMsg）帧，只改写下发提示里的 answer 文本后回注官方回调。链路：手机 onProactiveHint 先挂起云端提示 → 按 McpConnectionStore 的 endpoint 调用 Cortrix 检索（预算 15000ms，检索请求固定传 rerank=false 以避开服务端默认跨命名空间重排的 5–9.6s 高耗时；CortrixClient 按 endpoint+token 缓存 MCP 会话，会话在 initialize 校验通过后立即落库，重检索只发 tools/call，404 会话过期或 keep-alive 连接失效自动重协商一次；同一握手内的多个请求复用同一条 HttpURLConnection（连接复用），并记录 init_ms/list_ms/call_ms 分段耗时）→ 命中后把真实返回的 doc_id、source_path、metadata 和证据片段连同覆盖注记（coverage_ratio / namespaces_failed / truncated）交给手机模型重生成（预算 2200ms，单次投递 watchdog 18000ms）→ 把模型答案写入原提示并投递眼镜。模型只能引用检索实际返回的来源，不得编造；输出裁剪到 120 字并清理控制字符。
+「有问必答」收到厂商提示后，手机先检索 Cortrix。选择网关默认库时省略 namespaces，明确选库时传入已保存的库名数组。检索最多等待 15 秒，命中后模型生成最多等待 25 秒。42 秒总时限包含排队、检索、生成与回注。完整答案回写原提示的 answer，由官方回调通过 voiceAssistant 业务 13 和 AssistantType=5 投递眼镜。
 
-检索未命中、知识库未启用或未配置、检索或重生成超时与异常时，放行云端原回答并记录诊断，不阻塞原厂提示。重生成缓存以 McpConnectionStore 的 revision 为准：问题和 revision 都不变才复用上一条回答，revision 变化即重新检索。
+模型失败但检索有证据时，眼镜显示带「知识库摘录」标签的正文片段。完整检索无证据时显示「未找到相关内容」。覆盖率为 0 且有失败库时显示库名和错误码。未启用、未配置、检索传输失败或达到总时限时放行厂商原回答。新提示到达或配置变化会使旧结果失效。模型答案与摘录都遵守 120 字显示预算，摘录不写入回答缓存。
 
-实现集中在 android-addon/src/com/turboio/addon/ 的 KnowledgeRetrieval、CortrixClient、ProactiveHintRegenerator、ProactiveHintAugmentor；端到端用 android-addon/tests/RunProactiveHintTests.ps1 验证，覆盖假 MCP 命中证据、假模型返回、revision 失效与未启用回退。
+手机日志记录模型的请求是否发出、响应头与响应体的累计耗时、HTTP 状态、失败阶段和网关返回的请求 ID。回调日志记录该轮的投递状态。回归入口见 [RunProactiveHintTests.ps1](../android-addon/tests/RunProactiveHintTests.ps1)。
 
 ## 最后应拿到什么
 

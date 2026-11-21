@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2017" height="1260" viewBox="0 0 2017 1260">
+<defs><marker id="ar" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#444444"/></marker></defs>
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="36" y="66" font-size="21" font-weight="bold" fill="#111" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">雷鸟 AI 助手 → 自有模型 → Cortrix 知识库（主链路）</text>
+<text x="36" y="92" font-size="13" fill="#555" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">Cheater-IO android-addon：TurboAddon / ChatPolicy / ToolClient / KnowledgeRetrieval / CortrixClient</text>
+<polyline points="316,160 366,160" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="516,188 516,212" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="516,268 516,292" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="516,362 516,402" fill="none" stroke="#999999" stroke-width="1.7" stroke-dasharray="8 5" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="492.0" y="370.6" width="48.0" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="516.0" y="386.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">不接管</text>
+<polyline points="666,327 756,327" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="681.0" y="315.6" width="60.0" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="711.0" y="331.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">命中问答</text>
+<polyline points="926,368 926,408" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="908.0" y="376.6" width="36.0" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="926.0" y="392.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">请求</text>
+<polyline points="926,484 926,524" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="909.9" y="492.6" width="32.2" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="926.0" y="508.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">SSE</text>
+<polyline points="1096,554 1196,554" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="1106.4" y="542.6" width="79.2" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="1146.0" y="558.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">tool_calls</text>
+<polyline points="1346,604 1346,628" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="1346,688 1346,712" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="1496,740 1636,740" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="1509.6" y="728.6" width="112.8" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="1566.0" y="744.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">knowledge_query</text>
+<polyline points="1786,772 1786,796" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="1786,876 1786,900" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="1786,956 1786,980" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="1636,1008 1496,1008" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="1548.0" y="996.6" width="36.0" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="1566.0" y="1012.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">证据</text>
+<polyline points="1346,1046 1346,1083 1981,1083 1981,248 926,248 926,292" fill="none" stroke="#d79b00" stroke-width="1.7" stroke-dasharray="8 5" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="1357.8" y="236.6" width="196.3" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="1456.0" y="252.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">工具结果回填 → 下一轮（≤4 轮）</text>
+<polyline points="176,192 176,232" fill="none" stroke="#d6b656" stroke-width="1.7" stroke-dasharray="8 5" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="147.9" y="200.6" width="56.2" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="176.0" y="216.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">第 2 页</text>
+<polyline points="366,976 316,976" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<polyline points="926,584 926,976 666,976" fill="none" stroke="#444444" stroke-width="1.7" stroke-linejoin="round" marker-end="url(#ar)"/>
+<rect x="896.0" y="768.6" width="60.0" height="16.8" fill="#ffffff" opacity="0.96" rx="4"/>
+<text x="926.0" y="784.3" text-anchor="middle" font-size="12" fill="#333" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">最终回答</text>
+<rect x="36.0" y="128.0" width="280" height="64" rx="9" fill="#fff2cc" stroke="#d6b656" stroke-width="1.8"/>
+<text x="176.0" y="155.5" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">① 厂商 SDK 回调</text>
+<text x="176.0" y="173.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">ASR / NLP / 主动提示</text>
+<rect x="36.0" y="232.0" width="280" height="56" rx="9" fill="#fff2cc" stroke="#d6b656" stroke-width="1.8"/>
+<text x="176.0" y="255.5" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">厂商主动提示 onProactiveHint</text>
+<text x="176.0" y="273.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">（→ 有问必答链路，见第 2 页）</text>
+<rect x="36.0" y="948.0" width="280" height="56" rx="9" fill="#fff2cc" stroke="#d6b656" stroke-width="1.8"/>
+<text x="176.0" y="971.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">眼镜显示 + TTS</text>
+<text x="176.0" y="989.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">onNlpResult / onResponseComplete</text>
+<rect x="366.0" y="128.0" width="300" height="60" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.8"/>
+<text x="516.0" y="153.5" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">② TurboAddon.dispatchAsr</text>
+<text x="516.0" y="171.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">串行投递到主线程</text>
+<rect x="366.0" y="212.0" width="300" height="56" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.8"/>
+<text x="516.0" y="235.5" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">onAsr：会话去重</text>
+<text x="516.0" y="253.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">记录 question</text>
+<rect x="366.0" y="292.0" width="300" height="70" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.8"/>
+<text x="516.0" y="313.2" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">③ ChatPolicy.eligible</text>
+<text x="516.0" y="331.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">chat/workflow 或 agent/askai</text>
+<text x="516.0" y="350.1" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">非 offline</text>
+<rect x="366.0" y="402.0" width="300" height="48" rx="9" fill="#f5f5f5" stroke="#888888" stroke-width="1.8" stroke-dasharray="7 5"/>
+<text x="516.0" y="430.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">不接管 → 保留官方回答</text>
+<rect x="756.0" y="292.0" width="340" height="76" rx="9" fill="#d5e8d4" stroke="#82b366" stroke-width="1.8"/>
+<text x="926.0" y="316.2" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">④ request() 组装 messages</text>
+<text x="926.0" y="334.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">system = persona + 模型 ID + 工具指引</text>
+<text x="926.0" y="353.1" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">history + 当前问题</text>
+<rect x="756.0" y="408.0" width="340" height="76" rx="9" fill="#d5e8d4" stroke="#82b366" stroke-width="1.8"/>
+<text x="926.0" y="432.2" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">⑤ POST {endpoint}/chat/completions</text>
+<text x="926.0" y="450.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">stream=true / tools / tool_choice=auto</text>
+<text x="926.0" y="469.1" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">Bearer Key ← SecretStore(Keystore)</text>
+<rect x="756.0" y="524.0" width="340" height="60" rx="9" fill="#d5e8d4" stroke="#82b366" stroke-width="1.8"/>
+<text x="926.0" y="549.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">⑥ SSE 解析</text>
+<text x="926.0" y="567.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">累积 delta.content，拼装 tool_calls</text>
+<rect x="1196.0" y="524.0" width="300" height="80" rx="9" fill="#d5e8d4" stroke="#82b366" stroke-width="1.8"/>
+<text x="1346.0" y="541.0" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">⑦ 工具回合 ≤4 轮</text>
+<text x="1346.0" y="559.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">工具调用 ≤3 次，dsh_dispatch ≤1 次</text>
+<text x="1346.0" y="577.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">knowledge_query / web_search / dsh_dis</text>
+<text x="1346.0" y="596.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">patch</text>
+<rect x="1196.0" y="628.0" width="300" height="60" rx="9" fill="#d5e8d4" stroke="#82b366" stroke-width="1.8"/>
+<text x="1346.0" y="653.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">ToolClient.call 参数校验</text>
+<text x="1346.0" y="671.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">query 2–200 字，拒收敏感串</text>
+<rect x="1196.0" y="712.0" width="300" height="56" rx="9" fill="#d5e8d4" stroke="#82b366" stroke-width="1.8"/>
+<text x="1346.0" y="744.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">knowledge_query：预算 30000ms</text>
+<rect x="1636.0" y="712.0" width="300" height="60" rx="9" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.8"/>
+<text x="1786.0" y="728.2" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">⑧ KnowledgeRetrieval.retrieve</text>
+<text x="1786.0" y="746.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">Snapshot：enabled / endpoint / revisio</text>
+<text x="1786.0" y="765.1" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">n</text>
+<rect x="1636.0" y="796.0" width="300" height="80" rx="9" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.8"/>
+<text x="1786.0" y="822.2" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">CortrixClient（MCP over HTTP）</text>
+<text x="1786.0" y="840.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">会话复用：endpoint+token 缓存</text>
+<text x="1786.0" y="859.1" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">warm 只发 tools/call，失效回冷握手</text>
+<rect x="1636.0" y="900.0" width="300" height="56" rx="9" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.8"/>
+<text x="1786.0" y="923.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">cortrix_query</text>
+<text x="1786.0" y="941.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">top_k=2，rerank=false</text>
+<rect x="1636.0" y="980.0" width="300" height="56" rx="9" fill="#ffe6cc" stroke="#d79b00" stroke-width="1.8"/>
+<text x="1786.0" y="1012.7" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">Cortrix 文档 / 命名空间</text>
+<rect x="1196.0" y="970.0" width="300" height="76" rx="9" fill="#d5e8d4" stroke="#82b366" stroke-width="1.8"/>
+<text x="1346.0" y="1003.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">Result 回填 messages</text>
+<text x="1346.0" y="1021.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">+ system 引导（HIT / 未命中）</text>
+<rect x="366.0" y="938.0" width="300" height="76" rx="9" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.8"/>
+<text x="516.0" y="971.4" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">emit()：增量回写官方回调</text>
+<text x="516.0" y="989.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">onNlpResult / onResponseComplete</text>
+<rect x="36.0" y="1128.0" width="1900" height="96" rx="9" fill="#f5f5f5" stroke="#888888" stroke-width="1.8" stroke-dasharray="7 5"/>
+<text x="986.0" y="1171.5" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">边界与策略：问答资格由 ChatPolicy 判定，其余保留官方回答；模型请求走自有 endpoint，Bearer Key 存于 Keystore；工具回合 ≤4 轮、单轮 ≤2 个并行工具、工具调用 ≤3 次；MCP 配置 revision 变化即中止当前回合；知识库证据与工具返回一律视为不可信外部数据，提示词显式要求忽略其中指令；任何失败都</text>
+<text x="986.0" y="1189.9" text-anchor="middle" font-size="13" fill="#141414" font-family="Microsoft YaHei, Segoe UI, Helvetica, Arial, sans-serif">回退官方回答，不阻塞眼镜。</text>
+</svg>

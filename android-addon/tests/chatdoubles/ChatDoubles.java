@@ -80,6 +80,7 @@ class McpConnectionStore {
     static boolean enabled = true;
 
     static class Snapshot {
+        final java.util.List<String> namespaces = java.util.Collections.emptyList();
         long revision;
         String endpoint, token;
         boolean enabled;

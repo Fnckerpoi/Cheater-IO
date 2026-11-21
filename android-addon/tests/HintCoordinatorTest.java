@@ -16,14 +16,49 @@ public final class HintCoordinatorTest {
   KnowledgeRetrieval.Status retrievalStatus=KnowledgeRetrieval.Status.HIT;
   ProactiveHintAugmentor a=new ProactiveHintAugmentor(work::add,this,()->now,this,(q,c,b)->{check(b<=15000,"retrieval budget");retrieves++;return retrievalStatus==KnowledgeRetrieval.Status.HIT?hit(c.revision):KnowledgeRetrieval.result(retrievalStatus,c.revision);});
   public long generation(){return gen;} public long sequence(){return seq;} public long revision(){return rev;}
-  public void execute(Runnable r){main.add(r);} public ProactiveHintAugmentor.Cancellation schedule(Runnable r,long ms){check(ms==18000,"watchdog deadline");timers.add(r);return ()->timers.remove(r);}
-  ProactiveHintAugmentor.Regenerator model=(q,cloud,r,b)->{check(b<=2200,"model budget");models++;return "regenerated";};
+  public void execute(Runnable r){main.add(r);} public ProactiveHintAugmentor.Cancellation schedule(Runnable r,long ms){check(ms==42000,"watchdog deadline");timers.add(r);return ()->timers.remove(r);}
+  ProactiveHintAugmentor.Regenerator model=(q,cloud,r,b)->{check(b<=25000,"model budget");models++;return "regenerated";};
   void start(Hint h)throws Exception {a.interceptAndRegenerateAsync(h,config(rev),gen,seq,model,(v,s)->{check(v==h,"same hint object");check(h.metadata==42,"object metadata");deliveries++;status=s;});}
   void finish(){work.remove().run();while(!main.isEmpty())main.remove().run();}
  }
  public static void main(String[] args)throws Exception {
-  orderedAndCache(); fallbacks(); watchdog(); stale(); mutable(); http(); answerBudget(); hookDispatch(); endToEnd();
+  slowModelWithinBudget(); newestQueuedHintWins(); supersededModelIsCancelled(); orderedAndCache(); fallbacks(); namespaceFeedback(); watchdog(); stale(); mutable(); http(); answerBudget(); hookDispatch(); endToEnd();
   System.out.println("HintCoordinatorTest: ALL PASS (coordinator + real HTTP + hook dispatch)");
+ }
+ static void newestQueuedHintWins()throws Exception {
+  java.util.concurrent.ThreadPoolExecutor hints=ProactiveHintAugmentor.newHintExecutor();
+  java.util.concurrent.CountDownLatch active=new java.util.concurrent.CountDownLatch(2), release=new java.util.concurrent.CountDownLatch(1);
+  java.util.concurrent.CountDownLatch latest=new java.util.concurrent.CountDownLatch(1);
+  java.util.concurrent.atomic.AtomicInteger obsolete=new java.util.concurrent.atomic.AtomicInteger();
+  Runnable busy=()->{active.countDown();try{release.await();}catch(InterruptedException e){Thread.currentThread().interrupt();}};
+  try {
+   hints.execute(busy);hints.execute(busy);
+   check(active.await(2,java.util.concurrent.TimeUnit.SECONDS),"both model workers occupied");
+   hints.execute(obsolete::incrementAndGet);
+   hints.execute(latest::countDown);
+   release.countDown();
+   check(latest.await(2,java.util.concurrent.TimeUnit.SECONDS)&&obsolete.get()==0,"queued older hint removed");
+  } finally {release.countDown();hints.shutdownNow();}
+ }
+ static void supersededModelIsCancelled()throws Exception {
+  Fixture f=new Fixture();
+  java.util.concurrent.ExecutorService workers=java.util.concurrent.Executors.newSingleThreadExecutor();
+  java.util.concurrent.CountDownLatch started=new java.util.concurrent.CountDownLatch(1), interrupted=new java.util.concurrent.CountDownLatch(1);
+  f.a=new ProactiveHintAugmentor(workers,f,()->f.now,f,(q,c,b)->hit(c.revision));
+  f.model=(q,c,r,b)->{
+   if(q.equals("old")) {
+    started.countDown();
+    try { new java.util.concurrent.CountDownLatch(1).await(); }
+    catch(InterruptedException e) { interrupted.countDown();throw e; }
+   }
+   return "new answer";
+  };
+  try {
+   f.start(new Hint("old"));
+   check(started.await(2,java.util.concurrent.TimeUnit.SECONDS),"old model started");
+   f.seq++;f.start(new Hint("new"));
+   check(interrupted.await(2,java.util.concurrent.TimeUnit.SECONDS),"superseded work interrupted");
+  } finally { workers.shutdownNow();workers.awaitTermination(2,java.util.concurrent.TimeUnit.SECONDS); }
  }
  static void orderedAndCache()throws Exception {
   Fixture f=new Fixture();Hint h=new Hint("{\"question\":\"q\",\"answer\":\"cloud\",\"extra\":{\"v\":3}}");String before=h.text;
@@ -34,13 +69,46 @@ public final class HintCoordinatorTest {
   f.rev++;f.seq++;f.start(new Hint("q"));f.finish();check(f.retrieves==2,"revision invalidates cache");
  }
  static void fallbacks()throws Exception {
-  for(KnowledgeRetrieval.Status s:KnowledgeRetrieval.Status.values())if(s!=KnowledgeRetrieval.Status.HIT){Fixture f=new Fixture();f.retrievalStatus=s;Hint h=new Hint("plain");f.start(h);f.finish();check(h.text.equals("plain")&&f.models==0&&f.deliveries==1,"no hit exact fallback "+s);}
-  Fixture f=new Fixture();f.model=(q,c,r,b)->{throw new java.io.IOException("model failure");};Hint h=new Hint("q");f.start(h);f.finish();check(h.text.equals("q")&&f.deliveries==1,"model failure original");
-  Fixture empty=new Fixture();empty.model=(q,c,r,b)->" ";Hint eh=new Hint("q");empty.start(eh);empty.finish();check(eh.text.equals("q"),"empty regeneration original");
+  for(KnowledgeRetrieval.Status s:KnowledgeRetrieval.Status.values())if(s!=KnowledgeRetrieval.Status.HIT && s!=KnowledgeRetrieval.Status.NO_MATCH){Fixture f=new Fixture();f.retrievalStatus=s;Hint h=new Hint("plain");f.start(h);f.finish();check(h.text.equals("plain")&&f.models==0&&f.deliveries==1,"no hit exact fallback "+s);}
+  Fixture f=new Fixture();f.model=(q,c,r,b)->{throw new java.io.IOException("model failure");};Hint h=new Hint("q");f.start(h);f.finish();check(h.text.contains("知识库摘录")&&h.text.contains("real fact")&&f.deliveries==1,"model failure retains retrieved evidence");
+  Fixture empty=new Fixture();empty.model=(q,c,r,b)->" ";Hint eh=new Hint("q");empty.start(eh);empty.finish();check(eh.text.contains("知识库摘录")&&empty.deliveries==1,"empty regeneration retains retrieved evidence");
+ }
+ static void namespaceFeedback()throws Exception {
+  String failure="knowledge (CX_ERR_INDEX_CORRUPT)";
+  for(KnowledgeRetrieval.Status status:Arrays.asList(KnowledgeRetrieval.Status.NO_MATCH,KnowledgeRetrieval.Status.TOOL_ERROR,KnowledgeRetrieval.Status.HIT)) {
+   Fixture f=new Fixture();
+   boolean partial=status==KnowledgeRetrieval.Status.HIT, empty=status==KnowledgeRetrieval.Status.NO_MATCH;
+   f.a=new ProactiveHintAugmentor(f.work::add,f,()->f.now,f,(q,c,b)->{
+    f.retrieves++;
+    return new KnowledgeRetrieval.Result(status,partial?hit(c.revision).evidences:Collections.emptyList(),c.revision,
+        empty?1:partial?0.5:0,empty?Collections.emptyList():Collections.singletonList(failure),45);
+   });
+   for(int i=0;i<2;i++) {
+    Hint h=new Hint("{\"question\":\"q\",\"answer\":\"vendor\"}");
+    f.start(h);f.finish();f.seq++;
+    String shown=new JSONObject(h.text).getString("answer");
+    check(shown.contains(empty?"未找到相关内容":partial?"regenerated":"知识库检索失败"),"visible retrieval outcome: "+shown);
+    check(empty||shown.contains(failure),"failed namespace and code visible");
+   }
+   check(f.retrieves==2 && f.models==(partial?2:0),"retry incomplete or empty retrieval on next hint");
+  }
+ }
+ static void slowModelWithinBudget()throws Exception {
+  Fixture f=new Fixture();
+  Hint h=new Hint("slow question");
+  f.a=new ProactiveHintAugmentor(f.work::add,f,()->f.now,f,(q,c,b)->{f.now+=1000;return hit(c.revision);});
+  f.model=(q,c,r,b)->{f.now+=16000;return "slow answer";};
+  f.start(h);f.finish();
+  check(f.deliveries==1&&"slow answer".equals(h.text),"complete model answer at 17s must be delivered");
+  Fixture queued=new Fixture();
+  queued.a=new ProactiveHintAugmentor(queued.work::add,queued,()->queued.now,queued,(q,c,b)->{queued.now+=1000;return hit(c.revision);});
+  queued.model=(q,c,r,b)->{check(b==5000,"queue and retrieval consume total budget");return "remaining budget answer";};
+  Hint nearDeadline=new Hint("queued");queued.start(nearDeadline);queued.now=36000;queued.finish();
+  check(queued.deliveries==1 && "remaining budget answer".equals(nearDeadline.text),"queued hint within watchdog");
  }
  static void watchdog()throws Exception {
-  Fixture f=new Fixture();Hint h=new Hint("original");f.start(h);f.now=18000;f.timers.get(0).run();check(f.deliveries==1&&h.text.equals("original"),"watchdog original");f.finish();check(f.deliveries==1&&f.models==0,"late result suppressed");
-  Fixture g=new Fixture();g.model=(q,c,r,b)->{g.now=2201;return "late";};Hint late=new Hint("original");g.start(late);g.finish();check(late.text.equals("original")&&g.deliveries==1,"late model original even before timer runs");
+  Fixture f=new Fixture();Hint h=new Hint("original");f.start(h);f.now=42000;f.timers.get(0).run();check(f.deliveries==1&&h.text.equals("original"),"watchdog original");f.finish();check(f.deliveries==1&&f.models==0,"late result suppressed");
+  Fixture g=new Fixture();g.model=(q,c,r,b)->{g.now=25001;return "late";};Hint late=new Hint("original");g.start(late);g.finish();check(late.text.contains("知识库摘录")&&!late.text.contains("late")&&g.deliveries==1,"late model answer is rejected, evidence is retained");
   Fixture r=new Fixture();r.a=new ProactiveHintAugmentor(r.work::add,r,()->r.now,r,(q,c,b)->{r.now=15001;return hit(1);});Hint rh=new Hint("q");r.start(rh);r.finish();check(r.models==0&&rh.text.equals("q"),"retrieval stage expiration");
  }
  static void stale()throws Exception {
@@ -60,18 +128,39 @@ public final class HintCoordinatorTest {
    java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();byte[] b=new byte[1024];int n;while((n=x.getRequestBody().read(b))!=-1)bytes.write(b,0,n);request[0]=new JSONObject(new String(bytes.toByteArray(),java.nio.charset.StandardCharsets.UTF_8));
    check("Bearer test-key".equals(x.getRequestHeaders().getFirst("Authorization")),"model auth");
    if(mode[0].equals("slow")){Thread.sleep(350);}
-   int code=mode[0].equals("error")?500:200;
-   byte[] body=(mode[0].equals("bad")?"{}":"{\"choices\":[{\"message\":{\"content\":\"real HTTP answer\"}}]}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
-   x.sendResponseHeaders(code,body.length);x.getResponseBody().write(body);
-  }catch(Throwable t){if(!mode[0].equals("slow"))failure.set(t);}finally{x.close();}});
+   int code=mode[0].equals("error")?503:mode[0].equals("auth")?401:200;
+   x.getResponseHeaders().set("X-Request-Id","fixture-request-id");
+   byte[] body=(mode[0].equals("completion_limit")?"{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"partial\",\"reasoning_content\":\"private-reasoning\"}}],\"usage\":{\"completion_tokens\":2048}}":mode[0].equals("null_content")?"{\"choices\":[{\"message\":{\"content\":null}}]}":mode[0].equals("empty")?"{\"choices\":[{\"message\":{\"content\":\" \"}}]}":mode[0].equals("bad")?"{}":"{\"choices\":[{\"message\":{\"content\":\"real HTTP answer\"}}]}").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+   x.sendResponseHeaders(code,body.length);
+   if(mode[0].equals("slow_body")){x.getResponseBody().write(body,0,1);x.getResponseBody().flush();Thread.sleep(350);x.getResponseBody().write(body,1,body.length-1);}
+   else x.getResponseBody().write(body);
+  }catch(Throwable t){if(!mode[0].startsWith("slow"))failure.set(t);}finally{x.close();}});
   server.start();String endpoint="http://127.0.0.1:"+server.getAddress().getPort()+"/v1";
   try {
    ProactiveHintRegenerator model=new ProactiveHintRegenerator(endpoint,"model","test-key");
    check(model.regenerate("question","cloud",hit(1),2200).equals("real HTTP answer"),"real HTTP model result");
-   check(!request[0].getBoolean("stream")&&request[0].getInt("max_tokens")==256&&request[0].getJSONObject("thinking").getString("type").equals("disabled"),"nonstream request");
+   check(!request[0].getBoolean("stream")&&request[0].getInt("max_tokens")==2048&&request[0].getJSONObject("thinking").getString("type").equals("disabled"),"nonstream request");
    String prompt=request[0].getJSONArray("messages").toString();check(prompt.contains("doc")&&prompt.contains("/real")&&prompt.contains("cloud")&&prompt.contains("外部"),"data and real sources in prompt");
-   for(String m:new String[]{"error","bad","slow"}){mode[0]=m;long began=System.nanoTime();try{model.regenerate("q","c",hit(1),100);throw new AssertionError("must fail "+m);}catch(Exception expected){}check((System.nanoTime()-began)/1000000<600,"whole I/O deadline");}
-   String synth=new ProactiveHintRegenerator(endpoint,"model","").regenerate("q","cloud",hit(1),2200);check(synth.contains("【知识库证据】")&&synth.contains("【云端原回答】cloud")&&synth.contains("/real"),"only absent key synthesis");
+   List<String> events=new ArrayList<>();
+   ProactiveHintRegenerator traced=new ProactiveHintRegenerator(endpoint,"model","test-key",events::add);
+   Map<String,String> expected=new LinkedHashMap<>();
+   expected.put("auth","stage=headers status=http_error http=401");
+   expected.put("error","stage=headers status=http_error http=503");
+   expected.put("bad","stage=parse status=invalid_response http=200");
+   expected.put("completion_limit","stage=parse status=completion_limit http=200");
+   expected.put("empty","stage=parse status=empty_completion http=200");
+   expected.put("null_content","stage=parse status=empty_completion http=200");
+   expected.put("slow","stage=headers status=timeout http=0");
+   expected.put("slow_body","stage=body status=timeout http=200");
+   for(Map.Entry<String,String> test:expected.entrySet()) {
+    mode[0]=test.getKey();events.clear();
+    try {traced.regenerate("private-question","cloud",hit(1),mode[0].startsWith("slow")?150:1500);throw new AssertionError("expected model failure "+mode[0]);}
+    catch(java.io.IOException | org.json.JSONException expectedFailure) {}
+    check(events.size()==1 && events.get(0).contains(test.getValue()),"model phase "+test.getKey()+": "+events);
+    if(test.getKey().equals("completion_limit"))check(events.get(0).contains("finish=length answer_chars=7 reasoning_chars=17 completion_tokens=2048")&&!events.get(0).contains("private-reasoning"),"completion diagnostics omit reasoning text");
+    check(!events.get(0).contains("private-question")&&!events.get(0).contains("test-key"),"trace omits request content and credential");
+   }
+   check(events.get(0).contains("request_id=fixture-request-id"),"model request id");
    if(failure.get()!=null)throw new AssertionError(failure.get());
   }finally {server.stop(0);((java.util.concurrent.ExecutorService)server.getExecutor()).shutdownNow();}
  }
@@ -217,11 +306,22 @@ public final class HintCoordinatorTest {
     byte[] out=new JSONObject().put("jsonrpc","2.0").put("id",id).put("result",new JSONObject().put("tools",new JSONArray().put(new JSONObject().put("name","cortrix_query")))).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     x.sendResponseHeaders(200,out.length);x.getResponseBody().write(out);
    }else if("tools/call".equals(method)){
-    mcpCalls.incrementAndGet();
+    int index=mcpCalls.incrementAndGet();
+    JSONObject params=req.getJSONObject("params"), args=params.getJSONObject("arguments");
+    check("cortrix_query".equals(params.getString("name"))&&!args.getBoolean("rerank"),"actual tool and rerank");
+    check("Ignition 部署".equals(args.getString("query")),"same query in all cases");
+    JSONArray ns=args.optJSONArray("namespaces");
+    if(index==1) check(!args.has("namespaces"),"omit default namespace on wire");
+    if(index==2 || index==3) check(ns!=null && ns.length()==1 && (index==2?"obsidian-knowledge":"knowledge").equals(ns.getString(0)),"explicit namespace on wire");
     java.util.concurrent.CountDownLatch enter=enterGate.get();if(enter!=null)enter.countDown();
     java.util.concurrent.CountDownLatch release=releaseGate.get();if(release!=null)release.await(5,java.util.concurrent.TimeUnit.SECONDS);
     JSONArray docs=new JSONArray().put(new JSONObject().put("namespace","kb").put("doc_id","doc-e2e").put("source_path","specs/e2e.md").put("score",0.98).put("evidence",new JSONArray().put(new JSONObject().put("kind","parent").put("text","E2E_EVIDENCE"))));
-    JSONObject envelope=new JSONObject().put("data",new JSONObject().put("results",docs));
+    boolean invalid=index==3;
+    JSONArray failed=new JSONArray();
+    if(invalid) failed.put(new JSONObject().put("namespace","knowledge").put("error_code","CX_ERR_INDEX_CORRUPT"));
+    JSONObject coverage=new JSONObject().put("coverage_ratio",invalid?0:1).put("namespaces_failed",failed);
+    JSONObject envelope=new JSONObject().put("meta",new JSONObject().put("category","success").put("structured_data",coverage))
+        .put("data",new JSONObject().put("results",invalid?new JSONArray():docs));
     byte[] out=new JSONObject().put("jsonrpc","2.0").put("id",id).put("result",new JSONObject().put("structuredContent",envelope)).toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     x.sendResponseHeaders(200,out.length);x.getResponseBody().write(out);
    }
@@ -242,7 +342,7 @@ public final class HintCoordinatorTest {
    java.util.concurrent.CountDownLatch release1=new java.util.concurrent.CountDownLatch(1);
    enterGate.set(enter1);releaseGate.set(release1);
    SourceDouble sourceA=new SourceDouble();
-   Hint hintA=new Hint("{\"question\":\"same question?\",\"answer\":\"cloud first\"}");
+   Hint hintA=new Hint("{\"question\":\"Ignition 部署\",\"answer\":\"cloud first\"}");
    ProactiveHintHookHarness.dispatchProactiveHint(sourceA,hintA);
    check(enter1.await(5,java.util.concurrent.TimeUnit.SECONDS),"async MCP retrieval must start");
    check(sourceA.delivered.isEmpty(),"pre-display hold before retrieval");
@@ -254,9 +354,9 @@ public final class HintCoordinatorTest {
    java.util.concurrent.CountDownLatch enter2=new java.util.concurrent.CountDownLatch(1);
    java.util.concurrent.CountDownLatch release2=new java.util.concurrent.CountDownLatch(1);
    enterGate.set(enter2);releaseGate.set(release2);
-   ProactiveHintHookHarness.mcpConfig=configWithUrl(true,base+"/mcp",9L);
+   ProactiveHintHookHarness.mcpConfig=namespaceConfig(base+"/mcp",9L,"obsidian-knowledge");
    SourceDouble sourceB=new SourceDouble();
-   Hint hintB=new Hint("{\"question\":\"same question?\",\"answer\":\"cloud second\"}");
+   Hint hintB=new Hint("{\"question\":\"Ignition 部署\",\"answer\":\"cloud second\"}");
    ProactiveHintHookHarness.dispatchProactiveHint(sourceB,hintB);
    check(enter2.await(5,java.util.concurrent.TimeUnit.SECONDS),"revision change must trigger retrieval");
    check(mcpCalls.get()==2,"revision change must not reuse cache: "+mcpCalls.get());
@@ -264,6 +364,11 @@ public final class HintCoordinatorTest {
    waitForDelivery();
    check("E2E_MODEL_ANSWER".equals(new JSONObject(hintB.text).getString("answer")),"revision change re-retrieved");
    check("提醒知识库回答已准备".equals(ProactiveHintHookHarness.diagnostic),"revision retrieval diagnostic");
+   ProactiveHintHookHarness.mcpConfig=namespaceConfig(base+"/mcp",10L,"knowledge");
+   Hint invalid=new Hint("{\"question\":\"Ignition 部署\",\"answer\":\"vendor\"}");
+   SourceDouble negative=new SourceDouble();ProactiveHintHookHarness.dispatchProactiveHint(negative,invalid);waitForDelivery();
+   String notice=new JSONObject(invalid.text).getString("answer");
+   check(negative.delivered.size()==1 && notice.contains("知识库检索失败") && notice.contains("knowledge") && notice.contains("CX_ERR_INDEX_CORRUPT"),"negative control delivered to host");
    ProactiveHintHookHarness.reset();
    ProactiveHintHookHarness.mcpConfig=configWithUrl(false,base+"/mcp",11L);
    SourceDouble sourceC=new SourceDouble();
@@ -284,6 +389,10 @@ public final class HintCoordinatorTest {
   while(ProactiveHintHookHarness.MAIN.queue.isEmpty()&&System.currentTimeMillis()<deadline)Thread.sleep(10);
   check(!ProactiveHintHookHarness.MAIN.queue.isEmpty(),"delivery must post to MAIN looper");
   ProactiveHintHookHarness.MAIN.drain();
+ }
+ static McpConnectionStore.Snapshot namespaceConfig(String url,long revision,String namespaces)throws Exception {
+  java.lang.reflect.Constructor<McpConnectionStore.Snapshot> c=McpConnectionStore.Snapshot.class.getDeclaredConstructor(boolean.class,String.class,String.class,long.class,String.class);
+  c.setAccessible(true);return c.newInstance(true,url,"",revision,namespaces);
  }
  static McpConnectionStore.Snapshot configWithUrl(boolean enabled,String url,long revision)throws Exception {
   java.lang.reflect.Constructor<McpConnectionStore.Snapshot> c=McpConnectionStore.Snapshot.class.getDeclaredConstructor(boolean.class,String.class,String.class,long.class);

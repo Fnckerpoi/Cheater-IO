@@ -22,7 +22,7 @@ if ($serialStart -lt 0 -or $dispatchStart -lt 0 -or $dispatchEnd -lt 0 -or $invo
     throw 'ProactiveHintHookHarness boundaries not found in TurboAddon.java'
 }
 $serialBlock = $addonSource.Substring($serialStart, $addonSource.IndexOf('    public static void dispatchAsr(', $serialStart) - $serialStart)
-$dispatchBlock = $addonSource.Substring($dispatchStart, $dispatchEnd - $dispatchStart).Replace('synchronized(TurboAddon.class)', 'synchronized(ProactiveHintHookHarness.class)').Replace('TurboAddon::chatLog', 'ProactiveHintHookHarness::chatLog')
+$dispatchBlock = $addonSource.Substring($dispatchStart, $dispatchEnd - $dispatchStart).Replace('synchronized(TurboAddon.class)', 'synchronized(ProactiveHintHookHarness.class)').Replace('TurboAddon::chatLog', 'ProactiveHintHookHarness::chatLog').Replace('android.os.SystemClock::elapsedRealtime', 'System::currentTimeMillis')
 $invokeBlock = $addonSource.Substring($invokeStart, $invokeEnd - $invokeStart)
 
 $harnessPrefix = @'

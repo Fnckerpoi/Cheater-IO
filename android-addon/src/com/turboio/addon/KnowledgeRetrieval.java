@@ -57,7 +57,7 @@ public final class KnowledgeRetrieval {
         return new Result(status,Collections.<Evidence>emptyList(),revision,coverageRatio,namespacesFailed,elapsedMs,truncated);
     }
     public static Result retrieve(String question, McpConnectionStore.Snapshot snapshot, long budgetMs) {
-        return retrieve(question, null, snapshot, budgetMs);
+        return retrieve(question, snapshot==null?null:snapshot.namespaces, snapshot, budgetMs);
     }
     public static Result retrieve(String question, List<String> namespaces, McpConnectionStore.Snapshot snapshot, long budgetMs) {
         if(snapshot==null) return result(Status.UNCONFIGURED,0);

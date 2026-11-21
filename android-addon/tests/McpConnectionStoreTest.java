@@ -14,6 +14,18 @@ public final class McpConnectionStoreTest {
  static SharedPreferences prefs(Context c){return c.getSharedPreferences("turboio_settings",0);}
  public static void main(String[] args)throws Exception{
   test("defaults_disabled_without_personal_endpoint",()->{McpConnectionStore.Snapshot s=McpConnectionStore.snapshot(new Context());eq(false,s.enabled);eq("",s.endpoint);eq("",s.token);eq(0L,s.revision);});
+  test("hint_namespaces_follow_configuration_revision",()->{
+   Context c=new Context();String url="https://kb.example/mcp";
+   McpConnectionStore.save(c,true,url,"",false);
+   eq(java.util.Collections.emptyList(),McpConnectionStore.snapshot(c).namespaces);
+   McpConnectionStore.save(c,true,url,"",false," team, ，other, team");
+   eq(java.util.Arrays.asList("team","other"),McpConnectionStore.snapshot(c).namespaces);
+   McpConnectionStore.save(c,true,url,"",false);
+   eq(2L,McpConnectionStore.snapshot(c).revision);
+   McpConnectionStore.save(c,true,url,"",false," ,  ");
+   eq(java.util.Collections.emptyList(),McpConnectionStore.snapshot(c).namespaces);
+   eq(3L,McpConnectionStore.snapshot(c).revision);
+  });
   test("saves_endpoint_switch_and_token",()->{Context c=new Context();McpConnectionStore.save(c,true," https://kb.example/mcp ","secret-one",false);McpConnectionStore.Snapshot s=McpConnectionStore.snapshot(c);eq(true,s.enabled);eq("https://kb.example/mcp",s.endpoint);eq("secret-one",s.token);eq(false,prefs(c).contains("cortrix_token"));});
   test("blank_token_keeps_existing",()->{Context c=new Context();McpConnectionStore.save(c,true,"https://kb.example/mcp","secret-one",false);McpConnectionStore.save(c,false,"https://kb.example/mcp","  ",false);eq("secret-one",McpConnectionStore.snapshot(c).token);});
   test("clear_token_is_explicit_and_wins",()->{Context c=new Context();McpConnectionStore.save(c,true,"https://kb.example/mcp","secret-one",false);McpConnectionStore.save(c,true,"https://kb.example/mcp","replacement",true);eq("",McpConnectionStore.snapshot(c).token);});

@@ -13,7 +13,7 @@ public final class ProactiveHintAugmentorTest {
         testInterceptCachesSameQuestionUnderSameRevision();
         testInterceptFallbacksWhenRetrievalFails();
         testFormatContextIncludesCoverageInfo();
-        testSynthesizeIncludesCoverageNote();
+        testEvidenceExcerptFitsDisplayBudget();
         HintCoordinatorTest.main(args);
         System.out.println("ProactiveHintAugmentorTest: ALL PASS");
     }
@@ -136,14 +136,13 @@ public final class ProactiveHintAugmentorTest {
         if (!context.contains("doc-1")) throw new AssertionError("evidence doc_id missing: " + context);
     }
 
-    private static void testSynthesizeIncludesCoverageNote() {
-        KnowledgeRetrieval.Evidence evidence = new KnowledgeRetrieval.Evidence(
-            "team", "doc-2", "guide.md", "", 0.5d, "evidence", "合成路径也要带覆盖注记。");
-        KnowledgeRetrieval.Result hit = new KnowledgeRetrieval.Result(
-            KnowledgeRetrieval.Status.HIT, java.util.Collections.singletonList(evidence), 3L,
-            0.5d, java.util.Collections.singletonList("legacy"), 20L, false);
-        String synthesized = ProactiveHintRegenerator.synthesize("云端答案", hit);
-        if (!synthesized.contains("覆盖")) throw new AssertionError("coverage note missing: " + synthesized);
-        if (!synthesized.contains("云端原回答")) throw new AssertionError("cloud answer missing: " + synthesized);
+    private static void testEvidenceExcerptFitsDisplayBudget() {
+        StringBuilder text=new StringBuilder("事实\n");
+        for(int i=0;i<80;i++)text.appendCodePoint(0x1F600);
+        KnowledgeRetrieval.Evidence evidence=new KnowledgeRetrieval.Evidence("team","doc-2","guide.md","",0.5d,"evidence",text.toString());
+        KnowledgeRetrieval.Result hit=new KnowledgeRetrieval.Result(KnowledgeRetrieval.Status.HIT,java.util.Collections.singletonList(evidence),3L);
+        String excerpt=ProactiveHintRegenerator.evidenceFallback(hit);
+        if(!excerpt.startsWith("【知识库摘录】事实") || excerpt.contains("\n") || excerpt.length()>120
+                || Character.isHighSurrogate(excerpt.charAt(excerpt.length()-1))) throw new AssertionError("excerpt text or display budget");
     }
 }

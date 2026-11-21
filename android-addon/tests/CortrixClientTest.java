@@ -24,9 +24,12 @@ public final class CortrixClientTest {
             server.createContext("/mcp", e -> { try { handle(e); } catch(Throwable t) { failure=t; e.close(); } }); server.start();
         }
         String url() { return "http://127.0.0.1:"+server.getAddress().getPort()+"/mcp"; }
+        volatile JSONObject wireParams;
         void handle(HttpExchange e) throws Exception {
             JSONObject req=new JSONObject(new String(read(e.getRequestBody()),StandardCharsets.UTF_8));
             String method=req.getString("method"); methods.add(method);
+            if(method.equals("tools/call"))wireParams=req.getJSONObject("params");
+            if(method.equals("tools/list"))e.getResponseHeaders().set("X-Trace-Id","list-trace");
             check("Bearer secret".equals(e.getRequestHeaders().getFirst("Authorization")),"bearer");
             if (!method.equals("initialize")) {
                 check("session-test".equals(e.getRequestHeaders().getFirst("Mcp-Session-Id")),"session");
@@ -38,10 +41,18 @@ public final class CortrixClientTest {
             if(method.equals("notifications/initialized")){check(!req.has("id"),"notification id");e.sendResponseHeaders(202,-1);e.close();return;}
             Object result;
             if(method.equals("initialize")) { e.getResponseHeaders().set("Mcp-Session-Id","session-test"); result=new JSONObject().put("protocolVersion",mode.equals("version")?"bad":"2024-11-05"); }
-            else if(method.equals("tools/list")) result=new JSONObject().put("tools",new JSONArray(mode.equals("missing")?"[]":"[{\"name\":\"cortrix_query\"}]"));
+            else if(method.equals("tools/list")) result=new JSONObject().put("tools",new JSONArray(mode.equals("missing")?"[]":mode.startsWith("catalog")?"[{\"name\":\"cortrix_list_namespaces\"}]":"[{\"name\":\"cortrix_query\"}]"));
+            else if(mode.startsWith("catalog")) {
+                check("cortrix_list_namespaces".equals(wireParams.getString("name")),"catalog must not query docs");
+                int offset=wireParams.getJSONObject("arguments").getInt("offset");
+                String name=offset==0?"obsidian-experience":"obsidian-knowledge";
+                JSONObject data=new JSONObject().put("namespaces",new JSONArray().put(new JSONObject().put("namespace",name).put("name","display title"))).put("total",2);
+                JSONObject payload=new JSONObject().put("data",data).put("meta",new JSONObject().put("category","success"));
+                result=offset==0?new JSONObject().put("structuredContent",payload):new JSONObject().put("content",new JSONArray().put(new JSONObject().put("type","text").put("text",payload.toString())));
+            }
             else {
                 if(mode.equals("expire")&&calls.incrementAndGet()==2){e.sendResponseHeaders(404,-1);e.close();return;}
-                check(req.getJSONObject("params").getJSONObject("arguments").getString("query").equals("问题"),"query");
+                check(Arrays.asList("问题","private-query").contains(req.getJSONObject("params").getJSONObject("arguments").getString("query")),"query");
                 check(!req.getJSONObject("params").getJSONObject("arguments").getBoolean("rerank"),"rerank disabled for time budget");
                 if(mode.equals("namespaces")) {
                     JSONArray ns = req.getJSONObject("params").getJSONObject("arguments").getJSONArray("namespaces");
@@ -49,8 +60,11 @@ public final class CortrixClientTest {
                 }
                 Object data=mode.equals("empty")?new JSONArray():new JSONArray(docs());
                 if(mode.equals("nosource")) data=new JSONArray("[{\"evidence\":[{\"text\":\"事实\"}]}]");
-                if(mode.equals("structured_partial")) {
+                if(mode.equals("structured_partial") || mode.equals("structured_partial_obj")) {
                     data=new JSONArray("[{\"namespace\":\"kb\",\"doc_id\":\"d1\",\"source_path\":\"manual.md\",\"metadata\":{\"title\":\"说明\",\"updated\":\"2026-11-04\"},\"score\":0.9,\"evidence\":[{\"kind\":\"parent\",\"text\":\"中文证据\"}]}]");
+                }
+                if(mode.equals("structured_total_failure") || mode.equals("structured_total_failure_text") || mode.equals("empty_zero_cov")) {
+                    data=new JSONArray();
                 }
                 if(mode.equals("doc_timestamp")) {
                     data=new JSONArray("[{\"namespace\":\"kb\",\"doc_id\":\"d2\",\"updated_at\":\"2026-11-02T10:00:00Z\",\"source_path\":\"doc2.md\",\"metadata\":{\"title\":\"Doc2\"},\"score\":0.8,\"evidence\":[{\"kind\":\"parent\",\"text\":\"文档2事实\"}]}]");
@@ -64,10 +78,21 @@ public final class CortrixClientTest {
                     }
                     data=hugeItems;
                 }
-                JSONObject structuredData = new JSONObject().put("coverage_ratio", mode.equals("structured_partial") ? 0.75 : 1)
-                    .put("namespaces_failed", mode.equals("structured_partial") ? new JSONArray().put("failed_ns") : new JSONArray());
-                JSONObject envelope=new JSONObject().put("data",new JSONObject().put("results",data).put("meta",new JSONObject())).put("meta",new JSONObject().put("category","success").put("retryable",false).put("structured_data",structuredData));
-                result=mode.equals("structured")||mode.equals("structured_partial")?new JSONObject().put("structuredContent",envelope):new JSONObject().put("content",new JSONArray().put(new JSONObject().put("type","text").put("text",mode.equals("bare")?data.toString():envelope.toString())));
+                JSONArray failedArr = new JSONArray();
+                if(mode.equals("structured_partial")) failedArr.put("failed_ns");
+                if(mode.equals("structured_total_failure") || mode.equals("structured_total_failure_text") || mode.equals("structured_partial_obj")) {
+                    failedArr.put(new JSONObject().put("namespace","knowledge").put("error_code","CX_ERR_INDEX_CORRUPT"));
+                }
+                double cov = mode.equals("structured_partial") ? 0.75 : mode.equals("structured_partial_obj") ? 0.5 : (mode.equals("structured_total_failure") || mode.equals("structured_total_failure_text") || mode.equals("empty_zero_cov")) ? 0 : 1;
+                JSONObject structuredData = new JSONObject().put("coverage_ratio", cov).put("namespaces_failed", failedArr);
+                JSONObject metaObj = new JSONObject().put("category","success").put("retryable",false).put("structured_data",structuredData);
+                if(mode.equals("structured_total_failure") || mode.equals("structured_total_failure_text")) metaObj.put("trace_id","tr-total-fail");
+                if(mode.equals("structured_total_failure"))structuredData.put("trace_id","tr-structured");
+                if(mode.equals("structured_partial_obj")) metaObj.put("trace_id","tr-partial");
+                JSONObject envelope=new JSONObject().put("data",new JSONObject().put("results",data).put("meta",new JSONObject())).put("meta",metaObj);
+                boolean useStructured=mode.equals("structured")||mode.equals("structured_partial")||mode.equals("structured_total_failure")||mode.equals("structured_partial_obj")||mode.equals("empty_zero_cov");
+                result=useStructured?new JSONObject().put("structuredContent",envelope):new JSONObject().put("content",new JSONArray().put(new JSONObject().put("type","text").put("text",mode.equals("bare")?data.toString():envelope.toString())));
+                if(mode.equals("header_trace")) e.getResponseHeaders().set("X-Trace-Id","tr-http-hdr");
                 if(mode.equals("tool")) ((JSONObject)result).put("isError",true);
             }
             JSONObject response=new JSONObject().put("jsonrpc","2.0").put("id",mode.equals("id")?99:req.getLong("id")).put("result",result);
@@ -89,7 +114,22 @@ public final class CortrixClientTest {
     }
     static byte[] read(java.io.InputStream in)throws Exception { java.io.ByteArrayOutputStream b=new java.io.ByteArrayOutputStream();byte[] buf=new byte[1024];int n;while((n=in.read(buf))!=-1)b.write(buf,0,n);return b.toByteArray(); }
     static KnowledgeRetrieval.Result run(String mode,long budget)throws Exception {try(Server s=new Server(mode)){KnowledgeRetrieval.Result r=KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),budget);if(s.failure!=null)throw new AssertionError(s.failure);return r;}}
+    static JSONObject diagnostic(List<String> logs)throws Exception {
+        for(String line:logs)if(line.startsWith("hint mcp result="))return new JSONObject(line.substring("hint mcp result=".length()));
+        throw new AssertionError("missing diagnostic: "+logs);
+    }
     public static void main(String[] args)throws Exception {
+        try(Server s=new Server("catalog")) {
+            CortrixClient.NamespaceResult r=new CortrixClient(s.url(),"secret",0,0).listNamespaces(5000);
+            check(r.status==KnowledgeRetrieval.Status.HIT,"catalog succeeds");
+            check(r.names.equals(Arrays.asList("obsidian-experience","obsidian-knowledge")),"catalog uses namespace ids from both pages");
+            check(s.methods.equals(Arrays.asList("initialize","notifications/initialized","tools/list","tools/call","tools/call")),"catalog uses MCP lifecycle");
+            if(s.failure!=null)throw new AssertionError(s.failure);
+        }
+        try(Server s=new Server("normal")) {
+            CortrixClient.NamespaceResult r=new CortrixClient(s.url(),"secret",0,0).listNamespaces(5000);
+            check(r.status==KnowledgeRetrieval.Status.TOOL_ERROR && r.names.isEmpty(),"missing catalog tool is reported");
+        }
         check(CortrixClient.extractEvidences(new JSONObject().put("result",new JSONObject().put("structuredContent",new JSONObject().put("data",new JSONObject().put("results",new JSONArray(docs()))))).toString()).size()==1,"structured GEN results parsing");
         for(String mode:new String[]{"normal","bare","structured","sse"}) try(Server s=new Server(mode)){
             long start=System.nanoTime();KnowledgeRetrieval.Result r=KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000);
@@ -128,6 +168,57 @@ public final class CortrixClientTest {
             check(r.elapsedMs >= 0, "elapsedMs >= 0: " + r.elapsedMs);
             check(r.evidences.get(0).sourceTimes.equals("2026-11-04"), "sourceTimes extracted: " + r.evidences.get(0).sourceTimes);
             check(!r.truncated, "truncated should be false");
+        }
+
+        for(String mode:new String[]{"structured_total_failure","structured_total_failure_text"}) {
+            KnowledgeRetrieval.Result r=run(mode,1000);
+            check(r.status==KnowledgeRetrieval.Status.TOOL_ERROR,mode+" must report tool error: "+r.status);
+            check(r.coverageRatio==0 && r.namespacesFailed.equals(Arrays.asList("knowledge:CX_ERR_INDEX_CORRUPT")),mode+" failure details: "+r.namespacesFailed);
+        }
+        KnowledgeRetrieval.Result partial=run("structured_partial_obj",1000);
+        check(partial.isHit() && partial.evidences.size()==1 && partial.coverageRatio==0.5,"partial failure retains hit");
+        check(partial.namespacesFailed.equals(Arrays.asList("knowledge:CX_ERR_INDEX_CORRUPT")),"partial failure details");
+        check(run("empty_zero_cov",1000).status==KnowledgeRetrieval.Status.NO_MATCH,"empty without failures is no match");
+        try(Server s=new Server("structured_total_failure")) {
+            List<String> logs=Collections.synchronizedList(new ArrayList<String>());
+            CortrixClient.trace=logs::add;
+            try {
+                KnowledgeRetrieval.retrieve("private-query",Arrays.asList("  knowledge "," "),snapshot(true,s.url()+"?token=private-secret"),1000);
+                String log=String.join("\n",logs);
+                JSONObject diag=diagnostic(logs);
+                check(diag.getBoolean("query_sent") && diag.getString("name").equals(s.wireParams.getString("name")),"wire tool name");
+                check(diag.getJSONArray("namespaces").toString().equals(s.wireParams.getJSONObject("arguments").getJSONArray("namespaces").toString()),"wire namespaces");
+                check(log.contains("tr-structured") && log.contains("CX_ERR_INDEX_CORRUPT") && log.contains("knowledge"),"diagnostic failure details: "+log);
+                check(log.contains("http_code") && log.contains("elapsed_ms") && log.contains("row_count") && log.contains("coverage_ratio"),"diagnostic fields: "+log);
+                check(!log.contains("private-query") && !log.contains("private-secret"),"diagnostic excludes secrets and query");
+            } finally { CortrixClient.trace=ev->{}; }
+        }
+        try(Server s=new Server("header_trace")) {
+            List<String> logs=Collections.synchronizedList(new ArrayList<String>());
+            CortrixClient.trace=logs::add;
+            try { KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000);check(String.join("\n",logs).contains("tr-http-hdr"),"HTTP trace ID logged");check(!diagnostic(logs).has("namespaces")&&!s.wireParams.getJSONObject("arguments").has("namespaces"),"omitted wire namespaces"); }
+            finally { CortrixClient.trace=ev->{}; }
+        }
+
+        try(Server s=new Server("401")) {
+            List<String> logs=Collections.synchronizedList(new ArrayList<String>());
+            CortrixClient.trace=logs::add;
+            try {
+                check(KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000).status==KnowledgeRetrieval.Status.AUTH_ERROR,"auth failure status");
+                JSONObject diag=diagnostic(logs);
+                check(!diag.getBoolean("query_sent") && diag.isNull("http_code") && !diag.has("name"),"handshake is not query");
+                check(diag.getString("method").equals("initialize") && diag.getInt("stage_http_code")==401,"handshake HTTP diagnostic");
+            } finally { CortrixClient.trace=ev->{}; }
+        }
+
+        for(String mode:new String[]{"missing","structured_total_failure_text","bare"})try(Server s=new Server(mode)){
+            List<String> logs=Collections.synchronizedList(new ArrayList<String>());CortrixClient.trace=logs::add;
+            try {
+                KnowledgeRetrieval.retrieve("问题",snapshot(true,s.url()),1000);JSONObject diag=diagnostic(logs);
+                if(mode.equals("missing")) check(!diag.getBoolean("query_sent") && diag.isNull("http_code") && diag.isNull("trace_id") && s.wireParams==null,"discovery failure is not query");
+                if(mode.equals("structured_total_failure_text"))check("tr-total-fail".equals(diag.getString("trace_id")),"legacy envelope trace");
+                if(mode.equals("bare"))check(diag.isNull("trace_id"),"discovery trace must not carry into query");
+            }finally{CortrixClient.trace=ev->{};}
         }
 
         // Test doc-level timestamp

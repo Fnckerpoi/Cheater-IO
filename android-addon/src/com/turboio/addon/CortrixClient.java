@@ -52,15 +52,34 @@ public final class CortrixClient {
         Failure(KnowledgeRetrieval.Status status){this.status=status;}
     }
     private static Failure protocol(){return new Failure(KnowledgeRetrieval.Status.PROTOCOL_ERROR);}
+    private static final class RequestTrace {
+        final String method;
+        final String toolName;
+        final JSONArray namespaces;
+        volatile boolean sent;
+        volatile int httpCode;
+        volatile String traceId;
+
+        RequestTrace(String body) throws JSONException {
+            JSONObject request=new JSONObject(body);
+            method=request.getString("method");
+            JSONObject params="tools/call".equals(method)?request.getJSONObject("params"):null;
+            toolName=params==null?null:params.getString("name");
+            namespaces=params==null?null:params.getJSONObject("arguments").optJSONArray("namespaces");
+        }
+    }
     private final class Exchange {
         final long deadline; volatile HttpURLConnection connection;
         String session="",version="";
+        volatile RequestTrace currentRequest;
         Exchange(long deadline){this.deadline=deadline;}
         int remaining() throws SocketTimeoutException {
             long nanos=deadline-System.nanoTime();if(nanos<=0||Thread.currentThread().isInterrupted()) throw new SocketTimeoutException("MCP deadline");
             return (int)Math.min(Integer.MAX_VALUE,Math.max(1,TimeUnit.NANOSECONDS.toMillis(nanos)));
         }
         JSONObject post(String body,long id) throws Exception {
+            RequestTrace request=new RequestTrace(body);
+            currentRequest=request;
             remaining(); HttpURLConnection c=(HttpURLConnection)new URL(endpoint).openConnection(); connection=c;
             {
                 c.setInstanceFollowRedirects(false);c.setUseCaches(false);c.setRequestMethod("POST");c.setDoOutput(true);
@@ -71,8 +90,10 @@ public final class CortrixClient {
                 if(!session.isEmpty()) c.setRequestProperty("Mcp-Session-Id",session);
                 if(!version.isEmpty()) c.setRequestProperty("MCP-Protocol-Version",version);
                 byte[] bytes=body.getBytes(StandardCharsets.UTF_8); c.setFixedLengthStreamingMode(bytes.length);
-                try(OutputStream out=c.getOutputStream()){remaining();out.write(bytes);}
-                remaining();c.setReadTimeout(remaining()); int code=c.getResponseCode();remaining();
+                try(OutputStream out=c.getOutputStream()){remaining();out.write(bytes);request.sent=true;}
+                remaining();c.setReadTimeout(remaining()); int code=c.getResponseCode();
+                request.traceId=c.getHeaderField("X-Trace-Id");
+                request.httpCode=code;remaining();
                 if(code==401||code==403)throw new Failure(KnowledgeRetrieval.Status.AUTH_ERROR);
                 if(id==0) {if(code!=200&&code!=202&&code!=204)throw new Failure(KnowledgeRetrieval.Status.TRANSPORT_ERROR);return null;}
                 if(code==404&&!session.isEmpty())throw new SessionExpired();
@@ -111,6 +132,98 @@ public final class CortrixClient {
         if(response.has("error"))throw new Failure(KnowledgeRetrieval.Status.TOOL_ERROR);
         JSONObject result=response.optJSONObject("result");if(result==null)throw protocol();return result;
     }
+    private static final String LIST_NAMESPACES="cortrix_list_namespaces";
+    static final class NamespaceResult {
+        final KnowledgeRetrieval.Status status;
+        final List<String> names;
+        NamespaceResult(KnowledgeRetrieval.Status status,List<String> names) {
+            this.status=status;
+            this.names=Collections.unmodifiableList(new ArrayList<>(names));
+        }
+    }
+    NamespaceResult listNamespaces(long budgetMs) {
+        if(endpoint.isEmpty()) return namespaceFailure(KnowledgeRetrieval.Status.UNCONFIGURED);
+        if(budgetMs<=0) return namespaceFailure(KnowledgeRetrieval.Status.TIMEOUT);
+        Exchange exchange=new Exchange(System.nanoTime()+TimeUnit.MILLISECONDS.toNanos(Math.min(budgetMs,TimeUnit.DAYS.toMillis(1))));
+        FutureTask<NamespaceResult> task=new FutureTask<>(()->{
+            try {
+                negotiateProtocol(exchange);
+                notifyInitialized(exchange);
+                if(!hasTool(exchange,LIST_NAMESPACES)) return namespaceFailure(KnowledgeRetrieval.Status.TOOL_ERROR);
+                return new NamespaceResult(KnowledgeRetrieval.Status.HIT,fetchNamespaces(exchange));
+            } catch(Failure e) { return namespaceFailure(e.status); }
+            catch(SocketTimeoutException e) { return namespaceFailure(KnowledgeRetrieval.Status.TIMEOUT); }
+            catch(SessionExpired|IOException e) { return namespaceFailure(KnowledgeRetrieval.Status.TRANSPORT_ERROR); }
+            catch(JSONException e) { return namespaceFailure(KnowledgeRetrieval.Status.PROTOCOL_ERROR); }
+        });
+        Thread worker=new Thread(task,"cortrix-namespaces");worker.setDaemon(true);worker.start();
+        try { return task.get(Math.max(1,exchange.deadline-System.nanoTime()),TimeUnit.NANOSECONDS); }
+        catch(InterruptedException e) { Thread.currentThread().interrupt();return namespaceFailure(KnowledgeRetrieval.Status.TIMEOUT); }
+        catch(TimeoutException e) { return namespaceFailure(KnowledgeRetrieval.Status.TIMEOUT); }
+        catch(ExecutionException e) { return namespaceFailure(KnowledgeRetrieval.Status.PROTOCOL_ERROR); }
+        finally { cancelPending(task,exchange); }
+    }
+    private static NamespaceResult namespaceFailure(KnowledgeRetrieval.Status status) {
+        return new NamespaceResult(status,Collections.emptyList());
+    }
+    private static List<String> fetchNamespaces(Exchange exchange)throws Exception {
+        final int pageSize=100;
+        Set<String> names=new LinkedHashSet<>();
+        int offset=0;
+        long id=3;
+        while(true) {
+            JSONObject args=new JSONObject().put("limit",pageSize).put("offset",offset);
+            JSONObject request=new JSONObject().put("jsonrpc","2.0").put("id",id).put("method","tools/call")
+                .put("params",new JSONObject().put("name",LIST_NAMESPACES).put("arguments",args));
+            JSONObject response=exchange.post(request.toString(),id++);
+            if(response.optBoolean("isError",false))throw new Failure(KnowledgeRetrieval.Status.TOOL_ERROR);
+            JSONObject envelope=response.optJSONObject("structuredContent");
+            if(envelope==null) {
+                JSONArray content=response.getJSONArray("content");
+                for(int i=0;i<content.length();i++) {
+                    JSONObject item=content.getJSONObject(i);
+                    if("text".equals(item.optString("type"))) {envelope=new JSONObject(item.getString("text"));break;}
+                }
+            }
+            if(envelope==null)throw protocol();
+            JSONObject meta=envelope.optJSONObject("meta");
+            if(meta!=null && !"success".equals(meta.optString("category","success")))throw new Failure(KnowledgeRetrieval.Status.TOOL_ERROR);
+            JSONObject data=envelope.has("data")?envelope.getJSONObject("data"):envelope;
+            JSONArray rows=data.getJSONArray("namespaces");
+            int previousSize=names.size();
+            for(int i=0;i<rows.length();i++) {
+                JSONObject row=rows.getJSONObject(i);
+                String name=row.optString("namespace",row.optString("name","")).trim();
+                if(name.isEmpty())throw protocol();
+                names.add(name);
+            }
+            offset+=rows.length();
+            int total=data.optInt("total",-1);
+            if(total>=0 ? offset>=total : rows.length()<pageSize)return new ArrayList<>(names);
+            if(names.size()==previousSize)throw protocol();
+        }
+    }
+    private static void negotiateProtocol(Exchange exchange)throws Exception {
+        JSONObject init=exchange.post(buildInitializePayload(1),1);
+        exchange.version=init.optString("protocolVersion");
+        if(!exchange.version.equals("2025-03-26")&&!exchange.version.equals("2024-11-05"))throw protocol();
+    }
+    private static void notifyInitialized(Exchange exchange)throws Exception {
+        exchange.post("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}",0);
+    }
+    private static boolean hasTool(Exchange exchange,String name)throws Exception {
+        JSONObject result=exchange.post("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}",2);
+        JSONArray tools=result.getJSONArray("tools");
+        for(int i=0;i<tools.length();i++)if(name.equals(tools.getJSONObject(i).optString("name")))return true;
+        return false;
+    }
+    private static void cancelPending(FutureTask<?> task,Exchange exchange) {
+        if(!task.isDone()) {
+            task.cancel(true);
+            HttpURLConnection c=exchange.connection;
+            if(c!=null){Thread closer=new Thread(c::disconnect,"cortrix-close");closer.setDaemon(true);closer.start();}
+        }
+    }
     KnowledgeRetrieval.Result retrieve(String query,long budgetMs,long revision,boolean probe) {
         return retrieve(query, null, budgetMs, revision, probe);
     }
@@ -130,9 +243,7 @@ public final class CortrixClient {
                         if(probe) {
                             // Reuse the cached session but still verify tool discovery.
                             long t1=System.nanoTime();
-                            JSONObject list=exchange.post("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}",2);
-                            boolean found=false;JSONArray tools=list.getJSONArray("tools");for(int i=0;i<tools.length();i++)if("cortrix_query".equals(tools.getJSONObject(i).optString("name")))found=true;
-                            if(!found)throw protocol();
+                            if(!hasTool(exchange,"cortrix_query"))throw protocol();
                             listMs=elapsed(t1);
                             return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.NO_MATCH,revision,elapsed(startNs));
                         }
@@ -147,15 +258,12 @@ public final class CortrixClient {
                     }
                 }
                 long t0=System.nanoTime();
-                JSONObject init=exchange.post(buildInitializePayload(1),1);exchange.version=init.optString("protocolVersion");
-                if(!exchange.version.equals("2025-03-26")&&!exchange.version.equals("2024-11-05"))throw protocol();
+                negotiateProtocol(exchange);
                 SESSIONS.put(sessionKey(),new Session(exchange.session,exchange.version));
-                exchange.post("{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}",0);
+                notifyInitialized(exchange);
                 initMs=elapsed(t0);
                 long t1=System.nanoTime();
-                JSONObject list=exchange.post("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{}}",2);
-                boolean found=false;JSONArray tools=list.getJSONArray("tools");for(int i=0;i<tools.length();i++)if("cortrix_query".equals(tools.getJSONObject(i).optString("name")))found=true;
-                if(!found)throw protocol();
+                if(!hasTool(exchange,"cortrix_query"))throw protocol();
                 listMs=elapsed(t1);
                 return call(query,namespaces,revision,probe,exchange,startNs,false,initMs,listMs);
             }catch(Failure e){traceStage(warm,initMs,listMs,0,e.status);return KnowledgeRetrieval.result(e.status,revision,elapsed(startNs));}
@@ -165,23 +273,51 @@ public final class CortrixClient {
             catch(IOException e){traceStage(warm,initMs,listMs,0,KnowledgeRetrieval.Status.TRANSPORT_ERROR);return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.TRANSPORT_ERROR,revision,elapsed(startNs));}
         });
         Thread worker=new Thread(task,"cortrix-mcp");worker.setDaemon(true);worker.start();
-        try{return task.get(Math.max(1,exchange.deadline-System.nanoTime()),TimeUnit.NANOSECONDS);}
-        catch(TimeoutException e){return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.TIMEOUT,revision,Math.max(0L,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-startNs)));}
-        catch(InterruptedException e){Thread.currentThread().interrupt();return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.TIMEOUT,revision,Math.max(0L,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-startNs)));}
-        catch(ExecutionException e){return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.PROTOCOL_ERROR,revision,Math.max(0L,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-startNs)));}
-        finally {if(!task.isDone()){
-            task.cancel(true);final HttpURLConnection c=exchange.connection;
-            if(c!=null){Thread closer=new Thread(()->c.disconnect(),"cortrix-close");closer.setDaemon(true);closer.start();}
-        }}
+        try{KnowledgeRetrieval.Result result=task.get(Math.max(1,exchange.deadline-System.nanoTime()),TimeUnit.NANOSECONDS);
+            if(result.status!=KnowledgeRetrieval.Status.HIT && result.status!=KnowledgeRetrieval.Status.NO_MATCH && !(result.status==KnowledgeRetrieval.Status.TOOL_ERROR&&!result.namespacesFailed.isEmpty()))traceResult(exchange,null,startNs,query);
+            return result;}
+        catch(TimeoutException e){traceResult(exchange,null,startNs,query);return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.TIMEOUT,revision,Math.max(0L,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-startNs)));}
+        catch(InterruptedException e){Thread.currentThread().interrupt();traceResult(exchange,null,startNs,query);return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.TIMEOUT,revision,Math.max(0L,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-startNs)));}
+        catch(ExecutionException e){traceResult(exchange,null,startNs,query);return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.PROTOCOL_ERROR,revision,Math.max(0L,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-startNs)));}
+        finally { cancelPending(task,exchange); }
     }
     private KnowledgeRetrieval.Result call(String query,List<String> namespaces,long revision,boolean probe,Exchange exchange,long startNs,boolean warm,long initMs,long listMs)throws Exception {
         if(probe){traceStage(warm,initMs,listMs,0,KnowledgeRetrieval.Status.NO_MATCH);return KnowledgeRetrieval.result(KnowledgeRetrieval.Status.NO_MATCH,revision,elapsed(startNs));}
         long t=System.nanoTime();
         ParsedResult parsed=parseEnvelope(exchange.post(buildQueryPayload(3,query,namespaces,2),3));exchange.remaining();
         long callMs=elapsed(t);
-        KnowledgeRetrieval.Status status=parsed.evidences.isEmpty()?KnowledgeRetrieval.Status.NO_MATCH:KnowledgeRetrieval.Status.HIT;
+        KnowledgeRetrieval.Status status=!parsed.evidences.isEmpty()?KnowledgeRetrieval.Status.HIT:(parsed.coverageRatio==0&&!parsed.namespacesFailed.isEmpty()?KnowledgeRetrieval.Status.TOOL_ERROR:KnowledgeRetrieval.Status.NO_MATCH);
+        traceResult(exchange,parsed,startNs,query);
         traceStage(warm,initMs,listMs,callMs,status);
         return new KnowledgeRetrieval.Result(status,parsed.evidences,revision,parsed.coverageRatio,parsed.namespacesFailed,elapsed(startNs),parsed.truncated);
+    }
+    void traceResult(Exchange exchange,ParsedResult parsed,long startNs,String query) {
+        try {
+            URL url=new URL(endpoint);
+            String safeEndpoint=url.getProtocol()+"://"+url.getHost()+(url.getPort()<0?"":":"+url.getPort());
+            JSONObject log=new JSONObject();
+            RequestTrace request=exchange.currentRequest;
+            boolean querySent=request!=null && request.sent && request.toolName!=null;
+            log.put("endpoint",safeEndpoint);
+            log.put("method",request==null?JSONObject.NULL:request.method);
+            log.put("query_sent",querySent);
+            if(querySent) {
+                log.put("name",request.toolName);
+                if(request.namespaces!=null)log.put("namespaces",request.namespaces);
+            }
+            Object code=request!=null && request.httpCode!=0?request.httpCode:JSONObject.NULL;
+            log.put("stage_http_code",code);
+            log.put("http_code",querySent?code:JSONObject.NULL);
+            log.put("elapsed_ms",elapsed(startNs));log.put("row_count",parsed==null?JSONObject.NULL:parsed.rowCount);
+            log.put("coverage_ratio",parsed==null?JSONObject.NULL:parsed.coverageRatio);log.put("namespaces_failed",parsed==null?new JSONArray():new JSONArray(parsed.namespacesFailed));
+            String traceId=querySent?request.traceId:null;
+            if(parsed!=null&&!parsed.traceId.isEmpty())traceId=parsed.traceId;
+            log.put("trace_id",traceId==null?JSONObject.NULL:traceId);
+            String text=log.toString();
+            if(query!=null&&!query.isEmpty())text=text.replace(query,"[redacted]");
+            if(!bearerToken.isEmpty())text=text.replace(bearerToken,"[redacted]");
+            trace.log("hint mcp result="+text);
+        } catch(Exception ignored) { }
     }
     static long elapsed(long startNanos){return Math.max(0L,TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-startNanos));}
     static void traceStage(boolean warm,long initMs,long listMs,long callMs,KnowledgeRetrieval.Status status) {
@@ -191,9 +327,9 @@ public final class CortrixClient {
         final List<KnowledgeRetrieval.Evidence> evidences;
         final double coverageRatio;
         final List<String> namespacesFailed;
-        final boolean truncated;
-        ParsedResult(List<KnowledgeRetrieval.Evidence> evidences,double coverageRatio,List<String> namespacesFailed,boolean truncated) {
-            this.evidences=evidences;this.coverageRatio=coverageRatio;this.namespacesFailed=namespacesFailed;this.truncated=truncated;
+        final boolean truncated; final int rowCount; final String traceId;
+        ParsedResult(List<KnowledgeRetrieval.Evidence> evidences,double coverageRatio,List<String> namespacesFailed,boolean truncated,int rowCount,String traceId) {
+            this.evidences=evidences;this.coverageRatio=coverageRatio;this.namespacesFailed=namespacesFailed;this.truncated=truncated;this.rowCount=rowCount;this.traceId=traceId;
         }
     }
     static final class ParseContext {
@@ -201,7 +337,7 @@ public final class CortrixClient {
         double coverageRatio=1.0;
         final List<String> namespacesFailed=new ArrayList<>();
         boolean truncated=false;
-        int totalChars=0;
+        int totalChars=0,rowCount=0; String traceId="";
     }
     static ParsedResult parseEnvelope(JSONObject result)throws Exception {
         if(result.optBoolean("isError",false))throw new Failure(KnowledgeRetrieval.Status.TOOL_ERROR);
@@ -209,26 +345,30 @@ public final class CortrixClient {
         extractStructuredData(result,ctx);
         if(result.has("structuredContent")){
             parseData(result.get("structuredContent"),ctx);
-            return new ParsedResult(ctx.evidences,ctx.coverageRatio,ctx.namespacesFailed,ctx.truncated);
+            return new ParsedResult(ctx.evidences,ctx.coverageRatio,ctx.namespacesFailed,ctx.truncated,ctx.rowCount,ctx.traceId);
         }
         JSONArray content=result.optJSONArray("content");if(content==null)throw protocol();
         for(int i=0;i<content.length();i++){
             JSONObject item=content.getJSONObject(i);
             if("text".equals(item.optString("type"))) parseData(new JSONTokener(item.getString("text")).nextValue(),ctx);
         }
-        return new ParsedResult(ctx.evidences,ctx.coverageRatio,ctx.namespacesFailed,ctx.truncated);
+        return new ParsedResult(ctx.evidences,ctx.coverageRatio,ctx.namespacesFailed,ctx.truncated,ctx.rowCount,ctx.traceId);
     }
     static void extractStructuredData(JSONObject obj,ParseContext ctx) {
         if(obj==null) return;
         JSONObject sd=obj.optJSONObject("structured_data");
         JSONObject meta=obj.optJSONObject("meta");
-        if(meta!=null&&sd==null) sd=meta.optJSONObject("structured_data");
+        if(meta!=null) { if(sd==null) sd=meta.optJSONObject("structured_data"); String id=meta.optString("trace_id","");if(!id.isEmpty())ctx.traceId=id; }
         if(sd!=null) {
+            String traceId=sd.optString("trace_id","");
+            if(!traceId.isEmpty())ctx.traceId=traceId;
             if(sd.has("coverage_ratio")) ctx.coverageRatio=sd.optDouble("coverage_ratio",ctx.coverageRatio);
             JSONArray failed=sd.optJSONArray("namespaces_failed");
             if(failed!=null) {
                 for(int i=0;i<failed.length();i++) {
-                    String ns=failed.optString(i,"");
+                    JSONObject entry=failed.optJSONObject(i);
+                    String ns=entry==null?failed.optString(i,""):entry.optString("namespace","");
+                    if(entry!=null&&!entry.optString("error_code","").isEmpty())ns+=(ns.isEmpty()?"":":")+entry.optString("error_code");
                     if(!ns.isEmpty()&&!ctx.namespacesFailed.contains(ns)) ctx.namespacesFailed.add(ns);
                 }
             }
@@ -256,6 +396,7 @@ public final class CortrixClient {
         ParseContext ctx=new ParseContext();parseRows(rows,ctx);out.addAll(ctx.evidences);
     }
     static void parseRows(JSONArray rows,ParseContext ctx)throws Exception {
+        ctx.rowCount+=rows.length();
         for(int i=0;i<rows.length();i++){
             JSONObject row=rows.getJSONObject(i);JSONArray evidence=row.optJSONArray("evidence");if(evidence==null)throw protocol();
             String sourceTime=extractSourceTime(row);

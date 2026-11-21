@@ -63,7 +63,8 @@ public final class TurboAddon {
     private TurboAddon() {}
     static void chatLog(String kv) {
         if (kv == null) return;
-        try { android.util.Log.i("TurboIOChat", kv.length() > 240 ? kv.substring(0, 240) : kv); } catch (Throwable ignored) {}
+        int limit=kv.startsWith("hint mcp result=") ? 3500 : kv.startsWith("hint model seq=") ? 400 : 240;
+        try { android.util.Log.i("TurboIOChat", kv.length() > limit ? kv.substring(0, limit) : kv); } catch (Throwable ignored) {}
     }
 
     public static void install(Activity host) {
@@ -136,6 +137,7 @@ public final class TurboAddon {
         serial(() -> { if(!onComplete(source)) try {invoke(source,"onResponseComplete");VoiceSpeech.finish(source);}catch(Exception ignored){diagnostic="官方完成分发失败";} });
     }
     private static volatile long hintSequence;
+    private static final ExecutorService HINT_NETWORK=ProactiveHintAugmentor.newHintExecutor();
     private static volatile ProactiveHintAugmentor hintAugmentor;
     private static ProactiveHintAugmentor hintAugmentor() {
         ProactiveHintAugmentor current=hintAugmentor;
@@ -144,14 +146,14 @@ public final class TurboAddon {
             if(hintAugmentor==null) {
                 ProactiveHintAugmentor.trace=TurboAddon::chatLog;
                 CortrixClient.trace=TurboAddon::chatLog;
-                hintAugmentor=new ProactiveHintAugmentor(NETWORK,
+                hintAugmentor=new ProactiveHintAugmentor(HINT_NETWORK,
                     new ProactiveHintAugmentor.MainScheduler() {
                         public void execute(Runnable task) { MAIN.post(task); }
                         public ProactiveHintAugmentor.Cancellation schedule(Runnable task,long delayMs) {
                             MAIN.postDelayed(task,delayMs);
                             return () -> MAIN.removeCallbacks(task);
                         }
-                    },System::currentTimeMillis,new ProactiveHintAugmentor.State() {
+                    },android.os.SystemClock::elapsedRealtime,new ProactiveHintAugmentor.State() {
                         public long generation() { return generation; }
                         public long sequence() { return hintSequence; }
                         public long revision() {
@@ -184,10 +186,10 @@ public final class TurboAddon {
                 catch(Exception failed) { diagnostic="官方有问必答分发失败";return; }
                 diagnostic="模型密钥不可用，已放行云端原回答";chatLog("hint fallback key_unavailable");return;
             }
-            final ProactiveHintRegenerator regenerator=new ProactiveHintRegenerator(endpoint,model,key);
+            final ProactiveHintRegenerator regenerator=new ProactiveHintRegenerator(endpoint,model,key,event -> chatLog("hint model seq="+sequence+" "+event));
             hintAugmentor().interceptAndRegenerateAsync(hint,config,generation,sequence,regenerator,
                 (value,status)->{
-                    try { invokeTyped(source,"onProactiveHint",new Class<?>[]{value.getClass()},new Object[]{value});diagnostic=status; }
+                    try { invokeTyped(source,"onProactiveHint",new Class<?>[]{value.getClass()},new Object[]{value});diagnostic=status;chatLog("hint vendor_dispatch seq="+sequence+" status=ok"); }
                     catch(Exception failed) { diagnostic="官方有问必答分发失败";chatLog("hint vendor_dispatch_failed"); }
                 });
         });
