@@ -14,7 +14,7 @@ import java.util.*;
 public final class OfficialOtaBridge {
  private static final Handler MAIN=new Handler(Looper.getMainLooper());
  private static final Set<String> INTERACTIVE=new HashSet<>(Arrays.asList("APP_MARKET","MARS_STREAMING","MARS_PHOTO_TRANSFER","LOG_REPORT","VOICE_ASSISTANT","RECORDING_SERVICE","LAUNCHER","FILE_TRANSFER","AI_SUBTITLE","TELEPROMPTER","NOTIFICATION","SCHEDULE_TODO","PROACTIVE_AI","AI_WIDGET","NAVIGATION","FILE_TRANSFER_LAUNCHER"));
- private static final OtaProfile PROFILE=OtaProfile.TMG4_1_10611;
+ private static final OtaProfile PROFILE=OtaProfile.TMG4_3_10611;
  private static Boolean mode;private static Context app;private static SharedPreferences journal;
  private static OfficialOtaFeed feed;private static OfficialOtaGate gate;
  private static volatile boolean pending,armed,foreground;private static boolean checking,initialized;
@@ -112,7 +112,7 @@ public final class OfficialOtaBridge {
   }catch(Exception e){if(gate!=null){gate.fail("invalid official incoming event");settle();}}
  }
  static synchronized void serviceLost(){if(enabled()&&gate!=null&&gate.active()){gate.fail("foreground service lost");settle();}}
- static synchronized void cancel(){epoch++;if(gate!=null&&!pending){gate.revoke();armed=false;settle();note="未使用授权已撤销；没有自动开始";}}
+ static synchronized void cancel(){epoch++;if(gate!=null&&!pending){gate.revoke();armed=false;settle();note="未使用授权已撤销";}}
  private static OtaPackage freeze()throws IOException{
   File dataRoot=new File(app.getApplicationInfo().dataDir);File canonical;try{canonical=dataRoot.getCanonicalFile();}catch(Exception e){throw new OtaPackage.DiagnosticFailure("ROOT_RESOLVE",e); }File[] dirs={new File(canonical,"files/ota/"+PROFILE.directory),new File(canonical,"app_flutter/ota/"+PROFILE.directory)};File only=null;
   for(File d:dirs)if(d.exists()){if(only!=null)throw new IOException("ambiguous directory");only=d;}
@@ -122,22 +122,7 @@ public final class OfficialOtaBridge {
  static String preflightFailure(boolean generation,boolean busy,boolean background,boolean peer,String directory){
   return "generation="+generation+" busy="+busy+" background="+background+" peerChanged="+peer+" directory="+(directory.isEmpty()?"OK":directory);
  }
- private static void inspect(){
-  final String peer;final long generation;
-  synchronized(OfficialOtaBridge.class){
-   if(pending||armed||checking||!foreground||OtaController.busy()){note="只读预检条件未满足；未授权";return;}
-   peer=NativeTransfer.connected();if(peer.isEmpty()){note="没有唯一连接眼镜";return;}
-   checking=true;generation=++epoch;note="只读核对官方目录；不会授权或发送固件";
-  }
-  new Thread(()->{String failure="";try{freeze();}catch(Exception e){failure=OtaPackage.safeCategory(e)+"/"+OtaPackage.safeFailure(e);}final String directoryFailure=failure;
-   MAIN.post(()->{synchronized(OfficialOtaBridge.class){checking=false;
-    String reason=preflightFailure(generation!=epoch,pending||armed,!foreground,!peer.equals(NativeTransfer.connected()),directoryFailure);
-    if(generation!=epoch||pending||armed||!foreground||!peer.equals(NativeTransfer.connected())||!directoryFailure.isEmpty()){note="只读预检未通过："+reason+"；未授权";settle();return;}
-    try{bindCurrent(peer,SystemClock.elapsedRealtime());sendReadOnly(peer,1);sendReadOnly(peer,2);sendReadOnly(peer,11);note="官方目录 "+PROFILE.pins().length+"/"+PROFILE.pins().length+" 校验通过；已提交版本/电量/空闲只读查询，等待实际回执。授权仍为0。";}
-    catch(Exception e){note="目录校验通过，但只读查询提交失败："+OtaPackage.safeFailure(e)+"；未授权";}settle();
-   }});
-  },"TurboIO-official-ota-inspect").start();
- }
+
  private static void authorize(String token){
   final String peer;final long generation;
   synchronized(OfficialOtaBridge.class){
@@ -156,7 +141,7 @@ public final class OfficialOtaBridge {
     if(generation!=epoch||!foreground||pending||!peer.equals(NativeTransfer.connected())||result==null||!OtaService.alive()||!gate.readyToArm(SystemClock.elapsedRealtime())){note="授权未通过："+preflightFailure(generation!=epoch,pending,!foreground,!peer.equals(NativeTransfer.connected()),directoryFailure)+" service="+OtaService.alive()+" fresh="+gate.readyToArm(SystemClock.elapsedRealtime())+"；未授权";OtaService.finish();return;}
     String owner="official-ota-"+UUID.randomUUID();if(!NativeTransfer.acquireMessages(owner)){note="其他任务尚未退出；未授权";OtaService.finish();return;}
     lease=owner;bindCurrent(peer,SystemClock.elapsedRealtime());gate.arm(result,peer,token,SystemClock.elapsedRealtime());armed=true;
-    note="授权：1。请返回官方更新页开始安装；仍须官方新鲜预检通过。授权有效 15 分钟，退后台即撤销。";
+    note="授权：1（允许自动开始）。请返回官方更新页开始安装；仍须官方新鲜预检通过。授权有效 15 分钟，退后台即撤销。";
    }});
   },"TurboIO-official-ota-freeze").start();
  }
@@ -164,12 +149,121 @@ public final class OfficialOtaBridge {
   return "ANDROID · OFFICIAL-OTA-GUARD-01\n"+note+"\n候选："+PROFILE.name+"\n结果记录："+resultIdentity()+"\n授权："+(armed?"1":"0")+" · 结果保护："+(pending?"待核对":"未开始")+"\n"+(gate==null?"未就绪":"阶段："+gate.phase()+"\n"+gate.preflight(SystemClock.elapsedRealtime())+"\n通过内容校验 "+gate.chunks()+" 片 · AP 覆盖 "+gate.covered()+" / "+(pending?(pendingProfile()==null?"未知":String.valueOf(pendingProfile().apSize)):String.valueOf(PROFILE.apSize))+"\n"+gate.error())+"\n版本回读证据："+versionEvidence+"\n拦截："+blocked+counts+"\n"+(feed==null?"来源未启动":feed.status())+"\n"+(recovery==null?"":recovery.status(SystemClock.elapsedRealtime()));
  }
  private static void exportStatus(){try{String text=status()+"\n只读时序（最后32条，不含设备身份/固件正文）\n"+String.join("\n",trace);if(text.equals(lastExport))return;File root=app.getExternalFilesDir(null);if(root==null)return;File tmp=new File(root,"official-ota-guard-status.tmp"),dest=new File(root,"official-ota-guard-status.txt");try(FileOutputStream out=new FileOutputStream(tmp)){out.write(text.getBytes(StandardCharsets.UTF_8));out.getFD().sync();}if(tmp.renameTo(dest))lastExport=text;}catch(Exception ignored){}}
- static void show(Activity a){init(a);foreground=true;EditorialUI.Screen s=new EditorialUI.Screen(a,"官方升级 · 单次授权");
-  s.body.addView(EditorialUI.text(a,"GUARD-07 · 预检有效期2分钟。授权等待期间自动刷新只读预检，开始传输即停止。实验固件有损坏风险。Android 官方负责检测、下载、解压及会话；扩展仅核对指定包和发送字节。首次 Android 实机刷写尚未验收，不能承诺不会刷坏。",15,EditorialUI.INK));
+ private static void addCandidateCheck(Activity activity, LinearLayout body) {
+  OtaProfile candidate = OtaProfile.TMG4_3_10611;
+  File directory = activity.getExternalFilesDir("firmware");
+  if (directory == null) {
+   body.addView(EditorialUI.text(activity, "固件存储目录不可用", 14, EditorialUI.MUTED));
+   return;
+  }
+  File archive = new File(directory, candidate.token + ".zip");
+  TextView result = EditorialUI.text(activity, archive.getAbsolutePath(), 14, EditorialUI.MUTED);
+  body.addView(result);
+  TextView button = EditorialUI.button(activity, body, "校验本机 " + candidate.token, false, () -> {});
+  button.setOnClickListener(v -> {
+   button.setEnabled(false);
+   result.setText("正在校验 " + candidate.token);
+   new Thread(() -> {
+    String message;
+    try (DataInputStream input = new DataInputStream(new BufferedInputStream(new FileInputStream(archive)))) {
+     byte[] bytes = new byte[candidate.zipSize];
+     input.readFully(bytes);
+     if (input.read() != -1) throw new IOException("unexpected trailing data");
+     OtaPackage.verify(bytes, candidate);
+     message = candidate.token + " 文件校验通过 · 16 个载荷 · 尚未发起安装";
+    } catch (FileNotFoundException e) {
+     message = "无法打开固件文件：" + archive.getAbsolutePath();
+    } catch (IOException | SecurityException e) {
+     message = "读取或校验失败：" + archive.getAbsolutePath();
+    }
+    String status = message;
+    activity.runOnUiThread(() -> {
+     if (!result.isAttachedToWindow()) return;
+     result.setText(status);
+     button.setEnabled(true);
+    });
+   }, "TurboIO-candidate-check").start();
+  });
+ }
+ private static File resolveFixedArchive(Context c)throws IOException{
+  File primaryDir=c.getExternalFilesDir("firmware");
+  File primary=primaryDir==null?null:new File(primaryDir,PROFILE.token+".zip");
+  if(primary!=null&&primary.isFile()&&primary.canRead())return primary;
+  File downloads=Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+  File fallback=downloads==null?null:new File(downloads,PROFILE.token+".zip");
+  if(fallback!=null&&fallback.isFile()&&fallback.canRead())return fallback;
+  throw new FileNotFoundException(primary!=null?primary.getAbsolutePath():(fallback!=null?fallback.getAbsolutePath():PROFILE.token+".zip"));
+ }
+ private static byte[] readFixedArchive(Context c)throws IOException{
+  File archive=resolveFixedArchive(c);
+  try(DataInputStream input=new DataInputStream(new BufferedInputStream(new FileInputStream(archive)))){
+   byte[] bytes=new byte[PROFILE.zipSize];
+   input.readFully(bytes);
+   if(input.read()!=-1)throw new IOException("unexpected trailing data");
+   return bytes;
+  }
+ }
+
+ private static void oneClickPrepareInspectAndAuthorize(Activity a){
+  final long generation;
+  synchronized(OfficialOtaBridge.class){
+   if(armed){note="已完成单次授权（允许自动开始），请返回官方更新页开始安装";return;}
+   if(pending||checking||feed==null||OtaController.busy()){EditorialUI.notice(a,"请先处理结果保护或撤销当前任务");return;}
+   if(!PROFILE.hasOfficialVersions()){EditorialUI.notice(a,"官方版本依据待实测，本候选尚未开放下载");return;}
+   checking=true;generation=++epoch;note="1/3 正在从固定目录读取并校验 "+PROFILE.token+"...";
+  }
+  new Thread(()->{
+   try{
+    feed.arm(readFixedArchive(app));
+    note="1/3 来源已开放；2/3 正在校验官方目录并预检...";
+   }catch(Exception e){
+    synchronized(OfficialOtaBridge.class){if(generation==epoch)checking=false;}
+    note="1/3 固定目录读取或校验失败："+OtaPackage.safeFailure(e);
+    return;
+   }
+   final String peer=NativeTransfer.connected();
+   if(peer.isEmpty()){
+    synchronized(OfficialOtaBridge.class){if(generation==epoch)checking=false;}
+    note="1/3 来源已开放；请连接唯一眼镜后再点一键执行完成 2·3 步";
+    return;
+   }
+   try{freeze();}catch(Exception e){
+    synchronized(OfficialOtaBridge.class){if(generation==epoch)checking=false;}
+    note="1/3 来源已开放（15分钟）；官方目录尚未下载解压，请去官方更新页下载后再点一键执行完成 2·3 步";
+    return;
+   }
+   final boolean[] sent={false};
+   MAIN.post(()->{synchronized(OfficialOtaBridge.class){
+    if(generation!=epoch||pending||armed||!foreground||!peer.equals(NativeTransfer.connected())){sent[0]=false;return;}
+    try{bindCurrent(peer,SystemClock.elapsedRealtime());sendReadOnly(peer,1);sendReadOnly(peer,2);sendReadOnly(peer,11);sent[0]=true;}
+    catch(Exception e){note="2/3 只读预检发送失败："+OtaPackage.safeFailure(e);}
+   }});
+   long deadline=SystemClock.elapsedRealtime()+10000L;
+   while(SystemClock.elapsedRealtime()<deadline){
+    try{Thread.sleep(250);}catch(InterruptedException ignored){break;}
+    synchronized(OfficialOtaBridge.class){
+     if(generation!=epoch||!foreground||pending||armed||!peer.equals(NativeTransfer.connected())){
+      if(generation==epoch)checking=false;
+      note="2/3 预检中断，未授权";return;
+     }
+     if(sent[0]&&gate!=null&&gate.readyToArm(SystemClock.elapsedRealtime())){
+      checking=false;
+      MAIN.post(()->authorize(PROFILE.token));
+      return;
+     }
+    }
+   }
+   synchronized(OfficialOtaBridge.class){
+    if(generation==epoch)checking=false;
+    note="2/3 只读预检未就绪（"+(gate==null?"未就绪":gate.preflight(SystemClock.elapsedRealtime()))+"）；请确认眼镜电量≥50%且空闲后重试";
+   }
+  },"TurboIO-official-ota-oneclick").start();
+ }
+ static void show(Activity a){init(a);foreground=true;EditorialUI.Screen s=new EditorialUI.Screen(a,"官方升级 · 一键授权（允许自动开始）");
+  addCandidateCheck(a, s.body);
+  s.body.addView(EditorialUI.text(a,"GUARD-07 · 预检有效期2分钟。固定固件目录："+PROFILE.token+".zip。授权等待期间自动刷新只读预检，开始传输即停止。",15,EditorialUI.INK));
   TextView label=EditorialUI.text(a,status(),14,EditorialUI.LIME);s.body.addView(label);
-  EditorialUI.button(a,s.body,"1 · 开启 15 分钟官方只下载",false,()->{if(pending||armed||feed==null){EditorialUI.notice(a,"请先处理结果保护或撤销授权");return;}if(!PROFILE.hasOfficialVersions()){EditorialUI.notice(a,"官方版本依据待实测，本候选尚未开放下载");return;}DocumentPicker.pick(a,PROFILE.zipSize,b->{new Thread(()->{try{feed.arm(b);note="来源已开放；请去官方更新页下载，先不要安装";}catch(Exception e){note="指定包校验失败，未开放来源";}},"TurboIO-official-source").start();});});
-  EditorialUI.button(a,s.body,"2 · 只读预检（不授权、不刷写）",false,OfficialOtaBridge::inspect);
-  EditorialUI.button(a,s.body,"3 · 校验目录并允许一次试刷",false,()->{EditText input=new EditText(a);input.setSingleLine(true);input.setHint(PROFILE.token);new AlertDialog.Builder(a).setTitle("单次授权，不自动开始").setMessage("先完成只读预检。确认已在官方设置关闭自动更新，眼镜无任务、电量至少50%，且已了解实验风险。只放行已校验 "+PROFILE.token+"；输入完整标记后，返回官方页面开始。手机保持前台与供电。").setView(input).setNegativeButton("取消",null).setPositiveButton("授权",(d,w)->authorize(input.getText().toString().trim())).show();});
+  EditorialUI.button(a,s.body,"一键执行 1·2·3（固定目录备源·预检·自动授权）",true,()->oneClickPrepareInspectAndAuthorize(a));
   EditorialUI.button(a,s.body,"撤销未使用授权 / 关闭来源",false,()->{cancel();if(feed!=null)feed.disarm();});
   EditorialUI.button(a,s.body,"返回官方 App",false,()->s.dialog.dismiss());
   s.body.addView(EditorialUI.text(a,"通过片数仅代表出站内容校验，不代表眼镜接收或安装成功。任何断连/异常均不自动重发。升级结束后先等待自然重启，核对官方启动结果与结果记录对应的镜片菜单及功能标记。",13,EditorialUI.MUTED));

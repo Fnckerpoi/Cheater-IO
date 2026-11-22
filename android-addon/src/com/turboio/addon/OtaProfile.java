@@ -102,6 +102,26 @@ final class OtaProfile {
                     "pil_algo_vad_demo.dll 433900 0153a5a8e6b69ca0b9dd4cc742d45a758351d8209e604f38dbfe046c31f29f01",
                     "pil_algo_wakeup_dll_nand.dll 287560 d1594cb8658b228e52c2606d02f1eab696d35a11ed42ddcb725e76a745f5550f",
                     "smf.json 23556 43998e7acf06c8f9bc39635655d79120b7061a46f7b23f791f8699536f81836d" });
+    static final OtaProfile TMG4_3_10611 = new OtaProfile("TMG4.3-10611", "Strix OS 1.0.6.11",
+            "TMG4.3-10611 · Strix OS 1.0.6.11 · 离线候选", 9504603, 8073096,
+            "e6dc87a6f948154a8276e1727f154752b3cf6c9120ee945a4bf1963bfb25d708", new String[] {
+                    "OtaFileInfo.json 2886 997f01ad950d957fc945a0c37c5a25b4fc42096e11b638fbffad70845f0f179f",
+                    "amap_rtos_sdk 775548 a14c47776864b5786bf61e4c37e159259c8d7c9b94ad6664e4526eadc445574a",
+                    "bt_controller.bin 632384 dd935af210755d94c43995c62d9ec03e469157cd14965b1642c83d2f1daa440b",
+                    "cb_fw_venus.bin 114592 8799f12071bdac082218e3601c24ab0989275fc2f7db74e37b8314a225c2cf7d",
+                    "fac_test_img.bin 1821552 18eb0901c3e0daeae48dd5f015252b6931ea7368f0160c2c985c4e74296d17eb",
+                    "images.bin 390937 404ae1d33592db7592467b24bc29c1c783260fb7cf53f4be22838097f38fa501",
+                    "lotties.bin 661305 a8b5fa78e57775a025d90aa94d41245495a555c7ca4399b226b515bc03997162",
+                    "nuttx_ap.bin 8073096 6531f91553ca33c1ee276a492c23f1b0a3957fe3e627eb0189bd68b3b457b50e",
+                    "nuttx_apc1.bin 1442112 c24794d051df5803152fac770051374aff4bd34f6d41ef8ab39853e7b4d05ba9",
+                    "nuttx_audio.bin 1461920 549a72c032595e3829da7d63b7e1fd13cceda1a55dfefa7a7cad02db5a9b42ab",
+                    "nuttx_bth.bin 1250856 1fd910ea03124cd26d010c3ea3ef6a1b68dc61bd6283dcd07d2ad744d28759ec",
+                    "nuttx_ota.bin 536384 016cdd0ba9424512c9669d229b7c81d94eebdb24e15ba3c1c7b461ca32f2bc1a",
+                    "ota_installer_progress.bin 5616 6fd65d296a667e1a7d94ec129adfd26458a4008ef403b331f855192c36eb3e3f",
+                    "pil_algo_up_demo_nand.dll 504388 e266726fe055ac6ec6f785a9440e8da7421402f2b4d3d7889039ad9b94e119c2",
+                    "pil_algo_vad_demo.dll 433900 0153a5a8e6b69ca0b9dd4cc742d45a758351d8209e604f38dbfe046c31f29f01",
+                    "pil_algo_wakeup_dll_nand.dll 287560 d1594cb8658b228e52c2606d02f1eab696d35a11ed42ddcb725e76a745f5550f",
+                    "smf.json 23556 43998e7acf06c8f9bc39635655d79120b7061a46f7b23f791f8699536f81836d" });
     final String token, version, name, sha, directory;
     final int zipSize, apSize;
     private final String[] pins;
@@ -118,7 +138,7 @@ final class OtaProfile {
     }
 
     static OtaProfile fromJournal(String candidate, String token) {
-        for (OtaProfile p : new OtaProfile[] { TAP1, TMIG1, TMG3_10611, TMG4_10611, TMG4_1_10611 }) {
+        for (OtaProfile p : new OtaProfile[] { TAP1, TMIG1, TMG3_10611, TMG4_10611, TMG4_1_10611, TMG4_3_10611 }) {
             if (p.matchesJournal(candidate, token)) return p;
         }
         return null;
@@ -134,7 +154,7 @@ final class OtaProfile {
 
     boolean hasOfficialVersions() { return this == TAP1 || this == TMIG1 || tmg4(); }
 
-    private boolean tmg4() { return this == TMG4_10611 || this == TMG4_1_10611; }
+    private boolean tmg4() { return this == TMG4_10611 || this == TMG4_1_10611 || this == TMG4_3_10611; }
 
     // TMG4 and TMG4.1 response values are experiment-selected, not vendor response evidence.
     String queryVersionName() { return tmg4() ? "0100060011" : this == TMIG1 ? "0100050005" : this == TAP1 ? "0100040012" : null; }

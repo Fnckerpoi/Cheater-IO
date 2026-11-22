@@ -1,4 +1,4 @@
-"""Build TMG4.1-10611 firmware module from official 1.0.6.11 ZIP. Includes CRC audit. Never connects to a device."""
+"""Build TMG4.3-10611 firmware module from official 1.0.6.11 ZIP. Includes CRC audit. Never connects to a device."""
 import argparse
 import hashlib
 import json
@@ -142,7 +142,7 @@ def build(stock_path, llvm, out):
         if row['Name'] == 'nuttx_ap.bin':
             row.update(Size=len(ap), Md5=sha(ap, 'md5'))
     stock['OtaFileInfo.json'] = (json.dumps(rows, indent=2) + '\n').encode()
-    archive = out / (stock_path.stem.replace('Strix-OS-', 'StrixOS-') + '-TurboIO-TMG4.1-10611-OFFLINE-CANDIDATE.zip')
+    archive = out / (stock_path.stem.replace('Strix-OS-', 'StrixOS-') + '-TurboIO-TMG4.3-10611-OFFLINE-CANDIDATE.zip')
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for name, data in sorted(stock.items()):
             info = zipfile.ZipInfo(name, (2026, 11, 15, 0, 0, 0))
