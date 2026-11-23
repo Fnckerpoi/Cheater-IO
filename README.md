@@ -113,7 +113,8 @@
 |---|---|---|
 | **[SCADA 小白用户专属指南](android-addon/docs/SCADA_BEGINNER_GUIDE_ZH.md)** | 初学者 / 日常使用 | 硬件引脚接线图、App 按钮功能说明、密钥填写指引、防坑避错小贴士。 |
 | **[SCADA 真机验收操作手册](android-addon/docs/SCADA_FACTS_CAPTION_DEVICE_ACCEPTANCE_ZH.md)** | 测试 / 开发者 | 现场 RSSI 标定步骤、A1-A13 设备测试矩阵、脱敏日志与判定规则。 |
-| **[ESP32 遥测协议规范](docs/ESP32_SCADA_PROTOCOL.md)** | 固件 / 嵌入式 | BLE 广播包结构、AES-GCM 向量定义、NVS 计数器分块持久化规范。 |
+| **[ESP32 遥测协议规范](docs/scada/ESP32_SCADA_PROTOCOL.md)** | 固件 / 嵌入式 | BLE 广播包结构、AES-GCM 向量定义、NVS 计数器分块持久化规范。 |
+| **[项目文档总目录](docs/README.md)** | 全部开发者 | 按模块整理的文档导航（Agents-Anywhere、知识库/有问必答、Android 宿主、TMG4 固件、SCADA 等）。 |
 
 ---
 

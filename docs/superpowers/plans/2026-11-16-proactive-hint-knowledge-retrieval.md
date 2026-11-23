@@ -8,7 +8,7 @@
 
 **Tech Stack:** Java 8 / Android DEX、org.json、Cortrix MCP（Streamable HTTP，protocolVersion 2025-03-26）、手机模型 Chat Completions API。
 
-**Spec:** 本计划即设计规格；补充参考 docs/AI_SETUP.md、docs/RAYNEO_CLEARTEXT_FIX_20261029.md、docs/design/TMG4-MENU-OVERRIDE-MECHANISM.md。
+**Spec:** 本计划即设计规格；补充参考 docs/AI_SETUP.md、docs/assistant-kb/RAYNEO_CLEARTEXT_FIX_20261029.md、docs/firmware-tmg4/TMG4-MENU-OVERRIDE-MECHANISM.md。
 
 ## Global Constraints
 

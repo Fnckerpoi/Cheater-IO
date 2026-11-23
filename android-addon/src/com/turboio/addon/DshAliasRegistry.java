@@ -5,7 +5,7 @@ import java.util.*;
 
 /**
  * Local voice alias to DSH runtime-instance bindings (stage one of
- * docs/AA_VOICE_RUNTIME_ALIAS_ROUTING.md).
+ * docs/agents-anywhere/AA_VOICE_RUNTIME_ALIAS_ROUTING.md).
 
  * <p>Pure Java: no Android types and no I/O. A durable store only calls the {@code *Snapshot} entry
  * points inside its own write transaction, so a failed durable write never leaves a half-applied table.

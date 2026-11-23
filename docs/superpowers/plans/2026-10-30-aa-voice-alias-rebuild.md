@@ -8,7 +8,7 @@
 
 **Tech Stack:** Android Java，Java 8 源码兼容，SharedPreferences，现有 DshClient/DshDirectory，main 风格 JVM 测试。
 
-**Spec:** [原 v2 设计](../../AA_VOICE_RUNTIME_ALIAS_ROUTING.md)。本文件重新组织实施与验收；下面明确标出的契约修订建议须经审阅，不自动覆盖原设计。
+**Spec:** [原 v2 设计](../../agents-anywhere/AA_VOICE_RUNTIME_ALIAS_ROUTING.md)。本文件重新组织实施与验收；下面明确标出的契约修订建议须经审阅，不自动覆盖原设计。
 
 **状态：** 2026-10-30 方案重建稿。本轮只读生产源码并新建本计划；没有执行源码修复、编译测试、签名安装或真实任务发送。
 

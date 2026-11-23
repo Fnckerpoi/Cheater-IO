@@ -210,4 +210,4 @@ RSSI 是信号强弱，不是测距尺。一般 -60 dBm 比 -80 dBm 强，但人
 - [安装与刷写说明](INSTALL_AND_FLASH.md)：签名冲突和历史实验版本范围；不要把刷写章节当成 SCADA 必做步骤。
 - [SCADA 事实字幕真机验收操作手册](SCADA_FACTS_CAPTION_DEVICE_ACCEPTANCE_ZH.md)：RSSI 采样方法、测试矩阵与证据要求。
 - [SCADA 字幕实现与验收边界](SCADA_CAPTION_ACCEPTANCE.md)：新鲜度、关闭请求与物理清屏的区别。
-- [SCADA BLE 协议](../../docs/ESP32_SCADA_PROTOCOL.md)：加密广播、字段与防重放规则；公开测试向量不可用于真实配置。
+- [SCADA BLE 协议](../../docs/scada/ESP32_SCADA_PROTOCOL.md)：加密广播、字段与防重放规则；公开测试向量不可用于真实配置。

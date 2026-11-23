@@ -4,7 +4,7 @@ import java.util.*;
 
 /**
  * Per target local session anchors: stage two of
- * docs/AA_VOICE_RUNTIME_ALIAS_ROUTING.md (decision D5 and section 6).
+ * docs/agents-anywhere/AA_VOICE_RUNTIME_ALIAS_ROUTING.md (decision D5 and section 6).
  *
  * <p>Pure Java: no Android types and no I/O. The durable wrapper (ToolClient) writes the whole document in
  * ONE commit, so a key's session anchor and its pending triple can never be observed half applied — the same

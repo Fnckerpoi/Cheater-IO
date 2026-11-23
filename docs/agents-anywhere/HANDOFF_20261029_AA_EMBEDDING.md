@@ -168,11 +168,11 @@ v3 目录另含 `addon.jar`、`lead_audit.py`、`sources.txt`、`takeover_ui.xml
 
 ### 5.3 文档（已更新，与当前代码同步）
 
-- `docs/AA_WORKBENCH_UI_MIGRATION.md` — 六卡迁移与冻结契约、验证状态（17:40 最新）
-- `docs/AA_UI_SIGN_INSTALL_20261029.md` — 签名安装与真机检查、遗留缺陷、回环风险（14:03）
-- `docs/RAYNEO_CLEARTEXT_FIX_20261029.md` — 明文 HTTP 根因与修复验证（16:10）
-- `docs/AGENTS_ANYWHERE_EMBEDDING.md` — 嵌入契约 v1 与分层验证（10/26）
-- `docs/AA_OAUTH_CALLBACK_FIX_20261027.md`、`docs/AA_WORKBENCH_CRASH_FIX_20261027.md`
+- `docs/agents-anywhere/AA_WORKBENCH_UI_MIGRATION.md` — 六卡迁移与冻结契约、验证状态（17:40 最新）
+- `docs/agents-anywhere/AA_UI_SIGN_INSTALL_20261029.md` — 签名安装与真机检查、遗留缺陷、回环风险（14:03）
+- `docs/assistant-kb/RAYNEO_CLEARTEXT_FIX_20261029.md` — 明文 HTTP 根因与修复验证（16:10）
+- `docs/agents-anywhere/AGENTS_ANYWHERE_EMBEDDING.md` — 嵌入契约 v1 与分层验证（10/26）
+- `docs/agents-anywhere/AA_OAUTH_CALLBACK_FIX_20261027.md`、`docs/agents-anywhere/AA_WORKBENCH_CRASH_FIX_20261027.md`
 
 > 约定：**旧 OAuth/Context 修复记录按各自产物引用**（contextfix 签名包 `a10aa845…`、oauthfix 签名包 `656ad6d0…`），不得与 `48bd2c96…` / `89253D8A…` 混同。
 
