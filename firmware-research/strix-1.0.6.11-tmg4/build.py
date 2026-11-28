@@ -10,6 +10,7 @@ import zipfile
 
 HERE = Path(__file__).resolve().parent
 BASE = HERE.parent / 'strix-1.0.5.12-tmg3'
+DASHBOARD_COMPAT = HERE.parent / 'strix-1.0.6.11/src/dashboard-compat-v1'
 FLASH = 0x10190000
 
 
@@ -62,6 +63,7 @@ def build(stock_path, llvm, out):
     out.mkdir(parents=True, exist_ok=True)
     src = out / 'source'
     shutil.copytree(BASE / 'src', src)
+    shutil.copytree(DASHBOARD_COMPAT, src / DASHBOARD_COMPAT.name)
     shutil.copy2(BASE / 'ImageWireFormat.h', out / 'ImageWireFormat.h')
     patch_tool = shutil.which('patch') or Path(shutil.which('git')).parents[1] / 'usr/bin/patch.exe'
     run([patch_tool, '-p1', '--batch', '-i', HERE / 'source-overrides.patch'], cwd=src)
@@ -83,7 +85,9 @@ def build(stock_path, llvm, out):
     rows_source.append({'source':'navigation-runtime-v1/shared_slot.c'})
     for row in rows_source:
         p = src / row['source']
-        if not (HERE / 'overrides' / row['source']).exists(): assert sha(p.read_bytes()) == row['sha256'], 'Edited source: ' + row['source']
+        if not (HERE / 'overrides' / row['source']).exists():
+            source_bytes = p.read_bytes().replace(b'\r\n', b'\n')
+            assert sha(source_bytes) == row['sha256'], 'Edited source: ' + row['source']
         obj = out / (p.parent.name + '-' + p.stem + '.o')
         run_binary([llvm / 'clang', *flags, '-c', p, '-o', '-'], obj)
         objects.append(obj)

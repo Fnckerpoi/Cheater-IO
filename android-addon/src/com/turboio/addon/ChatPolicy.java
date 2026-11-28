@@ -12,6 +12,8 @@ public final class ChatPolicy {
         boolean isAskAi = "agent".equals(domain) && "askai".equals(intent) && "workflow".equals(sub) && !offline;
         return isChat || isAskAi;
     }
+    /** DeepSeek "thinking":{"type":"disabled"} extension; a missing pref keeps the previous always-on behaviour. */
+    public static boolean thinkingDisabled(Boolean stored){return stored==null||stored;}
     public static boolean endpoint(String value) {
         try { completionEndpoint(value); return true; }
         catch (IllegalArgumentException ignored) { return false; }

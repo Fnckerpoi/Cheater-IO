@@ -51,8 +51,8 @@ class Activity {}
 class View { interface Click { void run(View v); } Click callback; void setOnClickListener(Click c) { callback=c; } void click() { callback.run(this); } }
 class LinearLayout { void addView(Object v) {} }
 class ScrollView { ScrollView(Activity a) {} void addView(Object v) {} }
-class Switch { static Switch current; boolean checked; Switch(Activity a) { current=this; } void setText(String s) {} void setChecked(boolean b) { checked=b; } boolean isChecked() { return checked; } }
-class EditText { static EditText current; String text=""; EditText() { current=this; } int length() { return text.length(); } String getText() { return text; } }
+class Switch { static Switch current; boolean checked; Switch(Activity a) {} void setText(String s) { if(s.contains("TinyFish")) current=this; } void setChecked(boolean b) { checked=b; } boolean isChecked() { return checked; } }
+class EditText { static EditText current; String text=""; EditText() {} int length() { return text.length(); } String getText() { return text; } }
 class AlertDialog {
     static final int BUTTON_POSITIVE=1; static AlertDialog current; final View positive=new View(); boolean dismissed;
     interface OnShow { void run(AlertDialog d); } interface ButtonListener { void run(AlertDialog d,int w); }
@@ -64,13 +64,15 @@ class AlertDialog {
 class SharedPreferences {
     final java.util.Map<String,Boolean> values=new java.util.HashMap<>(); boolean commitOk=true; int otherWrites;
     boolean getBoolean(String key,boolean fallback) { return values.containsKey(key)?values.get(key):fallback; }
+    String getString(String key,String fallback) { return fallback; }
     Editor edit() { return new Editor(); }
     class Editor { String key; boolean value; Editor putBoolean(String k,boolean v) { key=k;value=v;return this; }
+        Editor putString(String key,String value) { otherWrites++; return this; }
         boolean commit() { if (!"search".equals(key)) otherWrites++; if(commitOk)values.put(key,value);return commitOk; } }
 }
 class SecretStore { static String searchKey; static String get(Object app,String name) { if(!"search_key".equals(name))throw new AssertionError("Unrelated credential read");return searchKey; }
     static void put(Object app,String name,String value) { if(!"search_key".equals(name))throw new AssertionError("Unrelated credential write");searchKey=value; } }
-class ToolClient { static boolean locked; static boolean dshLocked() { return locked; } }
+class ToolClient { static boolean locked; static boolean dshLocked() { return locked; } static boolean validKnowledge(String url) { return false; } }
 class DshClient { static final Object LOCK=new Object(); }
 class DshSettings { static void show(Activity a) {} }
 class McpSettings { static void show(Activity a) {} }

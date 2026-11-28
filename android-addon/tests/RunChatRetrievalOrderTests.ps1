@@ -41,7 +41,7 @@ class ChatRequestHarness {
  }
 '@
 [IO.File]::WriteAllText((Join-Path $out 'ChatRequestHarness.java'), $prefix + $methods + [Environment]::NewLine + '}', [Text.UTF8Encoding]::new($false))
-& "$JavaHome/bin/javac.exe" -encoding UTF-8 -cp $JsonJar -d $out (Join-Path $out 'ChatRequestHarness.java') (Join-Path $root 'src/com/turboio/addon/ChatPolicy.java') (Join-Path $root 'src/com/turboio/addon/ToolRoundTrace.java') (Join-Path $root 'src/com/turboio/addon/KnowledgeRetrieval.java') (Join-Path $root 'src/com/turboio/addon/CortrixClient.java') (Join-Path $PSScriptRoot 'chatdoubles/ChatDoubles.java') (Join-Path $PSScriptRoot 'ChatRetrievalOrderTest.java')
+& "$JavaHome/bin/javac.exe" -encoding UTF-8 -cp $JsonJar -d $out (Join-Path $out 'ChatRequestHarness.java') (Join-Path $root 'src/com/turboio/addon/ChatPolicy.java') (Join-Path $root 'src/com/turboio/addon/ToolTurn.java') (Join-Path $root 'src/com/turboio/addon/TodoProtocol.java') (Join-Path $root 'src/com/turboio/addon/HostBusiness.java') (Join-Path $root 'src/com/turboio/addon/BoundedJson.java') (Join-Path $root 'src/com/turboio/addon/ToolRoundTrace.java') (Join-Path $root 'src/com/turboio/addon/KnowledgeRetrieval.java') (Join-Path $root 'src/com/turboio/addon/CortrixClient.java') (Join-Path $PSScriptRoot 'chatdoubles/ChatDoubles.java') (Join-Path $PSScriptRoot 'ChatRetrievalOrderTest.java')
 if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
 & "$JavaHome/bin/java.exe" -cp "$out;$JsonJar" com.turboio.addon.ChatRetrievalOrderTest
 if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}

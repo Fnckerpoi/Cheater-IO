@@ -21,6 +21,12 @@ public class HostEventTest {
   Map<String,Object> file=new HashMap<>();file.put("device",Collections.singletonMap("id","test-peer"));file.put("taskId","file-task");file.put("role","sender");
   NativeTransfer.event("fileShareStart",file);ok(external.containsKey("test-peer:file-task"));
   NativeTransfer.event("fileShareSuccess",file);ok(!external.containsKey("test-peer:file-task"));
+  // Phase 5a: the TIMG file is the one 4-letter-extension name and the one exact 64 KiB+32 size admitted.
+  ok(NativeTransfer.admits("turbo-photo.timg",false,65568)&&!NativeTransfer.admits("turbo-photo.timg",false,65567)&&!NativeTransfer.admits("turbo-photo.timg",false,65569));
+  ok(NativeTransfer.admits("turbo-photo.timg",false,1000)&&!NativeTransfer.admits("turbo-other.timg",false,1000)&&!NativeTransfer.admits("turbo-x.tdpx",false,10));
+  ok(NativeTransfer.admits("turbo-ride.tdr",false,20700)&&!NativeTransfer.admits("turbo-ride.tdr",false,20701)&&!NativeTransfer.admits("turbo-ride.tdr",false,65568)&&NativeTransfer.admits("turbo-ride.tdr",true,48000)&&!NativeTransfer.admits("turbo-ride.tdr",false,0));
+  // A display frame in flight makes the shared lane busy for every start path.
+  ok(!NativeTransfer.busy());DisplayBridge.on=true;ok(NativeTransfer.busy());DisplayBridge.on=false;
   System.out.println("HostEventTest: "+checks+" production callback checks; no device/file/network I/O");
  }
 }
@@ -36,6 +42,9 @@ class OtaController {static boolean busy(){return false;}}
 class EntryProbe {static void event(String kind,Map<?,?> data){}}
 class NavGlasses {static boolean active(){return false;}static void event(String k,Map<?,?> m){}}
 class NativeNavigation {static boolean active(){return false;}}
+class TodoRuntime {static void event(String k,Map<?,?> m){}}
+class SubtitleHud {static boolean active(){return false;}static void event(String k,Map<?,?> m){}}
 class ReaderBridge {static boolean active(){return false;}}
 class MusicBridge {static boolean active(){return false;}}
+class DisplayBridge {static boolean on;static boolean active(){return on;}}
 class NewsTele {static int count;static void receive(String peer,byte[] data){if(!peer.equals("test-peer"))throw new AssertionError();count++;}}

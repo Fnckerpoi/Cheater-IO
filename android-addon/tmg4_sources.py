@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 SOURCE = Path(__file__).resolve().parent / 'src/com/turboio/addon'
-EXCLUDED = frozenset(('MapConfiguration.java', 'NavCore.java', 'NavSessionPolicy.java', 'NavSimulation.java', 'NavigationUI.java', 'NativeNavCodec.java', 'NativeNavRoute.java', 'NativeNavSession.java', 'NativeNavigation.java', 'FocusCodec.java', 'FocusController.java', 'FocusUI.java', 'ReaderBridge.java', 'ReaderCodec.java', 'ReaderLibrary.java', 'ReaderUI.java', 'MusicApi.java', 'MusicBridge.java', 'MusicCodec.java', 'MusicPlayer.java', 'MusicUI.java'))
+EXCLUDED = frozenset(('MapConfiguration.java', 'NavCore.java', 'NavSessionPolicy.java', 'NavSimulation.java', 'NavigationUI.java', 'NativeNavCodec.java', 'NativeNavRoute.java', 'NativeNavSession.java', 'NativeNavigation.java', 'RoadFrames.java', 'FocusCodec.java', 'FocusController.java', 'FocusUI.java', 'ReaderBridge.java', 'ReaderCodec.java', 'ReaderLibrary.java', 'ReaderUI.java', 'MusicApi.java', 'MusicBridge.java', 'MusicCodec.java', 'MusicPlayer.java', 'MusicUI.java'))
 
 def sources():
     return sorted(p for p in SOURCE.glob('*.java') if p.name not in EXCLUDED)

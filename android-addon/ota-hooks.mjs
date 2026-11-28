@@ -36,6 +36,9 @@ export function queueHookFor(profile, text) {
     is120 ? "turboioOriginal_s" : "turboioOriginal_o",
     `    .locals 1
     :ota_try
+    invoke-static {p0}, Lcom/turboio/addon/QueueTap;->allow(Ljava/lang/Object;)Z
+    move-result v0
+    if-eqz v0, :ota_tap_blocked
     invoke-static {p0}, Lcom/turboio/addon/OfficialOtaBridge;->allowQueue(Ljava/lang/Object;)Ljava/lang/Boolean;
     move-result-object v0
     if-eqz v0, :ota_preparation_policy
@@ -57,6 +60,8 @@ export function queueHookFor(profile, text) {
     if-eqz v0, :ota_blocked
     :ota_end
     ${originalCall}
+    return-void
+    :ota_tap_blocked
     return-void
     :ota_error
     move-exception v0
@@ -113,6 +118,18 @@ export function queueHook(text) {
 export function fileHook(text) {
   return fileHookFor({ version: "1.0.5" }, text);
 }
+
+export const LOG_CONSUME = `    :turboio_log_try
+    invoke-static {p1, p2}, Lcom/turboio/addon/GlassesLog;->consume(Ljava/lang/String;Ljava/util/Map;)Z
+    move-result v0
+    if-eqz v0, :turboio_log_pass
+    :turboio_log_end
+    return-void
+    :turboio_log_error
+    move-exception v0
+    :turboio_log_pass
+    .catch Ljava/lang/Throwable; {:turboio_log_try .. :turboio_log_end} :turboio_log_error
+`;
 
 export const EVENT_GUARD = `    :ota_event_try
     invoke-static {}, Lcom/turboio/addon/OfficialOtaBridge;->enabled()Z

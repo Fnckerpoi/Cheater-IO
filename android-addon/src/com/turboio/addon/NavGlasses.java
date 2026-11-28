@@ -39,18 +39,21 @@ public final class NavGlasses {
         private final Object owner; private final long epoch; private final String sid;
         private Handle(Object owner,long epoch,String sid){this.owner=owner;this.epoch=epoch;this.sid=sid;}
     }
+    private static boolean displayBusy(){return NativeTransfer.busy();}
     public static Handle reserve(Object owner,long epoch){
         if(owner==null||epoch<=0||active())return null;
         Long previous=epochs.get(owner);if(previous!=null&&epoch<=previous)return null;
-        if(NativeTransfer.busy())return null;
+        if(displayBusy())return null;
         epochs.put(owner,epoch);sessionOwner=owner;sessionEpoch=epoch;sid=UUID.randomUUID().toString().replace("-","");
         clearState=null;clearListener=null;latest="";latestExpires=Long.MAX_VALUE;
         mark("preparing","显示通道已预留");return new Handle(owner,epoch,sid);
     }
     private static boolean valid(Handle h){return h!=null&&owns(h.owner,h.epoch)&&sid.equals(h.sid);}
-    public static boolean begin(Handle h,String text){
+    public static boolean begin(Handle h,String text){return begin(h,text,3600000,700);}
+    public static boolean begin(Handle h,String text,boolean navigation){return begin(h,text,240000,3000);}
+    private static boolean begin(Handle h,String text,long duration,long cadence){
         if(!valid(h)||!phase.equals("preparing"))return false;
-        lifetime=3600000;interval=700;
+        lifetime=duration;interval=cadence;
         boolean ok=open(text);if(!ok)requestStop();return ok;
     }
     public static boolean offer(Handle h,String text){return valid(h)&&update(h.owner,h.epoch,text);}
@@ -62,7 +65,7 @@ public final class NavGlasses {
         if(!owns(owner,oldEpoch)||(!phase.equals("stopping")&&!phase.equals("uncertain")))return false;
         if(!reopenEligible||!closeSubmitted||!closeSucceeded||capturedAt<=closeAt||SystemClock.elapsedRealtime()-closeAt<8000)return false;
         try{if(device.isEmpty()||!device.equals(connected())){reopenEligible=false;return false;}}catch(Exception e){reopenEligible=false;return false;}
-        if(NativeTransfer.busy())return false;
+        if(displayBusy())return false;
         Long previous=epochs.get(owner);if(previous!=null&&newEpoch<=previous)return false;
         reopenEligible=false;
         previousOutcome="previous lens clear unverified";
@@ -84,7 +87,7 @@ public final class NavGlasses {
             return owns(owner,epoch)&&update(owner,epoch,text,expires);
         }
         Long previous=epochs.get(owner);if(previous!=null&&epoch<=previous)return false;
-        if(NativeTransfer.busy())return false;
+        if(displayBusy())return false;
         epochs.put(owner,epoch);sessionOwner=owner;sessionEpoch=epoch;clearState=null;clearListener=listener;latestExpires=expires;
         lifetime=Long.MAX_VALUE;interval=700;
         boolean opened=open(text);
@@ -161,6 +164,12 @@ public final class NavGlasses {
             if(SystemClock.elapsedRealtime()>=submittedExpiry){requestStop();return;}
         }
         NavReflect.call(sdkManager,HostSymbols.METHOD_SEND_PACKET,message,callback);
+    }
+    static void submit(String device,int type,String json,java.util.function.Consumer<Boolean> done)throws Exception{
+        Object business=NavReflect.call(NavReflect.type(HostSymbols.BIZ_ENUM_CLASS),"valueOf","AI_SUBTITLE"),priority=NavReflect.call(NavReflect.type(HostSymbols.PRIO_ENUM_CLASS),"valueOf","NORMAL");
+        Object message=NavReflect.make(HostSymbols.PACKET_CLASS,DisplayCodec.packet(type,json),UUID.randomUUID().toString(),device,business,null,priority,false,false,null,null);
+        Object callback=NavReflect.proxy("kotlin.jvm.functions.Function2",(name,args)->MAIN.post(()->done.accept(!(args.length>1&&args[1]!=null))));
+        NavReflect.call(manager(),HostSymbols.METHOD_SEND_PACKET,message,callback);
     }
     private static final Runnable tick=new Runnable(){public void run(){
         long now=SystemClock.elapsedRealtime();

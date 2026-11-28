@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {profileFor,assertBuildProfile,verifyHost} from './host-profiles.mjs';
-import {queueHookFor,fileHookFor,queueHook,fileHook,EVENT_GUARD} from './ota-hooks.mjs';
+import {queueHookFor,fileHookFor,EVENT_GUARD,LOG_CONSUME} from './ota-hooks.mjs';
 
 const root=path.dirname(fileURLToPath(import.meta.url));
 const sha256=b=>crypto.createHash('sha256').update(b).digest('hex');
@@ -45,7 +45,7 @@ export function planHookWrites(abi, profile = { version: '1.0.5' }) {
     else {if(t.split(eventHeader).length!==2)throw new Error('Event signature mismatch');t=t.replace(eventHeader,'.method public final turboioOriginal_'+eventName+'(Ljava/lang/String;Ljava/util/Map;)V');}
     const eventClass=source.match(/^\.class[^\n]* (L[^;]+;)$/m)?.[1];
     if(!eventClass)throw new Error('Event class header missing');
-    return t+'\n'+eventHeader+'\n    .locals 1\n'+(abi.ota?EVENT_GUARD:'')+'\n    invoke-virtual {p0, p1, p2}, '+eventClass+'->turboioOriginal_'+eventName+'(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_try\n    invoke-static {p1, p2}, Lcom/turboio/addon/NativeTransfer;->event(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_end\n    return-void\n    :turboio_nav_error\n    move-exception v0\n    return-void\n    .catch Ljava/lang/Throwable; {:turboio_nav_try .. :turboio_nav_end} :turboio_nav_error\n.end method\n';
+    return t+'\n'+eventHeader+'\n    .locals 1\n'+(abi.ota?EVENT_GUARD:'')+'\n'+LOG_CONSUME+'    invoke-virtual {p0, p1, p2}, '+eventClass+'->turboioOriginal_'+eventName+'(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_try\n    invoke-static {p1, p2}, Lcom/turboio/addon/NativeTransfer;->event(Ljava/lang/String;Ljava/util/Map;)V\n    :turboio_nav_end\n    return-void\n    :turboio_nav_error\n    move-exception v0\n    return-void\n    .catch Ljava/lang/Throwable; {:turboio_nav_try .. :turboio_nav_end} :turboio_nav_error\n.end method\n';
   });
   if(abi.ota){transform(abi.ota.queue,t=>queueHookFor(profile,t));transform(abi.ota.sender,t=>fileHookFor(profile,t));}
   return writes;

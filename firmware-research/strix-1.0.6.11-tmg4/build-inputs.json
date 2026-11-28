@@ -48,6 +48,18 @@
       "sha256": "23efdf443697eceb7fa435957017224db9f5faba7dc1871e55846fb723670b72"
     },
     {
+      "source": "dashboard-compat-v1/compat.c",
+      "sha256": "d4fd10e37f7e4866aceb8322dfba3e42e1ddb937045fb51efa8d311b71b3eb38"
+    },
+    {
+      "source": "dashboard-compat-v1/native.c",
+      "sha256": "df7a65631272ee4ee3105f67e999a65eea8fb8a6e104405598b800552ee8afdd"
+    },
+    {
+      "source": "dashboard-compat-v1/trampolines.S",
+      "sha256": "fa0089b8fbb42cd46ca02784f346747eaaf6e719f1d2e58805e272cfe7e94610"
+    },
+    {
       "source": "dashboard-editor-v1/editor.c",
       "sha256": "e28f033276ecc3ac9a10461bd7e35d07558e42a3fcfe44c599ac482171be4b91"
     },
@@ -378,6 +390,24 @@
       "kind": "BL",
       "symbol": "stream_register_shim",
       "tail": "00bf00bf00bf"
+    },
+    {
+      "offset": "0x41e46e",
+      "before": "b0b50446",
+      "kind": "B.W",
+      "symbol": "tdc_hook_source"
+    },
+    {
+      "offset": "0x41f604",
+      "before": "2de9f043",
+      "kind": "B.W",
+      "symbol": "tdc_hook_message"
+    },
+    {
+      "offset": "0x59e2b8",
+      "before": "2de9f041",
+      "kind": "B.W",
+      "symbol": "tdc_hook_serialize"
     }
   ],
   "archive": {}

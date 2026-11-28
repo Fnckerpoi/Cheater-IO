@@ -6,6 +6,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 class ToolClient {
+    static final String TODO_SPEC = "{\"type\":\"function\",\"function\":{\"name\":\"create_todo\"}}";
+    static final String TODO_SYSTEM = "";
     static int calls;
     static boolean webSearch;
     static boolean dsh = true;
@@ -71,6 +73,12 @@ class ToolClient {
             return obj;
         }
         return new JSONObject().put("status", "submitted");
+    }
+}
+
+class TodoRuntime {
+    static void createFromTool(String title, java.util.function.Consumer<String> completion) {
+        throw new AssertionError("Unexpected todo write in retrieval fixture");
     }
 }
 

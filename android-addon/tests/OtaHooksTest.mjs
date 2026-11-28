@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
-import {queueHook,fileHook,EVENT_GUARD} from '../ota-hooks.mjs';
+import {queueHook,fileHook,EVENT_GUARD,LOG_CONSUME} from '../ota-hooks.mjs';
 let q='.class public LE3/V;\n.method public static o(LE3/Q;)V\n .locals 0\n return-void\n.end method\n';
 let result=queueHook(q);assert.match(result,/\.method public static turboioOriginal_o/);assert.equal(result.split('.method public static o(').length,2);assert.match(result,/allowQueue/);assert.match(result,/->blocked/);assert.match(result,/\.catch Ljava\/lang\/Throwable/);let repeated=queueHook(result);assert.equal(repeated.split('.method public static turboioOriginal_o').length,2);assert.equal(repeated.split('allowQueue').length,4);assert.throws(()=>queueHook(q.replace('o(LE3/Q;)','o(Ljava/lang/Object;)')));
+assert.ok(result.indexOf('QueueTap;->allow')<result.indexOf('OfficialOtaBridge;->allowQueue'));
 assert.ok(result.indexOf('OfficialOtaBridge;->allowQueue')<result.indexOf('OfficialOtaPreparation;->allowQueue'));
+assert.match(LOG_CONSUME,/GlassesLog;->consume/);
+assert.match(LOG_CONSUME,/:turboio_log_error/);
 assert.ok(result.indexOf('OfficialOtaPreparation;->allowQueue')<result.indexOf('OtaController;->allowQueue'));
 assert.match(EVENT_GUARD,/if-nez v0, :ota_event_pass/);
 let f='.class public LE3/u;\n.method public final v(Ljava/io/File;Ljava/lang/String;LQ3/q;Ljava/lang/String;)Ljava/lang/String;\n .locals 0\n return-object p1\n.end method\n';

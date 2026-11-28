@@ -28,6 +28,7 @@ final class OtaPackage {
   "pil_algo_wakeup_dll_nand.dll 287560 d1594cb8658b228e52c2606d02f1eab696d35a11ed42ddcb725e76a745f5550f",
   "rives.bin 689431 836bc019f7152890b94cafafe2edaa024f317526318349f7833319e41158b104",
   "smf.json 23510 2713dc3a302a65c101fa981500cd8b217766c526b6045bf02db5e9e6763d076d"};
+ static final int PIN_COUNT=PINS.length;
  final OtaProfile profile;
  private final Map<String,byte[]> members;
  private OtaPackage(Map<String,byte[]> members,OtaProfile profile){this.members=members;this.profile=profile;}
@@ -41,9 +42,10 @@ final class OtaPackage {
   try(ZipInputStream in=new ZipInputStream(new ByteArrayInputStream(zip))){ZipEntry e;while((e=in.getNextEntry())!=null){String[] p=pins.get(e.getName());if(p==null||e.isDirectory()||files.containsKey(e.getName()))throw new IOException("ZIP member");int size=Integer.parseInt(p[1]);byte[] data=new byte[size];int at=0,n;while(at<size&&(n=in.read(data,at,size-at))!=-1)at+=n;if(at!=size||in.read()!=-1||!p[2].equals(hash("SHA-256",data)))throw new IOException("member size/hash");total+=size;if(total>19000000)throw new IOException("expanded budget");files.put(e.getName(),data);in.closeEntry();}}
   if(files.size()!=selected.length)throw new IOException("missing member");
   try{List<Object> rows=BoundedJson.list(BoundedJson.read(files.get("OtaFileInfo.json")));if(rows.size()!=selected.length-1)throw new IllegalArgumentException();Set<String> found=new HashSet<>();
-   for(Object value:rows){Map<String,Object> row=BoundedJson.map(value);BoundedJson.keys(row,"Name","Size","Md5","BurnMode","BurnAddr","BurnPath");String name=BoundedJson.text(row.get("Name"),64);byte[] bytes=files.get(name);if(bytes==null||name.equals("OtaFileInfo.json")||!found.add(name)||BoundedJson.number(row.get("Size"),1,profile.apSize)!=bytes.length||!hash("MD5",bytes).equals(row.get("Md5")))throw new IllegalArgumentException();if(profile==OtaProfile.TAP1&&name.equals("nuttx_ap.bin")){row.put("Size",9466560);row.put("Md5","9156b9419c3557e9bd72dc61692d0b4b");}}
+   for(Object value:rows){Map<String,Object> row=BoundedJson.map(value);BoundedJson.keys(row,"Name","Size","Md5","BurnMode","BurnAddr","BurnPath");String name=BoundedJson.text(row.get("Name"),64);byte[] bytes=files.get(name);if(bytes==null||name.equals("OtaFileInfo.json")||!found.add(name)||BoundedJson.number(row.get("Size"),1,profile.apSize)!=bytes.length||!hash("MD5",bytes).equals(row.get("Md5")))throw new IllegalArgumentException();if(name.equals("nuttx_ap.bin")){if(profile==OtaProfile.TAP1){row.put("Size",9466560);row.put("Md5","9156b9419c3557e9bd72dc61692d0b4b");}else if(profile==OtaProfile.TVP2){row.put("Size",7208648);row.put("Md5","0246c12a118e8589593fdd053fddb292");}}}
    // Restoring just AP size/MD5 must reproduce the original manifest exactly,
    // including all original row order, burn paths, addresses and burn modes.
+   if(profile==OtaProfile.TVP2&&!"db67ff62cf58350ef3f781a502c0c20bc378bf6d01272b3cce38494386b374f0".equals(hash("SHA-256",BoundedJson.canonical(rows))))throw new IllegalArgumentException();
    if(profile==OtaProfile.TAP1&&!"1619382c8f0b69f68ba9b8d346017a2e42dcf7518b5d29fc348659e5eaebed2c".equals(hash("SHA-256",BoundedJson.canonical(rows))))throw new IllegalArgumentException();
   }catch(RuntimeException e){throw new IOException("manifest/AP-only mismatch");}
   return new OtaPackage(files,profile);

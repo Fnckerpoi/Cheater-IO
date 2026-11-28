@@ -27,6 +27,7 @@ final class CardTransport {
     private static void mark(String s){note=s;if(changed!=null)changed.run();}
 
     static void inspect(){if(busy()){mark("上一轮仍在确认");return;}readOnly=true;install=null;id="";first=false;completion=null;begin();}
+    static void publishDevcard(String text,boolean top){if(busy()){mark("上一轮仍在确认");return;}readOnly=false;completion=null;try{install=CardCodec.devcard(text);id="turbo_ui_devcard_v1";first=top;begin();}catch(RuntimeException e){finish(Result.FAILURE,"TDC1 数值不合法，未发送");}}
     static void publish(Map<String,Object> doc,boolean top){publish(doc,top,null);}
     static boolean publish(Map<String,Object> doc,boolean top,Completion done){
         if(busy()){mark("上一轮仍在确认");return false;}
@@ -37,7 +38,7 @@ final class CardTransport {
     static void remove(String ident){remove(ident,null);}
     static boolean remove(String ident,Completion done){
         if(busy()){mark("上一轮仍在确认");return false;}
-        if(ident==null||!ident.matches("turbo_ui_card_[a-z0-9_]{1,34}")){completion=done;finish(Result.FAILURE,"卡片 ID 无效，未发送");return false;}
+        if(ident==null||!(ident.matches("turbo_ui_card_[a-z0-9_]{1,34}")||ident.equals("turbo_ui_devcard_v1"))){completion=done;finish(Result.FAILURE,"卡片 ID 无效，未发送");return false;}
         readOnly=false;completion=done;id=ident;install=null;first=false;return begin();
     }
     private static boolean begin(){
@@ -73,17 +74,42 @@ final class CardTransport {
     private static Map<String,Object> config(Map<String,Object> j){
         if(!"dashboard_config".equals(j.get("cmd")))throw new IllegalArgumentException();
         Object raw=map(j.get("payload")).get("data");
-        Map<String,Object> c=map(raw instanceof String?BoundedJson.read(((String)raw).getBytes(StandardCharsets.UTF_8)):raw);
+        Map<String,Object> c=map(raw instanceof String?BoundedJson.readDevice(((String)raw).getBytes(StandardCharsets.UTF_8)):raw);
         CardCodec.rows(c);return c;
     }
     private static Map<String,Object> find(Map<String,Object> c,String ident){for(Object o:CardCodec.rows(c))if(ident.equals(map(o).get("id")))return map(o);return null;}
-    private static boolean sameExtras(Object a,Object b){if(!(a instanceof String)||!(b instanceof String))return false;return Objects.equals(read(((String)a).getBytes(StandardCharsets.UTF_8)),read(((String)b).getBytes(StandardCharsets.UTF_8)));}
+    private static Map<String,Object> extras(Object value){
+        return map(value instanceof String?read(((String)value).getBytes(StandardCharsets.UTF_8)):value);
+    }
+    private static boolean matchesInstall(Map<String,Object> row){
+        if(row==null||!"a2ui".equals(row.get("type")))return false;
+        Map<String,Object> expected=map(map(install.get("payload")).get("data"));
+        return (!row.containsKey("name")||Objects.equals(row.get("name"),expected.get("name")))
+            &&extras(row.get("extras")).equals(extras(expected.get("extras")));
+    }
+    private static boolean expectedReply(String stage,Map<String,Object> reply){
+        if(stage.equals("install")||stage.equals("remove"))return reply.get("code") instanceof Number;
+        return (stage.equals("order")?"dashboard_update":"dashboard_config").equals(reply.get("cmd"));
+    }
+    private static String stageLabel(String stage){
+        switch(stage){
+            case "before":return "读取原配置";
+            case "install":return "提交卡片";
+            case "verify-install":return "回读安装结果";
+            case "order":return "调整排序";
+            case "verify-order":return "回读排序";
+            case "remove":return "移除";
+            case "verify-remove":return "回读移除结果";
+            default:return stage;
+        }
+    }
     private static void event(String d,byte[] bytes){
         if(owner.isEmpty()||!d.equals(peer))return;
         CardEnvelope.Reply r=CardEnvelope.reply(bytes);if(r==null||r.sequence!=sequence)return;
         if(!peer.equals(NativeTransfer.connected())){fail("连接变化，停止本轮");return;}
         try{
             Map<String,Object> j=r.json;String current=step;
+            if(!expectedReply(current,j))return;
             if(current.equals("before")){
                 before=config(j);
                 if(readOnly){
@@ -102,9 +128,7 @@ final class CardTransport {
             }
             else if(current.equals("verify-install")){
                 Map<String,Object> after=config(j),own=find(after,id);
-                if(own==null||!"a2ui".equals(own.get("type"))||!CardCodec.preserves(before,after,id))throw new IllegalArgumentException();
-                Map<String,Object> expected=map(map(install.get("payload")).get("data"));
-                if(!Objects.equals(own.get("name"),expected.get("name"))||!sameExtras(own.get("extras"),expected.get("extras")))throw new IllegalArgumentException();
+                if(!matchesInstall(own)||!CardCodec.preserves(before,after,id))throw new IllegalArgumentException();
                 if(existed)targetIndex=CardCodec.indexOf(before,id);else targetIndex=first?0:CardCodec.rows(after).size()-1;
                 if(CardCodec.indexOf(after,id)!=targetIndex){Map<String,Object> ordered=CardCodec.atIndex(after,id,targetIndex);send(object("cmd","dashboard_update","payload",object("version",1,"value",0,"data",new String(canonical(ordered),StandardCharsets.UTF_8))),"order");}
                 else succeed("眼镜已确认并回读卡片，其他卡片保留；请检查镜片显示");
@@ -115,7 +139,7 @@ final class CardTransport {
             }
             else if(current.equals("verify-order")){
                 Map<String,Object> after=config(j);
-                if(CardCodec.indexOf(after,id)!=targetIndex||!CardCodec.preserves(before,after,id))throw new IllegalArgumentException();
+                if(CardCodec.indexOf(after,id)!=targetIndex||!matchesInstall(find(after,id))||!CardCodec.preserves(before,after,id))throw new IllegalArgumentException();
                 succeed(first&&!existed?"卡片已置顶并回读确认，其他卡片顺序保留；镜片效果待确认":"卡片内容已回读，原有顺序及其他卡片保留；镜片效果待确认");
             }
             else if(current.equals("verify-remove")){
@@ -123,6 +147,9 @@ final class CardTransport {
                 if(find(after,id)!=null||!CardCodec.preserves(before,after,id))throw new IllegalArgumentException();
                 succeed("本卡已移除，其他卡片保留");
             }
-        }catch(RuntimeException e){fail("配置或回执不符，已停止后续修改；请核对眼镜，未自动重试");}
+        }catch(RuntimeException e){
+            String detail=e.getMessage()==null?"":"："+e.getMessage();
+            fail("配置或回执不符（"+stageLabel(step)+detail+"），已停止后续修改；请核对眼镜，未自动重试");
+        }
     }
 }

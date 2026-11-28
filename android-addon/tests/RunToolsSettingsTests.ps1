@@ -15,7 +15,7 @@ class TurboToolsHarness {
     static void reset(boolean storageLocked,boolean pending) { prefs=new SharedPreferences(); prefs.values.put("dsh_unknown_delivery",pending); ToolClient.locked=storageLocked;SecretStore.searchKey="existing-search-key"; }
     static Activity host() { return new Activity(); }
     static LinearLayout panel(Activity a) { return new LinearLayout(); }
-    static EditText input(Activity a,LinearLayout box,String hint,String value,boolean secret) { return new EditText(); }
+    static EditText input(Activity a,LinearLayout box,String hint,String value,boolean secret) { EditText field=new EditText(); if(hint.contains("TinyFish")) EditText.current=field; return field; }
     static void action(Activity a,LinearLayout b,String label,Runnable r) {}
     static void label(Activity a,LinearLayout b,String text) {}
     static void cancel() {} static void showHome() {}

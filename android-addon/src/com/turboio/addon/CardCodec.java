@@ -20,7 +20,18 @@ public final class CardCodec {
         }byte[] bytes=out.toByteArray();need(bytes.length<=2048);bytes[6]=(byte)bytes.length;bytes[7]=(byte)(bytes.length>>>8);return bytes;
     }
     public static Map<String,Object> install(Map<String,Object> doc,Icons icons){String id=(String)doc.get("id"),name=(String)doc.get("name"),encoded="TCE1:"+Base64.getEncoder().encodeToString(encode(doc,icons));Map<String,Object> extra=object("widgetId",id,"name",name,"uiContent",object("createSurface",object("surfaceId",id,"catalogId","https://rayneo.com/a2ui/catalogs/glasses-base/v1/catalog.json"),"updateComponents",object("surfaceId",id,"components",Arrays.asList(object("id","root","component","Text","text",encoded,"variant","caption")))));return object("cmd","widget_install","payload",object("data",object("type","a2ui","id",id,"name",name,"extras",new String(canonical(extra),StandardCharsets.UTF_8))));}
-    public static List<Object> rows(Map<String,Object> config){List<Object> rows=list(config.get("widgets_v2"));need(rows.size()<=32);Set<String> ids=new HashSet<>();for(Object o:rows){Map<String,Object> r=map(o);need(ids.add(text(r.get("id"),128)));text(r.get("type"),128);}return rows;}
+    /** TDC1 developer card install (id turbo_ui_devcard_v1). Validates exactly like card.c dc_parse, which the
+     * TVP2 dashboard compat re-checks before installing. */
+    public static Map<String,Object> devcard(String text){
+        need(text!=null&&text.length()>=5&&text.length()<=120&&text.startsWith("TDC1;"));long[] v=new long[10];int i=5;
+        for(int k=0;k<10;k++){int digits=0;while(i<text.length()&&text.charAt(i)>='0'&&text.charAt(i)<='9'){need(++digits<=6);v[k]=v[k]*10+(text.charAt(i++)-'0');}
+            need(digits>0);if(k<9){need(i<text.length()&&text.charAt(i)==';');i++;}else need(i==text.length());}
+        need(v[0]<=100&&v[1]<=100&&v[2]<=100&&v[4]>0&&v[4]<=99999&&v[3]<=v[4]&&v[6]>0&&v[6]<=99999&&v[5]<=v[6]&&v[7]<=2&&v[8]<=2&&v[9]<=2);
+        String id="turbo_ui_devcard_v1",name="Turbo 开发者仪表盘";
+        Map<String,Object> extra=object("widgetId",id,"name",name,"uiContent",object("createSurface",object("surfaceId",id,"catalogId","https://rayneo.com/a2ui/catalogs/glasses-base/v1/catalog.json"),"updateComponents",object("surfaceId",id,"components",Arrays.asList(object("id","root","component","Text","text",text,"variant","caption")))));
+        return object("cmd","widget_install","payload",object("data",object("type","a2ui","id",id,"name",name,"extras",new String(canonical(extra),StandardCharsets.UTF_8))));
+    }
+    public static List<Object> rows(Map<String,Object> config){if(!(config.get("widgets_v2") instanceof List))throw new IllegalArgumentException("眼镜未返回 widgets_v2：需刷 TVP2（键="+config.keySet()+"）");List<Object> rows=list(config.get("widgets_v2"));if(rows.size()>32)throw new IllegalArgumentException("卡片超过 32 张");Set<String> ids=new HashSet<>();for(Object o:rows){Map<String,Object> r=map(o);Object i=r.get("id"),t=r.get("type");if(!(i instanceof String)||((String)i).isEmpty()||((String)i).length()>128||!ids.add((String)i))throw new IllegalArgumentException("卡片 id 无效或重复");if(!(t instanceof String)||((String)t).isEmpty())throw new IllegalArgumentException("卡片 type 无效");}return rows;}
     public static Map<String,Object> first(Map<String,Object> config,String id){return atIndex(config,id,0);}
     static int indexOf(Map<String,Object> config,String id){List<Object> items=rows(config);for(int i=0;i<items.size();i++)if(id.equals(map(items.get(i)).get("id")))return i;return -1;}
     static Map<String,Object> atIndex(Map<String,Object> config,String id,int index){List<Object> items=new ArrayList<>(rows(config));Map<String,Object> own=null;for(Object o:items)if(id.equals(map(o).get("id")))own=map(o);need(own!=null&&"a2ui".equals(own.get("type"))&&index>=0&&index<items.size());items.remove(own);items.add(index,own);Map<String,Object> changed=new TreeMap<>(config);changed.put("widgets_v2",items);return changed;}

@@ -69,6 +69,9 @@ const navs3Review=JSON.parse(fs.readFileSync(new URL('./navs3-reviewed-assets.js
 for(const [p,h] of Object.entries(navs3Review.files))reviewedScreenshots.set(p,h);
 const ios107Review=JSON.parse(fs.readFileSync(new URL('./ios107-reviewed-assets.json',import.meta.url),'utf8'));
 for(const [p,h] of Object.entries(ios107Review.files))reviewedScreenshots.set(p,h);
+// Byte-identical copy of the already published synthetic ANIM60 build input.
+const tvp2Review=JSON.parse(fs.readFileSync(new URL('./tvp2-reviewed-assets.json',import.meta.url),'utf8'));
+for(const [p,h] of Object.entries(tvp2Review.files))reviewedScreenshots.set(p,h);
 export function audit(root){
   const findings=[];let files=0;
   const rules=[

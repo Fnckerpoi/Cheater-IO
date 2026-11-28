@@ -51,6 +51,9 @@ try {
  const first=build(options,api);
  const listener=fs.readFileSync(path.join(first.work,'host/smali_classes2/H7/c$c.smali'),'utf8');
  for(const name of ['onAsrResult','onNlpResult','onResponseComplete'])assert.match(listener,new RegExp('turboioOriginal_'+name));
+ const event=fs.readFileSync(path.join(first.work,'host/smali_classes2/com/rayneo/rayneo_venus_sdk_plugin/j.smali'),'utf8');
+ assert.match(event,/GlassesLog;->consume/);
+ assert.ok(event.indexOf('GlassesLog;->consume')<event.indexOf('->turboioOriginal_z('));
  const defaultEntry=packageApk(source,{outputDirectory:path.join(tmp,'default-entry'),options:{dex,runner},hostApi:api});
  const windowsEntry=packageWindows([source,path.join(tmp,'windows-entry'),dex,'java','apktool.jar','python'],{options:{runner},hostApi:api});
  const defaultReport=JSON.parse(fs.readFileSync(defaultEntry.receipt));

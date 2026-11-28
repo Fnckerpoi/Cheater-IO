@@ -7,4 +7,6 @@ python build.py --stock <原厂ZIP> --llvm-bin <OHOS LLVM bin目录> --out <全�
 python build.py --stock <原厂ZIP> --audit <输出目录中的候选ZIP>
 ```
 
+TMG4.3 构建从相邻的 [`strix-1.0.6.11`](../strix-1.0.6.11/src/dashboard-compat-v1) 目录编译仪表盘兼容层。它从眼镜端布局读出原生卡片与已安装的自定义卡片，在原厂 `dashboard_config` 回执中附加 `widgets_v2`。三个入口补丁绑定相同的原厂 AP。
+
 审计核对 17 个成员、16 条清单、15 个非 AP 载荷及白名单补丁。构建目录的 audit.json 和 build-inputs.built.json 记录实际包与成员身份。设备上的菜单交互、升级和版本回读另行验收。

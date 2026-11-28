@@ -32,8 +32,8 @@ def main():
         specs={
             'archive':(['ExperimentalOTATests.m','ExperimentalOTA.m'],[a.firmware,a.stock]),
             'directory':(['ExperimentalOTADirectoryTests.m','ExperimentalOTA.m'],[root/'candidate',root/'stock']),
-            'flash':(['ExperimentalOTAFlashTests.m','ExperimentalOTA.m','ExperimentalOTAFlash.m','ExperimentalOTAGuard.m'],[root/'candidate',root/'stock']),
-            'feed':(['ExperimentalOTAFeedTests.m','ExperimentalOTA.m','ExperimentalOTAFlash.m','ExperimentalOTAGuard.m','ExperimentalOTAFeed.m'],[a.firmware])}
+            'flash':(['ExperimentalOTAFlashTests.m','ExperimentalOTA.m','ExperimentalOTAFlash.m','ExperimentalOTAGuard.m','tests/ota_protocol_stub.m','ExperimentalOTAFeed.m'],[root/'candidate',root/'stock']),
+            'feed':(['ExperimentalOTAFeedTests.m','ExperimentalOTA.m','ExperimentalOTAFlash.m','ExperimentalOTAGuard.m','ExperimentalOTAFeed.m','tests/ota_protocol_stub.m'],[a.firmware])}
         for name,(sources,args) in specs.items():
             flags=['-DTIO_OTA_FEED_ARMING_ENABLED=1'] if name=='feed' else []
             run(['xcrun','clang','-fobjc-arc','-fmodules','-Wno-deprecated-declarations','-framework','Foundation','-lz','-I',HERE,*flags,*[HERE/n for n in sources],'-o',root/name.replace('directory','directory-test')])
