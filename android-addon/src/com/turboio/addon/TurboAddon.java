@@ -83,6 +83,7 @@ public final class TurboAddon {
         try { GlassesLog.init(app); } catch(RuntimeException ignored) {}
         BackgroundWork.init(app);ScadaSensorController.init(app);CloudCaption.init(app);
         NativeTransfer.init(app);AppController.init(app);CardTransport.init();CeBridge.init(app);Ride.service(app);TodoRuntime.init(app);
+        AaCardController.init(app);
         ViewGroup root = host.findViewById(android.R.id.content);
         if (root.findViewWithTag("turboio-entry") != null) return;
         TextView button = new TextView(host);

@@ -12,7 +12,75 @@ final class CardUI {
     private static final Set<Runnable> savedObservers=new HashSet<>();
     private static List<Object> drafts(Activity a){String s=a.getSharedPreferences("turboio_cards",0).getString("drafts","[]");if(s.getBytes(StandardCharsets.UTF_8).length>64000)throw new IllegalArgumentException("草稿库超出预算，原始数据保留");List<Object> list=list(read(s.getBytes(StandardCharsets.UTF_8)));if(list.size()>8)throw new IllegalArgumentException("草稿过多，原始数据保留");Set<String> ids=new HashSet<>();for(Object o:list){Map<String,Object> d=map(o);CardCodec.encode(d,CardIcons::pixels);if(!ids.add((String)d.get("id")))throw new IllegalArgumentException("草稿ID重复，原始数据保留");}return list;}
     private static void save(Activity a,Map<String,Object> doc){CardCodec.encode(doc,CardIcons::pixels);List<Object> items=drafts(a);int index=-1;for(int i=0;i<items.size();i++)if(map(items.get(i)).get("id").equals(doc.get("id")))index=i;if(index>=0)items.set(index,doc);else{if(items.size()>=8)throw new IllegalArgumentException("本机最多保存8张草稿");items.add(doc);}byte[] b=canonical(items);if(b.length>64000)throw new IllegalArgumentException();if(!a.getSharedPreferences("turboio_cards",0).edit().putString("drafts",new String(b,StandardCharsets.UTF_8)).commit())throw new IllegalStateException("storage");for(Runnable r:new ArrayList<>(savedObservers))r.run();}
-    static void show(Activity a){EditorialUI.Screen s=new EditorialUI.Screen(a,"仪表盘");LinearLayout b=s.body;EditorialUI.button(a,b,"读取眼镜卡片 / 检查天气",false,()->inspect(a));EditorialUI.button(a,b,"新建卡片 · 模板预览",true,()->templates(a));EditorialUI.button(a,b,"AI 生成 · 使用自有模型",false,()->generate(a));EditorialUI.button(a,b,"导入卡片 JSON",false,()->DocumentPicker.pick(a,6000,bytes->{try{Map<String,Object> d=map(read(bytes));CardCodec.encode(d,CardIcons::pixels);editor(a,d);}catch(RuntimeException e){EditorialUI.notice(a,"卡片不符合TCE1契约，未保存或发送");}}));EditorialUI.button(a,b,"开发者仪表盘 · TDC1 演示数值并置顶",false,()->{CardTransport.init();CardTransport.publishDevcard("TDC1;99;90;85;375;1280;1400;2000;0;1;2",true);EditorialUI.notice(a,"已提交 TDC1 测试卡（演示数据，不读取账户或电脑）。需 TVP2，请看镜片确认图标、数值与进度条。\n"+CardTransport.status());});EditorialUI.button(a,b,"TDC1 · 切换演示数值（25/50/75）",false,()->{CardTransport.init();CardTransport.publishDevcard("TDC1;25;50;75;640;1280;1000;2000;0;1;2",false);EditorialUI.notice(a,CardTransport.status());});EditorialUI.button(a,b,"移除 TDC1 测试卡",false,()->{CardTransport.init();CardTransport.remove("turbo_ui_devcard_v1");EditorialUI.notice(a,CardTransport.status());});LinearLayout saved=EditorialUI.column(a);b.addView(saved);EditorialUI.button(a,b,"刷新本机草稿",false,()->library(a,saved));library(a,saved);Runnable refresh=()->library(a,saved);savedObservers.add(refresh);s.dialog.setOnDismissListener(d->savedObservers.remove(refresh));}
+    static void show(Activity a){
+        EditorialUI.Screen s=new EditorialUI.Screen(a,"仪表盘");
+        LinearLayout b=s.body;
+        LinearLayout aaCard=EditorialUI.card(a,b);
+        aaCard.addView(EditorialUI.text(a,"AA 工作台",15,EditorialUI.INK));
+        CardCanvas aaPreview=new CardCanvas(a,AaCardController.preview(),false);
+        aaPreview.setContentDescription("AA 工作台镜片预览");
+        aaCard.addView(aaPreview);
+        TextView aaStatus=EditorialUI.text(a,"",12,EditorialUI.MUTED);
+        aaCard.addView(aaStatus);
+        EditorialUI.button(a,aaCard,"AA 看板设置与同步",true,()->showAaCard(a));
+        Runnable refreshAa=()->{
+            aaPreview.set(AaCardController.preview());
+            aaStatus.setText(AaCardController.status());
+        };
+        refreshAa.run();
+        AaCardController.listen(refreshAa);
+        EditorialUI.button(a,b,"读取眼镜卡片 / 检查天气",false,()->inspect(a));
+        EditorialUI.button(a,b,"新建卡片 · 模板预览",true,()->templates(a));
+        EditorialUI.button(a,b,"AI 生成 · 使用自有模型",false,()->generate(a));
+        EditorialUI.button(a,b,"导入卡片 JSON",false,()->DocumentPicker.pick(a,6000,bytes->{try{Map<String,Object> d=map(read(bytes));CardCodec.encode(d,CardIcons::pixels);editor(a,d);}catch(RuntimeException e){EditorialUI.notice(a,"卡片不符合TCE1契约，未保存或发送");}}));
+        EditorialUI.button(a,b,"开发者仪表盘 · TDC1 演示数值并置顶",false,()->{CardTransport.init();CardTransport.publishDevcard("TDC1;99;90;85;375;1280;1400;2000;0;1;2",true);EditorialUI.notice(a,"已提交 TDC1 测试卡（演示数据，不读取账户或电脑）。需 TVP2，请看镜片确认图标、数值与进度条。\n"+CardTransport.status());});EditorialUI.button(a,b,"TDC1 · 切换演示数值（25/50/75）",false,()->{CardTransport.init();CardTransport.publishDevcard("TDC1;25;50;75;640;1280;1000;2000;0;1;2",false);EditorialUI.notice(a,CardTransport.status());});EditorialUI.button(a,b,"移除 TDC1 测试卡",false,()->{CardTransport.init();CardTransport.remove("turbo_ui_devcard_v1");EditorialUI.notice(a,CardTransport.status());});
+        LinearLayout saved=EditorialUI.column(a);b.addView(saved);
+        EditorialUI.button(a,b,"刷新本机草稿",false,()->library(a,saved));
+        library(a,saved);
+        Runnable refresh=()->library(a,saved);
+        savedObservers.add(refresh);
+        s.dialog.setOnDismissListener(d->{savedObservers.remove(refresh);AaCardController.unlisten(refreshAa);});
+    }
+    static void showAaCard(Activity a){
+        EditorialUI.Screen s=new EditorialUI.Screen(a,"AA 工作台看板");
+        LinearLayout b=s.body;
+        LinearLayout previewBox=EditorialUI.card(a,b);
+        CardCanvas preview=new CardCanvas(a,AaCardController.preview(),false);
+        preview.setContentDescription("AA 工作台镜片预览");
+        previewBox.addView(preview);
+        TextView syncStatus=EditorialUI.text(a,"",13,EditorialUI.LIME);
+        previewBox.addView(syncStatus);
+        EditorialUI.toggle(a,b,"在镜片显示已完成任务的回复片段",AaCardController.showSummary(),(v,on)->AaCardController.setShowSummary(on));
+        Switch top=EditorialUI.toggle(a,b,"首次安装时置顶",false,null);
+        EditorialUI.button(a,b,"同步到眼镜",true,()->{
+            String peer=NativeTransfer.connected();
+            Map<String,Object> doc=AaCardController.preview();
+            boolean first=top.isChecked();
+            EditorialUI.confirm(a,"同步 AA 看板到眼镜？",
+                "需要兼容 TCE1 的固件。安装确认后，本机读到的任务状态会同步到这副眼镜。",
+                ()->AaCardController.publish(peer,first,doc));
+        });
+        TextView refresh=EditorialUI.button(a,b,"刷新任务状态",false,AaCardController::refresh);
+        EditorialUI.button(a,b,"从眼镜移除 AA 看板",false,()->{
+            String peer=NativeTransfer.connected();
+            EditorialUI.confirm(a,"移除 AA 看板？","移除当前眼镜上的 AA 工作台卡片。",()->AaCardController.remove(peer));
+        });
+        if(AaPayloadLoader.available(a)){
+            EditorialUI.button(a,b,"打开 AA 工作台",false,()->a.startActivity(new Intent(a,AaEmbeddedActivity.class)));
+        }else{
+            EditorialUI.button(a,b,"打开 Agent-Anywhere 设置",false,()->DshSettings.show(a));
+        }
+        Runnable update=()->{
+            preview.set(AaCardController.preview());
+            syncStatus.setText(AaCardController.status());
+            refresh.setEnabled(!AaCardController.refreshing());
+            refresh.setText(AaCardController.refreshing()?"正在查询任务状态…":"刷新任务状态");
+        };
+        update.run();
+        AaCardController.listen(update);
+        s.dialog.setOnDismissListener(d->AaCardController.unlisten(update));
+    }
+
     private static void inspect(Activity a){EditorialUI.Screen s=new EditorialUI.Screen(a,"眼镜卡片状态");TextView status=EditorialUI.text(a,"",15,EditorialUI.INK);s.body.addView(status);EditorialUI.button(a,s.body,"重新读取（不修改）",false,CardTransport::inspect);s.body.addView(EditorialUI.text(a,"这是实际眼镜配置，不是手机草稿。天气卡片与天气数据是两件事；检查不会新增、删除或重排其他卡片。",13,EditorialUI.MUTED));android.os.Handler h=new android.os.Handler(android.os.Looper.getMainLooper());Runnable tick=new Runnable(){public void run(){if(!s.dialog.isShowing())return;status.setText(CardTransport.status()+"\n\n"+NativeTransfer.diagnostic());h.postDelayed(this,500);}};h.post(tick);s.dialog.setOnDismissListener(d->h.removeCallbacks(tick));CardTransport.inspect();}
     private static void library(Activity a,LinearLayout b){b.removeAllViews();try{for(Object o:drafts(a)){Map<String,Object> d=map(o);LinearLayout c=EditorialUI.card(a,b);c.addView(new CardCanvas(a,d,false));EditorialUI.button(a,c,(String)d.get("name"),false,()->editor(a,d));}if(b.getChildCount()==0)b.addView(EditorialUI.text(a,"从模板或一句描述开始。草稿保存在手机，发送前始终预览并确认。",14,EditorialUI.MUTED));}catch(RuntimeException e){b.addView(EditorialUI.text(a,"本机草稿库未通过校验，已保留原始数据并暂停写入，请先导出排查。",14,EditorialUI.MUTED));}}
     private static void templates(Activity a){EditorialUI.Screen s=new EditorialUI.Screen(a,"选择模板");for(int i=0;i<6;i++){Map<String,Object> d=CardCodec.template(i,"turbo_ui_card_"+UUID.randomUUID().toString().replace("-",""));LinearLayout c=EditorialUI.card(a,s.body);c.addView(new CardCanvas(a,d,false));EditorialUI.button(a,c,CardCodec.NAMES[i],false,()->editor(a,d));}}

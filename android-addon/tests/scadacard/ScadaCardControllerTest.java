@@ -27,7 +27,7 @@ public final class ScadaCardControllerTest{
         yes(!CardTransport.busy(),"upsert transaction completes only after readback");preserved(before,after,ScadaCardController.CARD_ID);return after;
     }
     private static Map<String,Object> finishProbe(Map<String,Object> before){
-        yes(command().equals("dashboard_config"),"probe starts with read");config(before);yes(command().equals("widget_install"),"probe uses targeted install");Map<String,Object> own=installData();reply(object("code",0));Map<String,Object> after=replaceOrAppend(before,own);config(after);yes(!CardTransport.busy(),"probe readback completes");return after;
+        yes(command().equals("dashboard_config"),"probe starts with read");config(before);yes(command().equals("widget_install"),"probe uses targeted install");Map<String,Object> own=installData();reply(object("code",0));Map<String,Object> after=replaceOrAppend(before,own);config(after);yes(CardTransport.busy()&&command().equals("dashboard_config"),"probe readback completes and coalesced controller read starts");return after;
     }
     private static void finishRemove(Map<String,Object> before){
         yes(command().equals("dashboard_config"),"remove begins with read");config(before);yes(command().equals("widget_uninstall"),"remove targets only SCADA id");reply(object("code",0));Map<String,Object> after=removeRow(before,ScadaCardController.CARD_ID);config(after);yes(!CardTransport.busy(),"remove verified by readback");preserved(before,after,ScadaCardController.CARD_ID);

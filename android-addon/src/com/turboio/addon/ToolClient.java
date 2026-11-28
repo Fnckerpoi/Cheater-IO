@@ -601,7 +601,14 @@ final class ToolClient {
             Map<String,Object> refused=routeForTarget(optionalTarget(arguments,"task","target"),guard,guard==null,true,DshAnchorStore.ACTION_DISPATCH);
             if(refused!=null) return new JSONObject(refused);
             Map<String,Object> parsedArgs=DshClient.parseJsonObject(dispatchTaskOnly(arguments).toString());
-            Map<String,Object> out=dshClient(guard).dispatch(parsedArgs, modelSecret, SecretStore.get(app,"search_key"));
+            DshClient client;
+            AaCardController.Binding request;
+            synchronized (DshClient.LOCK) {
+                client = dshClient(guard);
+                request = AaCardController.binding(app);
+            }
+            Map<String,Object> out=client.dispatch(parsedArgs, modelSecret, SecretStore.get(app,"search_key"));
+            AaCardController.record(app, request, out, true);
             return new JSONObject(DshClient.stringifyJson(withVoiceAlias(out)));
         }
         if(name.equals("dsh_status")) {
@@ -609,9 +616,7 @@ final class ToolClient {
             // A query never re-binds the single slot: another target is queried through its own keyed anchor row.
             Map<String,Object> refused=routeForTarget(statusTarget,guard,false,false,DshAnchorStore.ACTION_STATUS);
             if(refused!=null) return new JSONObject(refused);
-            Map<String,Object> parsedArgs=DshClient.parseJsonObject("{}");
-            Map<String,Object> out=dshClient(guard,true).status(parsedArgs);
-            return new JSONObject(DshClient.stringifyJson(withVoiceAlias(out)));
+            return new JSONObject(DshClient.stringifyJson(withVoiceAlias(readBoundStatus(null, guard))));
         }
         String query=arguments.optString("query","").trim();
         if(query.length()<2||query.length()>200||query.matches("(?s).*[\\p{Cntrl}].*")||query.contains("sk-")||query.toLowerCase(Locale.ROOT).contains("bearer ")||(!modelSecret.isEmpty()&&query.contains(modelSecret))) throw new IllegalArgumentException();
@@ -631,6 +636,21 @@ final class ToolClient {
             return new JSONObject().put("results",safe).put("untrusted_external_data",true);
         }
         throw new IllegalArgumentException("unknown_tool");
+    }
+    Map<String,Object> readBoundStatus(AaCardController.Binding expected, Runnable guard) throws Exception {
+        AaCardController.Binding request = expected == null ? AaCardController.binding(app) : expected;
+        Runnable check = () -> {
+            if (guard != null) guard.run();
+            if (!request.sameTask(AaCardController.binding(app))) throw new IllegalStateException("dsh_binding_changed");
+        };
+        try {
+            Map<String,Object> out = dshClient(check, true).status(Collections.emptyMap());
+            AaCardController.record(app, request, out, false);
+            return out;
+        } catch (Exception failure) {
+            AaCardController.record(app, request, DshClient.mapOf("status", "unknown"), false);
+            throw failure;
+        }
     }
     private static String truncate(String value,int count) {return value.substring(0,Math.min(value.length(),count));}
     private JSONObject executeKnowledgeQuery(JSONObject arguments, String modelSecret, Runnable guard) {

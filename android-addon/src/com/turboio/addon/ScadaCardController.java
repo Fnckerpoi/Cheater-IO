@@ -94,7 +94,7 @@ public final class ScadaCardController {
 
     private static void completed(Action action,ScadaReading reading,CardTransport.Result result){
         inFlight=false;
-        if(result==CardTransport.Result.FAILURE){
+        if(result!=CardTransport.Result.SUCCESS){
             blocked=true;published=false;queuedAction=null;queuedReading=null;waitingForIdle=false;
             NativeTransfer.MAIN.removeCallbacks(rateWake);cancelStaleTimer();
             state="SCADA card transaction failed: "+CardTransport.status();return;

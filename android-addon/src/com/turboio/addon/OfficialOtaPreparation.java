@@ -4,7 +4,7 @@ import java.io.*;import java.util.concurrent.atomic.AtomicInteger;
 
 /** Private preparation profile; no API releases its permanent OTA send gate. */
 public final class OfficialOtaPreparation {
- private static final OtaProfile PROFILE=OtaProfile.TMG4_1_10611;
+ private static final OtaProfile PROFILE=OtaProfile.TMG5_10611;
  private static Boolean mode;private static Context app;private static OfficialOtaFeed feed;
  private static volatile String note="仅验证官方检测、下载与解压；此包不能刷眼镜";
  private static volatile String directoryResult="官方准备目录：尚未核对";

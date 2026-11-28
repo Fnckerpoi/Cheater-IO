@@ -14,7 +14,7 @@ import java.util.*;
 public final class OfficialOtaBridge {
  private static final Handler MAIN=new Handler(Looper.getMainLooper());
  private static final Set<String> INTERACTIVE=new HashSet<>(Arrays.asList("APP_MARKET","MARS_STREAMING","MARS_PHOTO_TRANSFER","LOG_REPORT","VOICE_ASSISTANT","RECORDING_SERVICE","LAUNCHER","FILE_TRANSFER","AI_SUBTITLE","TELEPROMPTER","NOTIFICATION","SCHEDULE_TODO","PROACTIVE_AI","AI_WIDGET","NAVIGATION","FILE_TRANSFER_LAUNCHER"));
- private static final OtaProfile PROFILE=OtaProfile.TMG4_3_10611;
+ private static final OtaProfile PROFILE=OtaProfile.TMG5_10611;
  private static Boolean mode;private static Context app;private static SharedPreferences journal;
  private static OfficialOtaFeed feed;private static OfficialOtaGate gate;
  private static volatile boolean pending,armed,foreground;private static boolean checking,initialized;
@@ -184,7 +184,7 @@ public final class OfficialOtaBridge {
  }
  private static void exportStatus(){try{String text=status()+"\n只读时序（最后32条，不含设备身份/固件正文）\n"+String.join("\n",trace);if(text.equals(lastExport))return;File root=app.getExternalFilesDir(null);if(root==null)return;File tmp=new File(root,"official-ota-guard-status.tmp"),dest=new File(root,"official-ota-guard-status.txt");try(FileOutputStream out=new FileOutputStream(tmp)){out.write(text.getBytes(StandardCharsets.UTF_8));out.getFD().sync();}if(tmp.renameTo(dest))lastExport=text;}catch(Exception ignored){}}
  private static void addCandidateCheck(Activity activity, LinearLayout body) {
-  OtaProfile candidate = OtaProfile.TMG4_3_10611;
+  OtaProfile candidate = OtaProfile.TMG5_10611;
   File directory = activity.getExternalFilesDir("firmware");
   if (directory == null) {
    body.addView(EditorialUI.text(activity, "固件存储目录不可用", 14, EditorialUI.MUTED));
